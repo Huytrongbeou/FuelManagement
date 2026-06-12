@@ -19,6 +19,7 @@ interface ImportCommitInput {
   fuel_state_versions: Record<string, number | null>
   records: ImportRecordRow[]
   committed_by?: string
+  source?: string
 }
 
 export async function commitImport(input: ImportCommitInput) {
@@ -33,6 +34,12 @@ export async function commitImport(input: ImportCommitInput) {
   // Build fuel rows with server-side fuel_before and DB-sourced rates
   const rows = await Promise.all(input.records.map(async (row) => {
     const station = await stationClient.getStation(row.station_id)
+    if (!station.isActive) {
+      throw Object.assign(
+        new Error(`Trạm ${row.station_code} đã bị vô hiệu hóa, không thể nhập nhiên liệu`),
+        { status: 400 }
+      )
+    }
     const currentState = await findCurrentState(row.station_id)
 
     const expectedVersion = input.fuel_state_versions[row.station_id]
@@ -68,7 +75,7 @@ export async function commitImport(input: ImportCommitInput) {
       fuelBefore = 0
     }
 
-    const consumptionRate = Number(station.generatorType.consumptionRate)
+    const consumptionRate = Number(station.consumptionRate)
     const maxCapacity = Number(station.maxCapacity)
     const fuelConsumed = calc.calculateFuelConsumed(row.hours_run, consumptionRate)
     const fuelCalculated = calc.calculateFuelResult(fuelBefore, row.fuel_added, fuelConsumed)
@@ -104,7 +111,7 @@ export async function commitImport(input: ImportCommitInput) {
           fuelStatus: r.fuelStatus,
           notes: r.row.notes,
           recordedBy: input.committed_by,
-          source: 'import',
+          source: input.source || 'import',
           importJobId: input.import_job_id,
         },
       })

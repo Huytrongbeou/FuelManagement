@@ -3,10 +3,25 @@ import ExcelJS from 'exceljs'
 import * as stationClient from '../clients/stationClient'
 import * as fuelClient from '../clients/fuelClient'
 
+const INPUT_HEADERS = [
+  'Mã trạm', 'Tên trạm', 'Tên máy phát', 'Địa chỉ', 'Lat', 'Long',
+  'Đơn vị hành chính hiện tại', 'Địa bàn cũ', 'Khu vực quản lý nội bộ',
+  'Hãng máy', 'Model máy', 'Công suất kVA', 'Loại nhiên liệu',
+  'Định mức tiêu hao L/giờ', 'Dung tích tối đa L',
+  'Nhiên liệu bổ sung L', 'Số giờ chạy', 'Nhiên liệu tồn L',
+  'Ngày ghi nhận', 'Ghi chú',
+]
+const SYSTEM_HEADERS = [
+  'Tồn trước cập nhật L', 'Tiêu hao theo định mức L', 'Tồn hệ thống tự tính L',
+  'Chênh lệch L', 'Tồn cuối cùng L', 'Trạng thái cảnh báo',
+  'Ngày export', 'Mã lần import gần nhất',
+]
+const ALL_HEADERS = [...INPUT_HEADERS, ...SYSTEM_HEADERS]
+
 export async function exportSnapshot(_req: Request, res: Response): Promise<void> {
   try {
     const [stations, fuelStates] = await Promise.all([
-      stationClient.getAllStations(),
+      stationClient.getAllStations({ active: 'all' }),
       fuelClient.getAllCurrentStates(),
     ])
 
@@ -14,17 +29,7 @@ export async function exportSnapshot(_req: Request, res: Response): Promise<void
     const wb = new ExcelJS.Workbook()
     const ws = wb.addWorksheet('Nhiên liệu')
 
-    // Headers A-U
-    const headers = [
-      'Mã trạm', 'Tên trạm', 'Địa chỉ', 'Lat', 'Long',
-      'Loại máy phát', 'Dung tích tối đa (L)', 'Định mức (L/giờ)',
-      'Nhiên liệu bổ sung (L)', 'Số giờ chạy', 'Nhiên liệu tồn (L)', 'Ngày ghi nhận', 'Ghi chú',
-      'Tồn trước cập nhật (L)', 'Tiêu hao theo định mức (L)', 'Tồn hệ thống tự tính (L)',
-      'Chênh lệch (L)', 'Tồn cuối cùng (L)', 'Trạng thái cảnh báo', 'Ngày export', 'Mã lần import gần nhất',
-    ]
-    ws.addRow(headers)
-
-    // Style header row
+    ws.addRow(ALL_HEADERS)
     ws.getRow(1).font = { bold: true }
     ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } }
     ws.views = [{ state: 'frozen', ySplit: 1 }]
@@ -34,29 +39,39 @@ export async function exportSnapshot(_req: Request, res: Response): Promise<void
     for (const station of stations) {
       const fuel = fuelMap.get(station.id)
       ws.addRow([
+        // A-T: input columns
         station.stationCode,
         station.stationName,
+        station.generatorName || '',
         station.address || '',
         station.latitude ?? '',
         station.longitude ?? '',
-        station.generatorType?.typeName || '',
+        station.currentAdminUnitName || '',
+        station.legacyAreaName || '',
+        station.operationAreaName || '',
+        station.brand?.name || '',
+        station.model?.modelName || '',
+        station.powerKva != null ? Number(station.powerKva) : '',
+        station.fuelType || 'diesel',
+        Number(station.consumptionRate),
         Number(station.maxCapacity),
-        Number(station.generatorType?.consumptionRate || 0),
-        '', '', '', '', '',  // I-M: user fills
-        '',  // N: fuel_before — system fills on next import
-        '',  // O: fuel_consumed
-        '',  // P: fuel_calculated
-        '',  // Q: fuel_difference
-        fuel ? Number(fuel.currentFuel) : '',  // R: current fuel
-        fuel ? fuel.fuelStatus : 'unknown',    // S: status
-        exportDate,
-        '',  // U: last import job
+        '', '', '',              // P-R: user fills (fuel_added, hours_run, actual_fuel)
+        '',                      // S: recorded_date
+        '',                      // T: notes
+        // U-AB: system columns (read-only)
+        fuel ? Number(fuel.currentFuel) : '',  // U: current fuel (fuel_before for next entry)
+        '',                                     // V: consumed
+        '',                                     // W: calculated
+        '',                                     // X: difference
+        fuel ? Number(fuel.currentFuel) : '',  // Y: end fuel
+        fuel ? fuel.fuelStatus : '',           // Z: status
+        exportDate,                             // AA
+        '',                                     // AB: last import job id
       ])
     }
 
-    // Lock columns N-U (grey fill, read-only visual hint)
-    const systemCols = [14, 15, 16, 17, 18, 19, 20, 21]
-    for (const col of systemCols) {
+    // System columns U-AB: grey fill
+    for (let col = 21; col <= 28; col++) {
       ws.getColumn(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } } as ExcelJS.Fill
     }
 
@@ -73,12 +88,7 @@ export async function exportTemplate(_req: Request, res: Response): Promise<void
   try {
     const wb = new ExcelJS.Workbook()
     const ws = wb.addWorksheet('Template')
-    const headers = [
-      'Mã trạm', 'Tên trạm', 'Địa chỉ', 'Lat', 'Long',
-      'Loại máy phát', 'Dung tích tối đa (L)', 'Định mức (L/giờ)',
-      'Nhiên liệu bổ sung (L)', 'Số giờ chạy', 'Nhiên liệu tồn (L)', 'Ngày ghi nhận', 'Ghi chú',
-    ]
-    ws.addRow(headers)
+    ws.addRow(INPUT_HEADERS)
     ws.getRow(1).font = { bold: true }
     ws.views = [{ state: 'frozen', ySplit: 1 }]
 

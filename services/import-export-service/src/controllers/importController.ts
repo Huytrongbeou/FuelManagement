@@ -50,7 +50,10 @@ export async function listJobs(_req: Request, res: Response): Promise<void> {
 
 export async function confirm(req: Request, res: Response): Promise<void> {
   try {
-    const result = await confirmImport(req.params.job_id, req.body.committed_by)
+    const result = await confirmImport(req.params.job_id, {
+      committedBy: req.body.committed_by,
+      source: 'import',
+    })
     res.json(result)
   } catch (err: unknown) {
     res.status((err as { status?: number }).status || 500).json({ error: (err as Error).message })

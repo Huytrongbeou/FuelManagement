@@ -1,6 +1,7 @@
 import express from 'express'
 import importRoutes from './routes/importRoutes'
 import exportRoutes from './routes/exportRoutes'
+import manualEntryRoutes from './routes/manualEntryRoutes'
 import { connect as connectRabbit } from './clients/rabbitmq'
 
 const app = express()
@@ -14,6 +15,7 @@ app.get('/health', (_req, res) => {
 
 app.use('/import', importRoutes)
 app.use('/export', exportRoutes)
+app.use('/manual-entry', manualEntryRoutes)
 
 async function start() {
   try {

@@ -16,6 +16,14 @@ interface ManualRecordInput {
 
 export async function createManualRecord(input: ManualRecordInput) {
   const station = await stationClient.getStation(input.stationId)
+
+  if (!station.isActive) {
+    throw Object.assign(
+      new Error('Trạm đã bị vô hiệu hóa, không thể nhập nhiên liệu'),
+      { status: 400 }
+    )
+  }
+
   const currentState = await findCurrentState(input.stationId)
 
   let fuelBefore: number
@@ -31,7 +39,7 @@ export async function createManualRecord(input: ManualRecordInput) {
     fuelBefore = 0
   }
 
-  const consumptionRate = Number(station.generatorType.consumptionRate)
+  const consumptionRate = Number(station.consumptionRate)
   const maxCapacity = Number(station.maxCapacity)
   const fuelConsumed = calc.calculateFuelConsumed(input.hoursRun, consumptionRate)
   const fuelCalculated = calc.calculateFuelResult(fuelBefore, input.fuelAdded, fuelConsumed)
@@ -84,13 +92,9 @@ export async function createManualRecord(input: ManualRecordInput) {
         lastUpdated: new Date(),
         lastRecordId: newRecord.id,
         snapshotVersion: { increment: 1 },
-        ...(expectedVersion !== null && {
-          // optimistic concurrency enforced via WHERE clause below
-        }),
       },
     })
 
-    // Verify optimistic concurrency for existing state
     if (expectedVersion !== null) {
       const updated = await tx.currentFuelState.findUnique({ where: { stationId: input.stationId } })
       if (!updated || updated.snapshotVersion !== expectedVersion + 1n) {

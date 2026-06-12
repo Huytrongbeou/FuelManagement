@@ -8,19 +8,16 @@ import fs from 'fs/promises'
 const prisma = new PrismaClient()
 
 export async function previewImport(jobId: string, filePath: string, importDate: Date, createdBy?: string) {
-  const [stations, genTypes, fuelStates] = await Promise.all([
-    stationClient.getAllStations(),
-    stationClient.getAllGeneratorTypes(),
+  const [stations, fuelStates] = await Promise.all([
+    stationClient.getAllStations({ active: 'all' }),
     fuelClient.getAllCurrentStates(),
   ])
 
   const buffer = await fs.readFile(filePath)
-
-  const rows = await parseAndValidate(buffer, stations, genTypes, importDate)
+  const rows = await parseAndValidate(buffer, stations, importDate)
 
   const fuelStateMap = new Map(fuelStates.map(s => [s.stationId, s]))
 
-  // Build fuel_state_versions_at_preview keyed by station_code for new stations, station_id for existing
   const versions: Record<string, number | null> = {}
   for (const row of rows) {
     const existing = stations.find(s => s.stationCode === row.stationCode)
@@ -28,7 +25,6 @@ export async function previewImport(jobId: string, filePath: string, importDate:
       const fuelState = fuelStateMap.get(existing.id)
       versions[existing.id] = fuelState ? Number(fuelState.snapshotVersion) : null
     }
-    // New stations get resolved to station_id after bulk-upsert in confirm
   }
 
   const totalRows = rows.length
@@ -54,21 +50,22 @@ export async function previewImport(jobId: string, filePath: string, importDate:
   return { totalRows, validRows, invalidRows, warningRows, rows }
 }
 
-export async function confirmImport(jobId: string, committedBy?: string) {
+export async function confirmImport(
+  jobId: string,
+  opts: { committedBy?: string; source?: string } = {}
+) {
+  const { committedBy, source = 'import' } = opts
   const job = await prisma.importJob.findUnique({ where: { id: jobId } })
   if (!job) throw Object.assign(new Error('Import job not found'), { status: 404 })
 
-  // Idempotent
   if (job.status === 'committed') {
     return { already_committed: true, result: job.commitResult }
   }
 
-  // Retry logic
   if (job.status === 'failed') {
     if (!job.retryable) {
       throw Object.assign(new Error('Cần preview lại trước khi thử xác nhận'), { status: 409 })
     }
-    // Continue from failure_stage
   } else if (job.status !== 'previewing') {
     throw Object.assign(new Error(`Không thể xác nhận job ở trạng thái "${job.status}"`), { status: 400 })
   }
@@ -76,11 +73,18 @@ export async function confirmImport(jobId: string, committedBy?: string) {
   const previewRows = (job.previewData as unknown as Array<{
     stationCode: string
     stationName: string
+    generatorName: string | null
     address: string
     latitude: number | null
     longitude: number | null
-    generatorTypeName: string
-    consumptionRateExcel: number | null
+    currentAdminUnitName: string | null
+    legacyAreaName: string | null
+    operationAreaName: string | null
+    brandName: string | null
+    modelName: string | null
+    powerKva: number | null
+    fuelType: string | null
+    consumptionRate: number | null
     maxCapacity: number | null
     fuelAdded: number | null
     hoursRun: number | null
@@ -88,26 +92,23 @@ export async function confirmImport(jobId: string, committedBy?: string) {
     recordedDate: string | null
     notes: string
     isNewStation: boolean
-    isNewGeneratorType: boolean
     hasFuelActivity: boolean
     errors: string[]
   }>) || []
 
   const validRows = previewRows.filter(r => r.errors.length === 0)
 
-  // Step 2: BACKUP (skip if already past this stage)
+  // Step 2: BACKUP
   if (!job.failureStage || job.failureStage === 'backup') {
     try {
-      const [backupStations, backupGenTypes, backupFuelStates] = await Promise.all([
-        stationClient.getAllStations(),
-        stationClient.getAllGeneratorTypes(),
+      const [backupStations, backupFuelStates] = await Promise.all([
+        stationClient.getAllStations({ active: 'all' }),
         fuelClient.getAllCurrentStates(),
       ])
       await prisma.importJob.update({
         where: { id: jobId },
         data: {
           backupStations: backupStations as unknown as object,
-          backupGeneratorTypes: backupGenTypes as unknown as object,
           backupFuelStates: backupFuelStates as unknown as object,
         },
       })
@@ -125,11 +126,18 @@ export async function confirmImport(jobId: string, committedBy?: string) {
     const upsertRows = validRows.map(r => ({
       station_code: r.stationCode,
       station_name: r.stationName,
+      generator_name: r.generatorName,
       address: r.address,
       latitude: r.latitude,
       longitude: r.longitude,
-      generator_type_name: r.generatorTypeName,
-      consumption_rate: r.consumptionRateExcel,
+      current_admin_unit_name: r.currentAdminUnitName,
+      legacy_area_name: r.legacyAreaName,
+      operation_area_name: r.operationAreaName,
+      brand_name: r.brandName,
+      model_name: r.modelName,
+      power_kva: r.powerKva,
+      fuel_type: r.fuelType,
+      consumption_rate: r.consumptionRate,
       max_capacity: r.maxCapacity,
     }))
 
@@ -160,18 +168,13 @@ export async function confirmImport(jobId: string, committedBy?: string) {
       throw Object.assign(new Error('Cập nhật trạm thất bại: ' + (upsertResult.errors || []).join('; ')), { status: 422 })
     }
 
-    // Build station_code → station_id map
     const codeToId = new Map(upsertResult.results.map(r => [r.station_code, r.station_id]))
-
-    // Rebuild fuel_state_versions with actual station_ids for new stations
     const versionsAtPreview = (job.fuelStateVersionsAtPreview as Record<string, number | null>) || {}
     const resolvedVersions: Record<string, number | null> = {}
 
     for (const r of validRows) {
       const stationId = codeToId.get(r.stationCode)
       if (!stationId) continue
-      // New station: expected version = null
-      // Existing station: use version captured at preview (keyed by station_id)
       resolvedVersions[stationId] = r.isNewStation ? null : (versionsAtPreview[stationId] ?? null)
     }
 
@@ -208,16 +211,14 @@ export async function confirmImport(jobId: string, committedBy?: string) {
       fuel_state_versions: resolvedVersions,
       records: fuelRecords,
       committed_by: committedBy,
+      source,
     })
   } catch (err: unknown) {
     const status = (err as { response?: { status?: number } }).response?.status
     if (status === 409) {
       await prisma.importJob.update({
         where: { id: jobId },
-        data: {
-          status: 'failed', failureStage: 'stale_data', retryable: false,
-          errorMessage: 'Dữ liệu nhiên liệu đã thay đổi sau khi preview. Vui lòng xuất và preview lại.',
-        },
+        data: { status: 'failed', failureStage: 'stale_data', retryable: false, errorMessage: 'Dữ liệu nhiên liệu đã thay đổi sau khi preview.' },
       })
       throw Object.assign(new Error('Dữ liệu nhiên liệu đã thay đổi sau khi preview. Vui lòng xuất và preview lại.'), { status: 409 })
     }
@@ -234,7 +235,7 @@ export async function confirmImport(jobId: string, committedBy?: string) {
     data: { status: 'committed', committedAt: new Date(), committedBy, commitResult: commitResult as object },
   })
 
-  // Step 6: Publish import.committed
+  // Step 6: Publish
   await mq.publish('import.committed', { importJobId: jobId, committedBy })
 
   return { success: true, result: commitResult }

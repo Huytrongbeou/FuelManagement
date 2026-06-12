@@ -2,33 +2,31 @@ import axios from 'axios'
 
 const STATION_URL = process.env.STATION_SERVICE_URL || 'http://localhost:3002'
 
-interface GeneratorType {
-  id: string
-  typeName: string
-  consumptionRate: number
-  isActive: boolean
-}
-
-interface Station {
+export interface Station {
   id: string
   stationCode: string
   stationName: string
+  generatorName?: string | null
   address?: string | null
   latitude?: number | null
   longitude?: number | null
-  generatorTypeId: string
-  generatorType: GeneratorType
+  currentAdminUnitName?: string | null
+  legacyAreaName?: string | null
+  operationAreaName?: string | null
+  brandId?: string | null
+  brand?: { name: string } | null
+  modelId?: string | null
+  model?: { modelName: string } | null
+  powerKva?: number | null
+  fuelType?: string | null
+  consumptionRate: number
   maxCapacity: number
   isActive: boolean
 }
 
-export async function getAllStations(): Promise<Station[]> {
-  const { data } = await axios.get<Station[]>(`${STATION_URL}/stations`)
-  return data
-}
-
-export async function getAllGeneratorTypes(): Promise<GeneratorType[]> {
-  const { data } = await axios.get<GeneratorType[]>(`${STATION_URL}/generator-types`)
+export async function getAllStations(opts: { active?: string } = {}): Promise<Station[]> {
+  const qs = opts.active ? `?active=${opts.active}` : ''
+  const { data } = await axios.get<Station[]>(`${STATION_URL}/stations${qs}`)
   return data
 }
 

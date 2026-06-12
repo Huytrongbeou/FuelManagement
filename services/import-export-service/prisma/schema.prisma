@@ -29,6 +29,7 @@ model ImportJob {
   committedAt                DateTime? @map("committed_at") @db.Timestamptz
   committedBy                String?   @map("committed_by") @db.VarChar(100)
   errorMessage               String?   @map("error_message")
+  source                     String    @default("excel") @db.VarChar(20)
   createdBy                  String?   @map("created_by") @db.VarChar(100)
   createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                  DateTime  @updatedAt @map("updated_at") @db.Timestamptz

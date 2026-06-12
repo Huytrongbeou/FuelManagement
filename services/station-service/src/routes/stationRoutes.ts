@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { list, getOne, create, update, remove, bulkUpsertHandler } from '../controllers/stationController'
+import { list, getOne, create, update, deactivate, reactivate, bulkUpsertHandler } from '../controllers/stationController'
 
 const router = Router()
 
@@ -8,6 +8,7 @@ router.post('/', create)
 router.post('/bulk-upsert', bulkUpsertHandler)
 router.get('/:id', getOne)
 router.put('/:id', update)
-router.delete('/:id', remove)
+router.patch('/:id/deactivate', deactivate)
+router.patch('/:id/reactivate', reactivate)
 
 export default router

@@ -21,6 +21,7 @@ CREATE TABLE "import_jobs" (
     "committed_at" TIMESTAMPTZ,
     "committed_by" VARCHAR(100),
     "error_message" TEXT,
+    "source" VARCHAR(20) NOT NULL DEFAULT 'excel',
     "created_by" VARCHAR(100),
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ NOT NULL,

@@ -131,8 +131,10 @@ services:
       PORT: 3005
       RABBITMQ_URL: amqp://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@rabbitmq:5672
       JWT_SECRET: ${AUTH_JWT_SECRET:-change_me_in_production}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,http://localhost:5174}
       NODE_ENV: production
+    ports:
+      - "3005:3005"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -152,7 +154,7 @@ services:
       FUEL_SERVICE_URL: http://fuel-service:3003
       IMPORT_EXPORT_SERVICE_URL: http://import-export-service:3004
       REALTIME_SERVICE_URL: http://realtime-service:3005
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,http://localhost:5174}
       NODE_ENV: production
     depends_on:
       - auth-service

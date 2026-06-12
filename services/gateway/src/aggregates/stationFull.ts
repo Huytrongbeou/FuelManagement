@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express'
 import axios from 'axios'
+import { toStationDto, isToday } from './stations'
 
 const STATION_URL = process.env.STATION_SERVICE_URL || 'http://localhost:3002'
 const FUEL_URL = process.env.FUEL_SERVICE_URL || 'http://localhost:3003'
@@ -18,12 +19,18 @@ export async function stationFullHandler(req: Request, res: Response): Promise<v
       return
     }
 
-    const station = stationRes.value.data as object
-    const fuelState = fuelRes.status === 'fulfilled'
-      ? fuelRes.value.data
-      : { currentFuel: null, fuelStatus: 'unknown' }
+    const station = stationRes.value.data as Record<string, unknown>
+    const fuelState = fuelRes.status === 'fulfilled' ? fuelRes.value.data as {
+      currentFuel: number | null
+      fuelStatus: string
+      lastUpdated: string
+    } : null
 
-    res.json({ ...station, ...fuelState })
+    res.json(toStationDto(station, fuelState ? {
+      currentFuel: fuelState.currentFuel,
+      fuelStatus: fuelState.fuelStatus,
+      lastUpdated: fuelState.lastUpdated,
+    } : null))
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message })
   }

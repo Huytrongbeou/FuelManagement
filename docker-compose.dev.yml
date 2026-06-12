@@ -17,6 +17,7 @@ services:
       NODE_ENV: development
     volumes:
       - ./services/auth-service/src:/app/src
+      - ./services/auth-service/tsconfig.json:/app/tsconfig.json
     command: npm run dev
 
   station-service:
@@ -26,6 +27,7 @@ services:
       NODE_ENV: development
     volumes:
       - ./services/station-service/src:/app/src
+      - ./services/station-service/tsconfig.json:/app/tsconfig.json
     command: npm run dev
 
   fuel-service:
@@ -35,6 +37,7 @@ services:
       NODE_ENV: development
     volumes:
       - ./services/fuel-service/src:/app/src
+      - ./services/fuel-service/tsconfig.json:/app/tsconfig.json
     command: npm run dev
 
   import-export-service:
@@ -44,6 +47,7 @@ services:
       NODE_ENV: development
     volumes:
       - ./services/import-export-service/src:/app/src
+      - ./services/import-export-service/tsconfig.json:/app/tsconfig.json
     command: npm run dev
 
   realtime-service:
@@ -53,6 +57,7 @@ services:
       NODE_ENV: development
     volumes:
       - ./services/realtime-service/src:/app/src
+      - ./services/realtime-service/tsconfig.json:/app/tsconfig.json
     command: npm run dev
 
   gateway:
@@ -62,4 +67,5 @@ services:
       NODE_ENV: development
     volumes:
       - ./services/gateway/src:/app/src
+      - ./services/gateway/tsconfig.json:/app/tsconfig.json
     command: npm run dev

@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express'
 import axios from 'axios'
+import { toStationDto } from './stations'
 
 const STATION_URL = process.env.STATION_SERVICE_URL || 'http://localhost:3002'
 const FUEL_URL = process.env.FUEL_SERVICE_URL || 'http://localhost:3003'
@@ -11,19 +12,14 @@ export async function mapStationsHandler(_req: Request, res: Response): Promise<
       axios.get(`${FUEL_URL}/fuel/current`),
     ])
 
-    const stations = stationsRes.data as Array<{ id: string; [key: string]: unknown }>
-    const fuelStates = fuelRes.data as Array<{ stationId: string; currentFuel: number; fuelStatus: string; snapshotVersion: number }>
+    const stations = stationsRes.data as Array<Record<string, unknown>>
+    const fuelStates = fuelRes.data as Array<{ stationId: string; currentFuel: number | null; fuelStatus: string; lastUpdated: string }>
 
     const fuelMap = new Map(fuelStates.map(f => [f.stationId, f]))
 
     const merged = stations.map(s => {
-      const fuel = fuelMap.get(s.id)
-      return {
-        ...s,
-        currentFuel: fuel ? fuel.currentFuel : null,
-        fuelStatus: fuel ? fuel.fuelStatus : 'unknown',
-        snapshotVersion: fuel ? fuel.snapshotVersion : null,
-      }
+      const fuel = fuelMap.get(s.id as string) ?? null
+      return toStationDto(s, fuel ? { currentFuel: fuel.currentFuel, fuelStatus: fuel.fuelStatus, lastUpdated: fuel.lastUpdated } : null)
     })
 
     res.json(merged)

@@ -3,6 +3,38 @@ import { createManualRecord } from '../services/fuelRecordService'
 import { commitImport } from '../services/importCommitService'
 import { findAllCurrentStates, findCurrentState, findRecordsByStation } from '../repositories/fuelRepository'
 
+function toFuelRecordDto(r: Record<string, unknown>) {
+  return {
+    id: r.id,
+    stationId: r.stationId,
+    stationCode: r.stationCode,
+    date: r.recordedDate,
+    previousFuel: r.fuelBefore != null ? Number(r.fuelBefore) : null,
+    added: r.fuelAdded != null ? Number(r.fuelAdded) : null,
+    hoursRun: r.hoursRun != null ? Number(r.hoursRun) : null,
+    consumed: r.fuelConsumed != null ? Number(r.fuelConsumed) : null,
+    systemCalculated: r.fuelCalculated != null ? Number(r.fuelCalculated) : null,
+    actualFuel: r.actualFuel != null ? Number(r.actualFuel) : null,
+    endFuel: r.fuelAfter != null ? Number(r.fuelAfter) : null,
+    difference: r.fuelDifference != null ? Number(r.fuelDifference) : null,
+    status: r.fuelStatus,
+    source: r.source,
+    note: r.notes ?? null,
+    createdAt: r.createdAt,
+  }
+}
+
+function toCurrentStateDto(s: Record<string, unknown>) {
+  return {
+    stationId: s.stationId,
+    stationCode: s.stationCode,
+    currentFuel: s.currentFuel != null ? Number(s.currentFuel) : null,
+    fuelStatus: s.fuelStatus,
+    lastUpdated: s.lastUpdated,
+    snapshotVersion: s.snapshotVersion != null ? Number(s.snapshotVersion) : null,
+  }
+}
+
 export async function postRecord(req: Request, res: Response): Promise<void> {
   try {
     const { stationId, stationCode, recordedDate, fuelAdded, hoursRun, actualFuel, notes, recordedBy } = req.body
@@ -17,7 +49,7 @@ export async function postRecord(req: Request, res: Response): Promise<void> {
       actualFuel: actualFuel != null ? Number(actualFuel) : null,
       notes, recordedBy,
     })
-    res.status(201).json(record)
+    res.status(201).json(toFuelRecordDto(record as unknown as Record<string, unknown>))
   } catch (err: unknown) {
     res.status((err as { status?: number }).status || 500).json({ error: (err as Error).message })
   }
@@ -31,7 +63,7 @@ export async function getRecords(req: Request, res: Response): Promise<void> {
       from: req.query.from as string | undefined,
       to: req.query.to as string | undefined,
     })
-    res.json(records)
+    res.json(records.map(r => toFuelRecordDto(r as unknown as Record<string, unknown>)))
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message })
   }
@@ -39,7 +71,8 @@ export async function getRecords(req: Request, res: Response): Promise<void> {
 
 export async function getAllCurrentStates(_req: Request, res: Response): Promise<void> {
   try {
-    res.json(await findAllCurrentStates())
+    const states = await findAllCurrentStates()
+    res.json(states.map(s => toCurrentStateDto(s as unknown as Record<string, unknown>)))
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message })
   }
@@ -49,7 +82,7 @@ export async function getCurrentState(req: Request, res: Response): Promise<void
   try {
     const state = await findCurrentState(req.params.station_id)
     if (!state) { res.status(404).json({ error: 'No fuel data for this station' }); return }
-    res.json(state)
+    res.json(toCurrentStateDto(state as unknown as Record<string, unknown>))
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message })
   }

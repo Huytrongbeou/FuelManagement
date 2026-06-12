@@ -1,37 +1,19 @@
-export interface GeneratorTypeDto {
-  id: string
-  typeName: string
-  consumptionRate: number
-  notes?: string | null
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-}
-
-export interface StationDto {
-  id: string
-  stationCode: string
-  stationName: string
-  address?: string | null
-  latitude?: number | null
-  longitude?: number | null
-  generatorTypeId: string
-  generatorType?: GeneratorTypeDto
-  maxCapacity: number
-  isActive: boolean
-  createdAt: Date
-  updatedAt: Date
-}
-
 export interface BulkUpsertRow {
   station_code: string
   station_name?: string
-  address?: string
+  generator_name?: string
+  address?: string | null
   latitude?: number | null
   longitude?: number | null
-  generator_type_name: string
+  current_admin_unit_name?: string | null
+  legacy_area_name?: string | null
+  operation_area_name?: string | null
+  brand_name?: string | null
+  model_name?: string | null
+  power_kva?: number | null
+  fuel_type?: string | null
   consumption_rate?: number | null
-  max_capacity?: number
+  max_capacity?: number | null
 }
 
 export interface BulkUpsertResult {

@@ -1,6 +1,7 @@
 import express from 'express'
 import stationRoutes from './routes/stationRoutes'
-import generatorTypeRoutes from './routes/generatorTypeRoutes'
+import brandRoutes from './routes/brandRoutes'
+import modelRoutes from './routes/modelRoutes'
 import { connect as connectRabbit } from './clients/rabbitmq'
 
 const app = express()
@@ -12,9 +13,9 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'station-service' })
 })
 
-// Gateway strips /api then routes /stations and /generator-types here
 app.use('/stations', stationRoutes)
-app.use('/generator-types', generatorTypeRoutes)
+app.use('/brands', brandRoutes)
+app.use('/models', modelRoutes)
 
 async function start() {
   try {
