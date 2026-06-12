@@ -1,0 +1,65 @@
+# Development overrides: exposes ports, mounts source, uses ts-node-dev hot reload
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  rabbitmq:
+    ports:
+      - "5672:5672"
+
+  auth-service:
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./services/auth-service/src:/app/src
+    command: npm run dev
+
+  station-service:
+    ports:
+      - "3002:3002"
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./services/station-service/src:/app/src
+    command: npm run dev
+
+  fuel-service:
+    ports:
+      - "3003:3003"
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./services/fuel-service/src:/app/src
+    command: npm run dev
+
+  import-export-service:
+    ports:
+      - "3004:3004"
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./services/import-export-service/src:/app/src
+    command: npm run dev
+
+  realtime-service:
+    ports:
+      - "3005:3005"
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./services/realtime-service/src:/app/src
+    command: npm run dev
+
+  gateway:
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./services/gateway/src:/app/src
+    command: npm run dev

@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ImportJob {
+  id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  idempotencyKey             String    @unique @map("idempotency_key") @db.VarChar(255)
+  filename                   String    @db.VarChar(255)
+  status                     String    @default("pending") @db.VarChar(20)
+  retryable                  Boolean   @default(false)
+  failureStage               String?   @map("failure_stage") @db.VarChar(50)
+  totalRows                  Int?      @map("total_rows")
+  validRows                  Int?      @map("valid_rows")
+  invalidRows                Int?      @map("invalid_rows")
+  warningRows                Int?      @map("warning_rows")
+  previewData                Json?     @map("preview_data")
+  validationErrors           Json?     @map("validation_errors")
+  backupStations             Json?     @map("backup_stations")
+  backupGeneratorTypes       Json?     @map("backup_generator_types")
+  backupFuelStates           Json?     @map("backup_fuel_states")
+  fuelStateVersionsAtPreview Json?     @map("fuel_state_versions_at_preview")
+  stationUpsertResults       Json?     @map("station_upsert_results")
+  commitResult               Json?     @map("commit_result")
+  committedAt                DateTime? @map("committed_at") @db.Timestamptz
+  committedBy                String?   @map("committed_by") @db.VarChar(100)
+  errorMessage               String?   @map("error_message")
+  createdBy                  String?   @map("created_by") @db.VarChar(100)
+  createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("import_jobs")
+}

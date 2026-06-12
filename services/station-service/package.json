@@ -1,0 +1,25 @@
+{
+  "name": "station-service",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "start": "node dist/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.15.0",
+    "amqplib": "^0.10.4",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.5",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
+    "prisma": "^5.15.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.5"
+  }
+}

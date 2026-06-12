@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model FuelImportCommit {
+  importJobId    String    @id @map("import_job_id") @db.Uuid
+  idempotencyKey String    @unique @map("idempotency_key") @db.VarChar(255)
+  status         String    @db.VarChar(20)
+  committedAt    DateTime? @map("committed_at") @db.Timestamptz
+  rowsCommitted  Int?      @map("rows_committed")
+  errorMessage   String?   @map("error_message")
+  result         Json?
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("fuel_import_commits")
+}
+
+model FuelRecord {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stationId       String   @map("station_id") @db.Uuid
+  stationCode     String   @map("station_code") @db.VarChar(50)
+  recordedDate    DateTime @map("recorded_date") @db.Date
+  fuelBefore      Decimal  @map("fuel_before") @db.Decimal(8, 2)
+  fuelAdded       Decimal  @default(0) @map("fuel_added") @db.Decimal(8, 2)
+  hoursRun        Decimal  @default(0) @map("hours_run") @db.Decimal(8, 2)
+  consumptionRate Decimal  @map("consumption_rate") @db.Decimal(6, 3)
+  maxCapacity     Decimal  @map("max_capacity") @db.Decimal(8, 2)
+  fuelConsumed    Decimal  @map("fuel_consumed") @db.Decimal(8, 2)
+  fuelCalculated  Decimal  @map("fuel_calculated") @db.Decimal(8, 2)
+  actualFuel      Decimal? @map("actual_fuel") @db.Decimal(8, 2)
+  fuelAfter       Decimal  @map("fuel_after") @db.Decimal(8, 2)
+  fuelDifference  Decimal? @map("fuel_difference") @db.Decimal(8, 2)
+  fuelStatus      String   @map("fuel_status") @db.VarChar(10)
+  notes           String?
+  recordedBy      String?  @map("recorded_by") @db.VarChar(100)
+  source          String   @default("manual") @db.VarChar(20)
+  importJobId     String?  @map("import_job_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([stationId], map: "idx_fuel_station")
+  @@index([stationId, recordedDate(sort: Desc)], map: "idx_fuel_station_date")
+  @@map("fuel_records")
+}
+
+model CurrentFuelState {
+  stationId       String   @id @map("station_id") @db.Uuid
+  stationCode     String   @map("station_code") @db.VarChar(50)
+  currentFuel     Decimal  @map("current_fuel") @db.Decimal(8, 2)
+  fuelStatus      String   @map("fuel_status") @db.VarChar(10)
+  lastUpdated     DateTime @default(now()) @map("last_updated") @db.Timestamptz
+  lastRecordId    String   @map("last_record_id") @db.Uuid
+  snapshotVersion BigInt   @default(0) @map("snapshot_version")
+
+  @@map("current_fuel_state")
+}

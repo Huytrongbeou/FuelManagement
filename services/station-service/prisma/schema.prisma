@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model GeneratorType {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  typeName        String    @unique @map("type_name") @db.VarChar(100)
+  consumptionRate Decimal   @map("consumption_rate") @db.Decimal(6, 3)
+  notes           String?
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  stations        Station[]
+
+  @@map("generator_types")
+}
+
+model Station {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stationCode     String        @unique @map("station_code") @db.VarChar(50)
+  stationName     String        @map("station_name") @db.VarChar(200)
+  address         String?
+  latitude        Decimal?      @db.Decimal(10, 7)
+  longitude       Decimal?      @db.Decimal(10, 7)
+  generatorTypeId String        @map("generator_type_id") @db.Uuid
+  maxCapacity     Decimal       @map("max_capacity") @db.Decimal(8, 2)
+  isActive        Boolean       @default(true) @map("is_active")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  generatorType   GeneratorType @relation(fields: [generatorTypeId], references: [id])
+
+  @@index([stationCode], map: "idx_stations_code")
+  @@map("stations")
+}

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+*.env.local
+*.log
+.DS_Store
+Thumbs.db
+/services/*/node_modules/
+/services/*/dist/
+/services/frontend/node_modules/
+/services/frontend/dist/
+prisma/migrations/*.sql.tmp
