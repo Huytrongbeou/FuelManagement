@@ -14,6 +14,7 @@ import { ImportHistory } from './components/ImportHistory';
 import { GeneratorBrands } from './components/GeneratorBrands';
 import { GeneratorModels } from './components/GeneratorModels';
 import { Settings } from './components/Settings';
+import { StationFormModal } from './components/StationFormModal';
 import type { Page, Station, GeneratorBrand, GeneratorModel } from './types';
 import { getStations, getStation } from './api/stationApi';
 import { getBrands } from './api/brandApi';
@@ -33,6 +34,7 @@ export default function App() {
   const [models, setModels] = useState<GeneratorModel[]>([]);
   const [importSessions, setImportSessions] = useState<ImportSession[]>([]);
   const [loading, setLoading] = useState(false);
+  const [addStationOpen, setAddStationOpen] = useState(false);
 
   const fetchAll = useCallback(async () => {
     if (!isLoggedIn) return;
@@ -118,7 +120,7 @@ export default function App() {
       case 'dashboard':
         return <Dashboard stations={stations} onViewStation={handleViewStation} />;
       case 'stations':
-        return <StationList stations={stations} onViewStation={handleViewStation} />;
+        return <StationList stations={stations} onViewStation={handleViewStation} onAddStation={() => setAddStationOpen(true)} />;
       case 'map':
         return <MapView stations={stations} onViewStation={handleViewStation} />;
       case 'directEntry':
@@ -190,6 +192,13 @@ export default function App() {
         </div>
       </div>
       <Toaster position="top-right" richColors />
+      <StationFormModal
+        open={addStationOpen}
+        onClose={() => setAddStationOpen(false)}
+        brands={brands}
+        models={models}
+        onCreated={fetchAll}
+      />
     </>
   );
 }
