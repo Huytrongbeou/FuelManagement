@@ -133,8 +133,7 @@ services:
       JWT_SECRET: ${AUTH_JWT_SECRET:-change_me_in_production}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,http://localhost:5174}
       NODE_ENV: production
-    ports:
-      - "3005:3005"
+    # No ports: WebSocket clients must connect via gateway (:3000/socket.io)
     depends_on:
       rabbitmq:
         condition: service_healthy
