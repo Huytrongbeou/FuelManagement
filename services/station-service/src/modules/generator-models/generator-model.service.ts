@@ -1,5 +1,5 @@
-import * as modelRepo from '../repositories/modelRepository'
-import * as brandRepo from '../repositories/brandRepository'
+import * as modelRepo from './generator-model.repository'
+import * as brandRepo from '../generator-brands/generator-brand.repository'
 
 export async function listAll(brandId?: string) {
   return modelRepo.findAll({ brandId })

@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { list, getOne, create, update, deactivate, reactivate } from '../controllers/brandController'
+import { list, getOne, create, update, deactivate, reactivate } from './generator-model.controller'
 
 const router = Router()
 
