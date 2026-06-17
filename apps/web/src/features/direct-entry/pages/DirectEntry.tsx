@@ -64,7 +64,10 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
   const [checked, setChecked] = useState(false);
   const [successOpen, setSuccessOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [doubleSubmitOpen, setDoubleSubmitOpen] = useState(false);
   const hasAutoLoadedRef = useRef(false);
+  const lastSubmitRef = useRef<{ signature: string; time: number } | null>(null);
+  const pendingSubmitRef = useRef<(() => Promise<void>) | null>(null);
 
   const loadCurrent = (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
@@ -105,13 +108,10 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
     setChecked(true);
   };
 
-  const handleSave = async () => {
-    const hasErrors = rows.some(r => r.status === 'error');
-    if (hasErrors) { toast.error('Còn dòng lỗi, không thể lưu. Hãy sửa hoặc bỏ qua.'); return; }
+  const doSave = async (changedRows: typeof rows, signature: string) => {
+    lastSubmitRef.current = { signature, time: Date.now() };
     setSaving(true);
     try {
-      const changedRows = rows.filter(r => r.status !== 'unchanged');
-      if (changedRows.length === 0) { toast.warning('Không có dòng nào thay đổi'); setSaving(false); return; }
       const payload = changedRows.map(r => ({
         stationCode: r.code,
         fuelAdded: r.added !== '' ? parseFloat(r.added) : null,
@@ -127,6 +127,23 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    const hasErrors = rows.some(r => r.status === 'error');
+    if (hasErrors) { toast.error('Còn dòng lỗi, không thể lưu. Hãy sửa hoặc bỏ qua.'); return; }
+    const changedRows = rows.filter(r => r.status !== 'unchanged');
+    if (changedRows.length === 0) { toast.warning('Không có dòng nào thay đổi'); return; }
+
+    const signature = changedRows.map(r => `${r.stationId}|${r.added}|${r.hoursRun}|${r.date}`).sort().join(',');
+    const last = lastSubmitRef.current;
+    if (last?.signature === signature && Date.now() - last.time < 60_000) {
+      pendingSubmitRef.current = () => doSave(changedRows, signature);
+      setDoubleSubmitOpen(true);
+      return;
+    }
+
+    await doSave(changedRows, signature);
   };
 
   const validRows   = rows.filter(r => r.status === 'valid').length;
@@ -406,6 +423,35 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
           </div>
         )}
       </div>
+
+      {/* Double-submit confirm dialog */}
+      <Dialog.Root open={doubleSubmitOpen} onOpenChange={setDoubleSubmitOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.5)' }} />
+          <Dialog.Content aria-describedby={undefined} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl p-6 w-full max-w-sm" style={{ background: 'white', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <Dialog.Title style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>Xác nhận gửi lại?</Dialog.Title>
+            <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '20px' }}>
+              Dữ liệu này vừa được gửi trong vòng 60 giây qua. Bạn có chắc muốn tạo thêm một phát sinh mới?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDoubleSubmitOpen(false)}
+                className="flex-1 py-2.5 rounded-lg border"
+                style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem' }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => { setDoubleSubmitOpen(false); pendingSubmitRef.current?.(); }}
+                className="flex-1 py-2.5 rounded-lg"
+                style={{ background: '#dc2626', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}
+              >
+                Vẫn gửi
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       {/* Success Modal */}
       <Dialog.Root open={successOpen} onOpenChange={setSuccessOpen}>

@@ -1,12 +1,44 @@
 import { PrismaClient } from '@prisma/client'
 import { v4 as uuidv4 } from 'uuid'
+import crypto from 'crypto'
 import * as stationClient from '../clients/station.client'
 import * as fuelClient from '../clients/fuel.client'
 import type { UserContext } from '../clients/fuel.client'
 import { confirmImport } from './import-orchestrator.service'
 import type { ParsedRow } from './excel-validator.service'
+import { formatBusinessDateVN } from '../utils/date-vn'
+import { normalizeDecimal2 } from '../utils/normalize'
 
 const prisma = new PrismaClient()
+
+// In-memory 60s duplicate guard for direct entry (single-instance dev; use Redis for multi-instance prod)
+const batchSubmitCache = new Map<string, number>()
+const BATCH_DUPLICATE_WINDOW_MS = 60_000
+
+type PreviewRowJson = { stationCode?: string; recordedDate?: string | null; fuelAdded?: number | null; hoursRun?: number | null; hasFuelActivity?: boolean }
+
+function computeBatchSignature(userId: string, rows: PreviewRowJson[]): string {
+  const content = userId + '\n' +
+    rows
+      .filter(r => r.hasFuelActivity)
+      .map(r => {
+        try {
+          const dateStr = r.recordedDate ? formatBusinessDateVN(new Date(r.recordedDate)) : ''
+          return [
+            (r.stationCode ?? '').trim().toUpperCase(),
+            dateStr,
+            normalizeDecimal2(r.fuelAdded),
+            normalizeDecimal2(r.hoursRun),
+          ].join('|')
+        } catch {
+          return null
+        }
+      })
+      .filter((x): x is string => x !== null)
+      .sort()
+      .join('\n')
+  return crypto.createHash('sha256').update(content).digest('hex')
+}
 
 export interface DirectEntryRow {
   stationCode: string
@@ -123,5 +155,22 @@ export async function preview(rows: DirectEntryRow[], createdBy?: string) {
 }
 
 export async function confirm(jobId: string, committedBy?: string, userCtx?: UserContext) {
-  return confirmImport(jobId, { committedBy, source: 'direct', userCtx })
+  const job = await prisma.importJob.findUnique({ where: { id: jobId }, select: { previewData: true } })
+  if (!job) throw Object.assign(new Error('Job not found'), { status: 404 })
+
+  const previewRows = (job.previewData as unknown as PreviewRowJson[]) || []
+  const userId = userCtx?.userId ?? 'anonymous'
+  const batchSignature = computeBatchSignature(userId, previewRows)
+
+  const lastSubmit = batchSubmitCache.get(batchSignature)
+  if (lastSubmit && Date.now() - lastSubmit < BATCH_DUPLICATE_WINDOW_MS) {
+    throw Object.assign(
+      new Error('Dữ liệu này đã được gửi trong 60 giây qua. Vui lòng đợi trước khi gửi lại.'),
+      { status: 409 }
+    )
+  }
+
+  const result = await confirmImport(jobId, { committedBy, source: 'direct', userCtx })
+  batchSubmitCache.set(batchSignature, Date.now())
+  return result
 }
