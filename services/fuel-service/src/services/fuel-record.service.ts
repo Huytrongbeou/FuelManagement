@@ -1,7 +1,7 @@
-import { prisma, findCurrentState } from './fuel-record.repository'
-import * as calc from '../../shared/utils/fuel-calculator'
-import * as stationClient from '../../shared/clients/station.client'
-import * as mq from '../../shared/clients/rabbitmq'
+import { prisma, findCurrentState } from '../repositories/fuel-record.repository'
+import * as calc from '../utils/fuel-calculator'
+import * as stationClient from '../clients/station.client'
+import * as mq from '../clients/rabbitmq'
 
 interface ManualRecordInput {
   stationId: string

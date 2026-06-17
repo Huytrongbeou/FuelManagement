@@ -1,7 +1,7 @@
-import { prisma, findCurrentState, findImportCommit } from '../fuel-records/fuel-record.repository'
-import * as calc from '../../shared/utils/fuel-calculator'
-import * as stationClient from '../../shared/clients/station.client'
-import * as mq from '../../shared/clients/rabbitmq'
+import { prisma, findCurrentState, findImportCommit } from '../repositories/fuel-record.repository'
+import * as calc from '../utils/fuel-calculator'
+import * as stationClient from '../clients/station.client'
+import * as mq from '../clients/rabbitmq'
 
 interface ImportRecordRow {
   station_id: string

@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { postRecord, getRecords, getAllCurrentStates, getCurrentState, postImportCommit } from './fuel-record.controller'
+import { postRecord, getRecords, getAllCurrentStates, getCurrentState, postImportCommit } from '../controllers/fuel-record.controller'
 
 const router = Router()
 
