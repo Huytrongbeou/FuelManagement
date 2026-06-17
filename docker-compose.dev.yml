@@ -1,5 +1,10 @@
 # Development overrides: exposes ports, mounts source, uses ts-node-dev hot reload
 # Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# SECURITY WARNING: This file exposes all internal service ports (3001-3005) to the host.
+# With these ports exposed, requests can bypass the gateway and its RBAC/auth middleware.
+# DO NOT use this file in production. It is for local development and debugging only.
+# Production: use docker-compose.yml alone — only port 3000 (gateway) is exposed.
 
 services:
   postgres:
