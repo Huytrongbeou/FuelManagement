@@ -1,22 +1,7 @@
-import express from 'express'
-import fuelRoutes from './modules/fuel-records/fuel-record.routes'
-import { connect as connectRabbit } from './shared/clients/rabbitmq'
+import app from './app'
+import { connect as connectRabbit } from './clients/rabbitmq'
 
-const app = express()
 const PORT = parseInt(process.env.PORT || '3003', 10)
-
-app.use(express.json())
-
-// BigInt values (snapshotVersion) must be serialized as numbers
-app.set('json replacer', (_key: string, value: unknown) =>
-  typeof value === 'bigint' ? Number(value) : value
-)
-
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'fuel-service' })
-})
-
-app.use('/fuel', fuelRoutes)
 
 async function start() {
   try {
