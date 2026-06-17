@@ -3,6 +3,7 @@ import multer from 'multer'
 import path from 'path'
 import os from 'os'
 import { upload, getJob, listJobs, confirm, cancel } from '../controllers/import.controller'
+import { requireRole } from '../middleware/require-role'
 
 const storage = multer.diskStorage({
   destination: os.tmpdir(),
@@ -25,11 +26,10 @@ const upload_mw = multer({
 
 const router = Router()
 
-// Excel import
-router.post('/upload', upload_mw.single('file'), upload)
+router.post('/upload', requireRole('admin', 'manager'), upload_mw.single('file'), upload)
 router.get('/jobs', listJobs)
 router.get('/jobs/:job_id', getJob)
-router.post('/jobs/:job_id/confirm', confirm)
-router.post('/jobs/:job_id/cancel', cancel)
+router.post('/jobs/:job_id/confirm', requireRole('admin', 'manager'), confirm)
+router.post('/jobs/:job_id/cancel', requireRole('admin', 'manager'), cancel)
 
 export default router
