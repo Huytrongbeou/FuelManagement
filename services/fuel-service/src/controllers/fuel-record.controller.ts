@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import { createManualRecord } from '../services/fuel-record.service'
 import { commitImport } from '../services/import-commit.service'
-import { findAllCurrentStates, findCurrentState, findRecordsByStation, checkExactDuplicates } from '../repositories/fuel-record.repository'
+import { findAllCurrentStates, findCurrentState, findRecordsByStation, checkExactDuplicates, previewValidate } from '../repositories/fuel-record.repository'
 
 function toFuelRecordDto(r: Record<string, unknown>) {
   return {
@@ -80,6 +80,30 @@ export async function getCurrentState(req: Request, res: Response): Promise<void
     const state = await findCurrentState(req.params.station_id)
     if (!state) { res.status(404).json({ error: 'No fuel data for this station' }); return }
     res.json(toCurrentStateDto(state as unknown as Record<string, unknown>))
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message })
+  }
+}
+
+export async function postPreviewValidate(req: Request, res: Response): Promise<void> {
+  try {
+    const items = req.body
+    if (!Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ error: 'items array is required and must not be empty' })
+      return
+    }
+    const parsed = items.map((item: unknown) => {
+      const i = item as Record<string, unknown>
+      return {
+        stationId: String(i.stationId ?? ''),
+        fuelAdded: Number(i.fuelAdded ?? 0),
+        hoursRun: Number(i.hoursRun ?? 0),
+        consumptionRate: Number(i.consumptionRate ?? 0),
+        maxCapacity: Number(i.maxCapacity ?? 0),
+      }
+    })
+    const result = await previewValidate(parsed)
+    res.json(result)
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message })
   }
