@@ -1,5 +1,5 @@
 import express from 'express'
-import authRoutes from './routes/authRoutes'
+import authRoutes from './modules/auth/auth.routes'
 
 const app = express()
 const PORT = parseInt(process.env.PORT || '3001', 10)
