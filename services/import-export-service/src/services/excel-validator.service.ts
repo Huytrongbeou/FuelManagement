@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs'
 import { parseCellAsNumber, parseCellAsString, parseCellAsDate } from '../utils/excel-parser'
 import { haversineDistance } from '../utils/haversine'
 import { formatBusinessDateVN, todayVN } from '../utils/date-vn'
+import { EXCEL_UPLOAD } from '../utils/excel-upload'
 import type { Station } from '../clients/station.client'
 
 export interface ParsedRow {
@@ -62,7 +63,15 @@ export async function parseAndValidate(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await wb.xlsx.load(buffer as any)
   const ws = wb.worksheets[0]
-  if (!ws) throw new Error('Excel file has no worksheets')
+  if (!ws) throw Object.assign(new Error('File Excel không có dữ liệu hoặc không đọc được.'), { status: 422 })
+
+  const dataRowCount = ws.rowCount - 1 // subtract header row
+  if (dataRowCount > EXCEL_UPLOAD.MAX_ROWS) {
+    throw Object.assign(
+      new Error(`File có hơn ${EXCEL_UPLOAD.MAX_ROWS} dòng dữ liệu (phát hiện ~${dataRowCount} dòng). Vui lòng chia nhỏ file.`),
+      { status: 422 }
+    )
+  }
 
   const stationCodeMap = new Map(existingStations.map(s => [s.stationCode, s]))
   const seenCodes = new Set<string>()
