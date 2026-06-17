@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import * as userRepo from './auth.repository'
-import type { LoginDto, LoginResponse, UserPayload } from './auth.types'
+import * as userRepo from '../repositories/auth.repository'
+import type { LoginDto, LoginResponse, UserPayload } from '../models/auth.types'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'change_me_in_production'
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h'
