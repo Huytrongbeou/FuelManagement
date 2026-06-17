@@ -1,19 +1,12 @@
 import http from 'http'
-import express from 'express'
 import { Server } from 'socket.io'
 import jwt from 'jsonwebtoken'
+import app from './app'
 import { connectRabbitMQ } from './config/rabbitmq'
 
-const app = express()
 const PORT = parseInt(process.env.PORT || '3005', 10)
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173'
 const JWT_SECRET = process.env.JWT_SECRET || 'change_me_in_production'
-
-app.use(express.json())
-
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'realtime-service' })
-})
 
 const server = http.createServer(app)
 

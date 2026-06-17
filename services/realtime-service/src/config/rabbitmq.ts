@@ -1,6 +1,6 @@
 import amqplib from 'amqplib'
 import type { Server } from 'socket.io'
-import { makeFuelEventHandler } from '../handlers/fuel-events.handler'
+import { makeFuelEventHandler } from '../socket/fuel-events.handler'
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://fuelapp:fuelapp_secret@localhost:5672'
 
