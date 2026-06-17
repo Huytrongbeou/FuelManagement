@@ -1,6 +1,9 @@
+export type UserRole = 'admin' | 'manager' | 'staff'
+
 export interface UserPayload {
   id: string
   username: string
+  role: UserRole
   isActive: boolean
 }
 
