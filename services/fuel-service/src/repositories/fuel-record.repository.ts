@@ -35,6 +35,43 @@ export async function findImportCommit(idempotencyKey: string) {
   return prisma.fuelImportCommit.findUnique({ where: { idempotencyKey } })
 }
 
+export interface PreviewValidateItem {
+  stationId: string
+  fuelAdded: number
+  hoursRun: number
+  consumptionRate: number
+  maxCapacity: number
+}
+
+export interface PreviewValidateResult {
+  stationId: string
+  fuelBefore: number | null
+  fuelConsumed: number
+  fuelAfter: number | null
+  maxCapacity: number
+  valid: boolean
+  errorCode: 'EXCEEDS_CAPACITY' | 'NEGATIVE_FUEL' | null
+}
+
+export async function previewValidate(items: PreviewValidateItem[]): Promise<PreviewValidateResult[]> {
+  return Promise.all(items.map(async item => {
+    const state = await prisma.currentFuelState.findUnique({ where: { stationId: item.stationId } })
+    const fuelBefore = state ? Number(state.currentFuel) : null
+    const fuelConsumed = Math.max(0, item.hoursRun * item.consumptionRate)
+    const fuelAfter = fuelBefore != null ? fuelBefore + item.fuelAdded - fuelConsumed : null
+
+    let valid = true
+    let errorCode: PreviewValidateResult['errorCode'] = null
+
+    if (fuelAfter != null) {
+      if (fuelAfter < 0) { valid = false; errorCode = 'NEGATIVE_FUEL' }
+      else if (fuelAfter > item.maxCapacity) { valid = false; errorCode = 'EXCEEDS_CAPACITY' }
+    }
+
+    return { stationId: item.stationId, fuelBefore, fuelConsumed, fuelAfter, maxCapacity: item.maxCapacity, valid, errorCode }
+  }))
+}
+
 export async function checkExactDuplicates(
   items: Array<{ stationId: string; recordedDate: Date; fuelAdded: number; hoursRun: number }>
 ): Promise<Array<{ stationId: string; isDuplicate: boolean }>> {

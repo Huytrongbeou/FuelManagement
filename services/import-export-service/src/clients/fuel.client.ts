@@ -28,6 +28,33 @@ export async function getAllCurrentStates(): Promise<CurrentFuelState[]> {
   return data
 }
 
+export interface PreviewValidateItem {
+  stationId: string
+  fuelAdded: number
+  hoursRun: number
+  consumptionRate: number
+  maxCapacity: number
+}
+
+export interface PreviewValidateResult {
+  stationId: string
+  fuelBefore: number | null
+  fuelConsumed: number
+  fuelAfter: number | null
+  maxCapacity: number
+  valid: boolean
+  errorCode: 'EXCEEDS_CAPACITY' | 'NEGATIVE_FUEL' | null
+}
+
+export async function previewValidate(items: PreviewValidateItem[], ctx?: UserContext): Promise<PreviewValidateResult[]> {
+  const { data } = await axios.post<PreviewValidateResult[]>(
+    `${FUEL_URL}/fuel/records/preview-validate`,
+    items,
+    { headers: userHeaders(ctx) }
+  )
+  return data
+}
+
 export async function checkExactDuplicates(
   items: Array<{ stationId: string; recordedDate: Date; fuelAdded: number; hoursRun: number }>,
   ctx?: UserContext

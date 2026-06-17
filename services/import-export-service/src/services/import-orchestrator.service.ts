@@ -52,7 +52,49 @@ export async function previewImport(
         }
       }
     } catch {
-      // non-blocking: if duplicate check fails, continue without it
+      // non-blocking
+    }
+  }
+
+  // Preview-validate fuel calculations (advisory — confirm still validates in transaction)
+  const pvItems = rows
+    .filter(r => r.errors.length === 0 && r.hasFuelActivity)
+    .map(r => {
+      const station = stationCodeMap.get(r.stationCode)
+      if (!station) return null
+      return {
+        stationId: station.id,
+        fuelAdded: r.fuelAdded ?? 0,
+        hoursRun: r.hoursRun ?? 0,
+        consumptionRate: Number(station.consumptionRate ?? 0),
+        maxCapacity: Number(station.maxCapacity ?? 0),
+        rowNum: r.rowNum,
+        stationName: station.stationName,
+      }
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
+
+  if (pvItems.length > 0) {
+    try {
+      const pvResults = await fuelClient.previewValidate(pvItems, userCtx)
+      const pvByStationId = new Map(pvResults.map(p => [p.stationId, p]))
+      for (const item of pvItems) {
+        const pv = pvByStationId.get(item.stationId)
+        if (!pv || pv.valid) continue
+        const row = rows.find(r => r.rowNum === item.rowNum)
+        if (!row) continue
+        if (pv.errorCode === 'EXCEEDS_CAPACITY') {
+          row.errors.push(
+            `Hàng ${item.rowNum}: Nhiên liệu dự kiến sau nhập ${pv.fuelAfter?.toFixed(0)} lít vượt dung tích tối đa ${pv.maxCapacity} lít.`
+          )
+        } else if (pv.errorCode === 'NEGATIVE_FUEL') {
+          row.errors.push(
+            `Hàng ${item.rowNum}: Nhiên liệu dự kiến sau nhập ${pv.fuelAfter?.toFixed(0)} lít (âm). Kiểm tra lại số giờ chạy.`
+          )
+        }
+      }
+    } catch {
+      // non-blocking: advisory only
     }
   }
 
