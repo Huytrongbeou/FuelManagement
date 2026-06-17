@@ -1,5 +1,6 @@
 import express from 'express'
 import fuelRoutes from './routes/fuel-record.routes'
+import adjustmentRoutes from './routes/adjustment-request.routes'
 
 const app = express()
 
@@ -14,5 +15,6 @@ app.get('/health', (_req, res) => {
 })
 
 app.use('/fuel', fuelRoutes)
+app.use('/fuel', adjustmentRoutes)
 
 export default app
