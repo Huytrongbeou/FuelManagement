@@ -24,10 +24,18 @@ export function parseCellAsString(cell: Cell): string {
   return String(v).trim()
 }
 
-export function parseCellAsDate(cell: Cell): Date | null {
+export type ParsedDate =
+  | { type: 'blank' }
+  | { type: 'valid'; value: Date }
+  | { type: 'invalid'; raw: string }
+
+export function parseCellAsDate(cell: Cell): ParsedDate {
   const v = cell.value
-  if (v === null || v === undefined || v === '') return null
-  if (v instanceof Date) return v
-  const d = new Date(String(v))
-  return isNaN(d.getTime()) ? null : d
+  if (v === null || v === undefined || v === '') return { type: 'blank' }
+  if (v instanceof Date) return { type: 'valid', value: v }
+  const raw = String(v).trim()
+  if (raw === '') return { type: 'blank' }
+  const d = new Date(raw)
+  if (isNaN(d.getTime())) return { type: 'invalid', raw }
+  return { type: 'valid', value: d }
 }

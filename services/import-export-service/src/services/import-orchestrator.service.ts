@@ -11,7 +11,6 @@ const prisma = new PrismaClient()
 export async function previewImport(
   jobId: string,
   filePath: string,
-  importDate: Date,
   createdBy?: string,
   userCtx?: UserContext
 ) {
@@ -23,7 +22,7 @@ export async function previewImport(
   ])
 
   const buffer = await fs.readFile(filePath)
-  const rows = await parseAndValidate(buffer, stations, importDate, isFuelOnly ? 'fuel-only' : 'full')
+  const rows = await parseAndValidate(buffer, stations, isFuelOnly ? 'fuel-only' : 'full')
 
   const fuelStateMap = new Map(fuelStates.map(s => [s.stationId, s]))
   const stationCodeMap = new Map(stations.map(s => [s.stationCode, s]))
