@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
-import { createManualRecord } from '../services/fuelRecordService'
-import { commitImport } from '../services/importCommitService'
-import { findAllCurrentStates, findCurrentState, findRecordsByStation } from '../repositories/fuelRepository'
+import { createManualRecord } from './fuel-record.service'
+import { commitImport } from '../import-commit/import-commit.service'
+import { findAllCurrentStates, findCurrentState, findRecordsByStation } from './fuel-record.repository'
 
 function toFuelRecordDto(r: Record<string, unknown>) {
   return {

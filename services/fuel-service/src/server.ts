@@ -1,6 +1,6 @@
 import express from 'express'
-import fuelRoutes from './routes/fuelRoutes'
-import { connect as connectRabbit } from './clients/rabbitmq'
+import fuelRoutes from './modules/fuel-records/fuel-record.routes'
+import { connect as connectRabbit } from './shared/clients/rabbitmq'
 
 const app = express()
 const PORT = parseInt(process.env.PORT || '3003', 10)
