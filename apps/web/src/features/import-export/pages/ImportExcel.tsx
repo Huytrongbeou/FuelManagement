@@ -34,6 +34,7 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
   const [jobId, setJobId] = useState<string | null>(null);
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
   const [jobSummary, setJobSummary] = useState({ totalRows: 0, validRows: 0, warningRows: 0, errorRows: 0 });
+  const [signatureWarning, setSignatureWarning] = useState<{ importedAt: string; importedBy: string | null; filename: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const validRows   = previewRows.filter(r => r.status === 'valid').length;
@@ -57,9 +58,13 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
     if (!file) return;
     setUploading(true);
     setWarningAcknowledged(false);
+    setSignatureWarning(null);
     try {
       const job = await uploadExcel(file) as Record<string, unknown>;
       setJobId(job.id as string);
+      if (job.signatureWarning) {
+        setSignatureWarning(job.signatureWarning as { importedAt: string; importedBy: string | null; filename: string });
+      }
       // job.previewData is the array of parsed rows (each has errors/warnings arrays)
       const rawRows = (job.previewData as Record<string, unknown>[]) ?? [];
       const rows: PreviewRow[] = rawRows.map(r => {
@@ -257,6 +262,21 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
                 </div>
               ))}
             </div>
+
+            {/* Signature warning banner */}
+            {signatureWarning && (
+              <div className="flex items-start gap-3 rounded-xl px-4 py-3 border" style={{ background: '#fef3c7', borderColor: '#f59e0b' }}>
+                <AlertTriangle size={18} style={{ color: '#b45309', flexShrink: 0, marginTop: '1px' }} />
+                <div style={{ fontSize: '0.85rem', color: '#92400e' }}>
+                  <span style={{ fontWeight: 600 }}>Nội dung file đã được import trước đó.</span>
+                  {' '}File có nội dung giống lần import lúc{' '}
+                  <span style={{ fontWeight: 600 }}>{new Date(signatureWarning.importedAt).toLocaleString('vi-VN')}</span>
+                  {signatureWarning.importedBy ? <> bởi <span style={{ fontWeight: 600 }}>{signatureWarning.importedBy}</span></> : null}
+                  {signatureWarning.filename ? <> (file: <span style={{ fontWeight: 600 }}>{signatureWarning.filename}</span>)</> : null}.
+                  {' '}Nếu đây là lần import mới hợp lệ, vẫn có thể xác nhận.
+                </div>
+              </div>
+            )}
 
             {/* Preview table */}
             <div className="rounded-xl border overflow-hidden" style={{ background: 'white', borderColor: '#e2e8f0' }}>

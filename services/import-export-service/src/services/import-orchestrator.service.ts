@@ -1,12 +1,37 @@
 import { PrismaClient } from '@prisma/client'
 import { parseAndValidate } from './excel-validator.service'
+import type { ParsedRow } from './excel-validator.service'
 import * as stationClient from '../clients/station.client'
 import * as fuelClient from '../clients/fuel.client'
 import type { UserContext } from '../clients/fuel.client'
 import * as mq from '../clients/rabbitmq'
 import fs from 'fs/promises'
+import crypto from 'crypto'
+import { formatBusinessDateVN } from '../utils/date-vn'
+import { normalizeDecimal2 } from '../utils/normalize'
 
 const prisma = new PrismaClient()
+
+function computeImportSignature(rows: ParsedRow[]): string {
+  const content = rows
+    .filter(r => r.hasFuelActivity)
+    .map(r => {
+      try {
+        return [
+          r.stationCode.trim().toUpperCase(),
+          r.recordedDate instanceof Date ? formatBusinessDateVN(r.recordedDate) : String(r.recordedDate),
+          normalizeDecimal2(r.fuelAdded),
+          normalizeDecimal2(r.hoursRun),
+        ].join('|')
+      } catch {
+        return null
+      }
+    })
+    .filter((x): x is string => x !== null)
+    .sort()
+    .join('\n')
+  return crypto.createHash('sha256').update(content).digest('hex')
+}
 
 export async function previewImport(
   jobId: string,
@@ -23,6 +48,28 @@ export async function previewImport(
 
   const buffer = await fs.readFile(filePath)
   const rows = await parseAndValidate(buffer, stations, isFuelOnly ? 'fuel-only' : 'full')
+
+  // Compute importSignature and check for duplicates in last 24h
+  const importSignature = computeImportSignature(rows)
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+  let signatureWarning: { importedAt: Date; importedBy: string | null; filename: string } | null = null
+  const existingWithSameSignature = await prisma.importJob.findFirst({
+    where: {
+      importSignature,
+      status: 'committed',
+      committedAt: { gte: oneDayAgo },
+      NOT: { id: jobId },
+    },
+    orderBy: { committedAt: 'desc' },
+    select: { committedAt: true, committedBy: true, filename: true },
+  })
+  if (existingWithSameSignature) {
+    signatureWarning = {
+      importedAt: existingWithSameSignature.committedAt!,
+      importedBy: existingWithSameSignature.committedBy,
+      filename: existingWithSameSignature.filename,
+    }
+  }
 
   const fuelStateMap = new Map(fuelStates.map(s => [s.stationId, s]))
   const stationCodeMap = new Map(stations.map(s => [s.stationCode, s]))
@@ -123,6 +170,7 @@ export async function previewImport(
     where: { id: jobId },
     data: {
       status: 'previewing',
+      importSignature,
       totalRows,
       validRows,
       invalidRows,
@@ -134,7 +182,7 @@ export async function previewImport(
     },
   })
 
-  return { totalRows, validRows, invalidRows, warningRows, rows }
+  return { totalRows, validRows, invalidRows, warningRows, rows, signatureWarning }
 }
 
 export async function confirmImport(

@@ -30,8 +30,10 @@ export async function upload(req: Request, res: Response): Promise<void> {
       },
     })
 
+    let signatureWarning: { importedAt: Date; importedBy: string | null; filename: string } | null = null
     try {
-      await previewImport(job.id, file.path, ctx.userName, ctx)
+      const result = await previewImport(job.id, file.path, ctx.userName, ctx)
+      signatureWarning = result.signatureWarning
     } catch (err: unknown) {
       const status = (err as { status?: number }).status
       const message = (err as Error).message || 'Không thể đọc file Excel. Vui lòng kiểm tra định dạng file.'
@@ -41,7 +43,7 @@ export async function upload(req: Request, res: Response): Promise<void> {
     }
 
     const updated = await prisma.importJob.findUnique({ where: { id: job.id } })
-    res.status(201).json(updated)
+    res.status(201).json({ ...updated, signatureWarning: signatureWarning ?? null })
   } catch (err: unknown) {
     res.status((err as { status?: number }).status || 500).json({ error: (err as Error).message })
   }
