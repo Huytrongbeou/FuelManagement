@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express'
-import { preview, confirm } from '../services/manualEntryService'
+import { preview, confirm } from './manual-entry.service'
 
 export async function previewHandler(req: Request, res: Response): Promise<void> {
   try {
