@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs'
 import { parseCellAsNumber, parseCellAsString, parseCellAsDate } from '../utils/excel-parser'
 import { haversineDistance } from '../utils/haversine'
+import { formatBusinessDateVN, todayVN } from '../utils/date-vn'
 import type { Station } from '../clients/station.client'
 
 export interface ParsedRow {
@@ -55,7 +56,6 @@ export interface ParsedRow {
 export async function parseAndValidate(
   buffer: Buffer,
   existingStations: Station[],
-  importDate: Date,
   mode: 'full' | 'fuel-only' = 'full'
 ): Promise<ParsedRow[]> {
   const wb = new ExcelJS.Workbook()
@@ -180,9 +180,33 @@ export async function parseAndValidate(
 
     const hasFuelActivity = (fuelAdded ?? 0) > 0 || (hoursRun ?? 0) > 0
 
-    let recordedDate: Date | null = parseCellAsDate(dateCell)
-    if (!recordedDate && hasFuelActivity) {
-      recordedDate = importDate
+    const parsedDate = parseCellAsDate(dateCell)
+    let recordedDate: Date | null = null
+
+    if (parsedDate.type === 'valid') {
+      recordedDate = parsedDate.value
+      // Cảnh báo ngày tương lai / quá khứ xa (theo VN)
+      const today = todayVN()
+      const recDateVN = new Date(formatBusinessDateVN(recordedDate) + 'T00:00:00+07:00')
+      if (recDateVN > today) {
+        const label = recordedDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
+        warnings.push(`Ngày ${label} ở tương lai. Có chắc không?`)
+      } else {
+        const diffDays = Math.floor((today.getTime() - recDateVN.getTime()) / (24 * 60 * 60 * 1000))
+        if (diffDays > 30) {
+          const label = recordedDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
+          warnings.push(`Ngày ${label} hơn 30 ngày trước. Tồn cập nhật vào tồn hiện tại — không tính lại lịch sử cũ.`)
+        }
+      }
+    } else if (parsedDate.type === 'invalid') {
+      errors.push(`Ngày ghi nhận không đúng định dạng: "${parsedDate.raw}". Vui lòng nhập lại theo định dạng DD/MM/YYYY.`)
+      // KHÔNG dùng importDate — ngày sai format của người dùng không được tự thay thế
+    } else {
+      // blank
+      if (hasFuelActivity) {
+        recordedDate = todayVN()
+        warnings.push('Ngày ghi nhận để trống — tự động dùng ngày hôm nay.')
+      }
     }
 
     // haversine proximity check (admin full mode only)

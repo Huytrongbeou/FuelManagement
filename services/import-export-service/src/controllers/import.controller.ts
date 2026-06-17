@@ -29,7 +29,7 @@ export async function upload(req: Request, res: Response): Promise<void> {
       },
     })
 
-    await previewImport(job.id, file.path, new Date(), ctx.userName, ctx)
+    await previewImport(job.id, file.path, ctx.userName, ctx)
 
     const updated = await prisma.importJob.findUnique({ where: { id: job.id } })
     res.status(201).json(updated)
