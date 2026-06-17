@@ -194,7 +194,7 @@ export async function confirmImport(
     .map(r => ({
       station_id: codeToId.get(r.stationCode) || '',
       station_code: r.stationCode,
-      recorded_date: (r.recordedDate ?? new Date()).toISOString(),
+      recorded_date: new Date(r.recordedDate ?? new Date()).toISOString(),
       fuel_added: r.fuelAdded ?? 0,
       hours_run: r.hoursRun ?? 0,
       notes: r.notes,
