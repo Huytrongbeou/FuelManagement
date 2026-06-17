@@ -3,11 +3,11 @@ import express from 'express'
 import cors from 'cors'
 import rateLimit from 'express-rate-limit'
 import { createProxyMiddleware } from 'http-proxy-middleware'
-import { requireAuth } from './middleware/auth'
-import { mapStationsHandler } from './aggregates/mapStations'
-import { stationFullHandler } from './aggregates/stationFull'
-import { stationsListHandler } from './aggregates/stations'
-import { dashboardSummaryHandler } from './aggregates/dashboard'
+import { requireAuth } from './middleware/auth.middleware'
+import { mapStationsHandler } from './aggregates/map-stations.aggregate'
+import { stationFullHandler } from './aggregates/station-full.aggregate'
+import { stationsListHandler } from './aggregates/stations.aggregate'
+import { dashboardSummaryHandler } from './aggregates/dashboard.aggregate'
 
 const app = express()
 const PORT = parseInt(process.env.PORT || '3000', 10)

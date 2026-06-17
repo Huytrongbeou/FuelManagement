@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
 import axios from 'axios'
-import { toStationDto, isToday } from './stations'
+import { toStationDto, isToday } from './stations.aggregate'
 
 const STATION_URL = process.env.STATION_SERVICE_URL || 'http://localhost:3002'
 const FUEL_URL = process.env.FUEL_SERVICE_URL || 'http://localhost:3003'
