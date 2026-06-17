@@ -147,6 +147,7 @@ export default function App() {
         <StationDetail
           station={selectedStation}
           records={[]}
+          userRole={currentUser?.role}
           onBack={() => setSelectedStationId(null)}
         />
       );

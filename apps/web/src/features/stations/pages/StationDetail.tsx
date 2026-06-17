@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, MapPin, Zap, Droplets, Calendar, Clock, Edit, Save, X, TrendingDown, TrendingUp, Minus } from 'lucide-react';
+import * as Dialog from '@radix-ui/react-dialog';
 import { toast } from 'sonner';
 import { Station, FuelRecord, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/shared/types';
 import { getFuelHistory, postFuelRecord } from '@/features/fuel/api/fuelApi';
+import { createAdjustmentRequest } from '../api/adjustmentApi';
 
 interface StationDetailProps {
   station: Station;
   records: FuelRecord[];
+  userRole?: string;
   onBack: () => void;
 }
 
@@ -19,7 +22,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-export function StationDetail({ station, records, onBack }: StationDetailProps) {
+export function StationDetail({ station, records, userRole, onBack }: StationDetailProps) {
   const [form, setForm] = useState({
     added: '',
     hoursRun: '',
@@ -28,6 +31,10 @@ export function StationDetail({ station, records, onBack }: StationDetailProps) 
   });
   const [saving, setSaving] = useState(false);
   const [localRecords, setLocalRecords] = useState<FuelRecord[]>(records.filter(r => r.stationId === station.id));
+  const [adjOpen, setAdjOpen] = useState(false);
+  const [adjTarget, setAdjTarget] = useState<FuelRecord | null>(null);
+  const [adjForm, setAdjForm] = useState({ newFuelAdded: '', newHoursRun: '', newNotes: '', reason: '' });
+  const [adjSaving, setAdjSaving] = useState(false);
 
   useEffect(() => {
     getFuelHistory(station.id).then(setLocalRecords).catch(() => {});
@@ -68,6 +75,41 @@ export function StationDetail({ station, records, onBack }: StationDetailProps) 
   const estimatedEnd = station.currentFuel !== null && form.added
     ? station.currentFuel + parseFloat(form.added || '0') - estimatedConsumed
     : null;
+
+  // Build set of original record IDs that have been adjusted
+  const adjustedIds = new Set(
+    localRecords.filter(r => r.source === 'adjustment' && r.adjustmentForId).map(r => r.adjustmentForId!)
+  );
+
+  const canRequestAdjustment = userRole === 'admin' || userRole === 'manager';
+
+  const openAdjModal = (r: FuelRecord) => {
+    setAdjTarget(r);
+    setAdjForm({ newFuelAdded: String(r.added), newHoursRun: String(r.hoursRun), newNotes: r.note ?? '', reason: '' });
+    setAdjOpen(true);
+  };
+
+  const handleAdjSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjTarget) return;
+    if (!adjForm.reason.trim()) { toast.error('Lý do điều chỉnh là bắt buộc.'); return; }
+    setAdjSaving(true);
+    try {
+      await createAdjustmentRequest({
+        originalRecordId: adjTarget.id,
+        reason: adjForm.reason.trim(),
+        newFuelAdded: parseFloat(adjForm.newFuelAdded) || 0,
+        newHoursRun: parseFloat(adjForm.newHoursRun) || 0,
+        newNotes: adjForm.newNotes || null,
+      });
+      toast.success('Yêu cầu điều chỉnh đã được gửi đến Admin.');
+      setAdjOpen(false);
+    } catch (err) {
+      toast.error((err as Error).message || 'Lỗi gửi yêu cầu điều chỉnh');
+    } finally {
+      setAdjSaving(false);
+    }
+  };
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -237,43 +279,130 @@ export function StationDetail({ station, records, onBack }: StationDetailProps) 
               <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: '600px' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc' }}>
-                    {['Ngày', 'Tồn trước', 'Bổ sung', 'Giờ chạy', 'Tiêu hao', 'Tồn cuối', 'Nguồn'].map(h => (
-                      <th key={h} className="px-3 py-2.5 text-left border-b" style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, borderColor: '#e2e8f0' }}>
+                    {['Ngày', 'Tồn trước', 'Bổ sung', 'Giờ chạy', 'Tiêu hao', 'Tồn cuối', 'Nguồn', ''].map((h, i) => (
+                      <th key={i} className="px-3 py-2.5 text-left border-b" style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, borderColor: '#e2e8f0' }}>
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {stationRecords.map(r => (
-                    <tr key={r.id} className="border-b" style={{ borderColor: '#f8fafc' }}>
-                      <td className="px-3 py-2.5" style={{ fontSize: '0.8rem', color: '#374151', whiteSpace: 'nowrap' }}>{r.date}</td>
+                  {stationRecords.map(r => {
+                    const isAdjustment = r.source === 'adjustment';
+                    const hasBeenAdjusted = adjustedIds.has(r.id);
+                    const rowBgColor = isAdjustment ? '#f0f9ff' : undefined;
+                    return (
+                    <tr key={r.id} className="border-b" style={{ borderColor: '#f8fafc', background: rowBgColor }}>
+                      <td className="px-3 py-2.5" style={{ fontSize: '0.8rem', color: '#374151', whiteSpace: 'nowrap' }}>
+                        <div>{r.date}</div>
+                        {hasBeenAdjusted && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium" style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.65rem' }}>
+                            Đã điều chỉnh
+                          </span>
+                        )}
+                      </td>
                       <td className="px-3 py-2.5" style={{ fontSize: '0.8rem', color: '#64748b' }}>{r.previousFuel} L</td>
                       <td className="px-3 py-2.5" style={{ fontSize: '0.8rem', color: r.added > 0 ? '#16a34a' : '#94a3b8', fontWeight: r.added > 0 ? 600 : 400 }}>
-                        {r.added > 0 ? `+${r.added} L` : '—'}
+                        {isAdjustment && r.adjustmentAmount != null
+                          ? <span style={{ color: (r.adjustmentAmount ?? 0) >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+                              {(r.adjustmentAmount ?? 0) >= 0 ? '+' : ''}{r.adjustmentAmount?.toFixed(1)} L
+                            </span>
+                          : r.added > 0 ? `+${r.added} L` : '—'}
                       </td>
-                      <td className="px-3 py-2.5" style={{ fontSize: '0.8rem', color: '#64748b' }}>{r.hoursRun}h</td>
-                      <td className="px-3 py-2.5" style={{ fontSize: '0.8rem', color: '#dc2626' }}>{r.consumed} L</td>
+                      <td className="px-3 py-2.5" style={{ fontSize: '0.8rem', color: '#64748b' }}>{isAdjustment ? '—' : `${r.hoursRun}h`}</td>
+                      <td className="px-3 py-2.5" style={{ fontSize: '0.8rem', color: '#dc2626' }}>{isAdjustment ? '—' : `${r.consumed} L`}</td>
                       <td className="px-3 py-2.5" style={{ fontSize: '0.8rem', fontWeight: 600, color: r.endFuel > 20 ? '#16a34a' : r.endFuel >= 10 ? '#ca8a04' : '#dc2626' }}>
                         {r.endFuel} L
                       </td>
                       <td className="px-3 py-2.5">
                         <span className="px-2 py-0.5 rounded" style={{
                           fontSize: '0.7rem', fontWeight: 500,
-                          background: r.source === 'import' ? '#eff6ff' : '#f0fdf4',
-                          color: r.source === 'import' ? '#2563eb' : '#16a34a',
+                          background: isAdjustment ? '#ede9fe' : r.source === 'import' ? '#eff6ff' : '#f0fdf4',
+                          color: isAdjustment ? '#7c3aed' : r.source === 'import' ? '#2563eb' : '#16a34a',
                         }}>
-                          {r.source === 'import' ? 'Import' : 'Nhập tay'}
+                          {isAdjustment ? 'Điều chỉnh' : r.source === 'import' ? 'Import' : 'Nhập tay'}
                         </span>
                       </td>
+                      <td className="px-3 py-2.5">
+                        {canRequestAdjustment && !isAdjustment && !hasBeenAdjusted && (
+                          <button
+                            onClick={() => openAdjModal(r)}
+                            className="px-2 py-1 rounded text-xs border transition-colors"
+                            style={{ fontSize: '0.7rem', color: '#7c3aed', borderColor: '#ede9fe', background: 'white', whiteSpace: 'nowrap' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#ede9fe'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'white'; }}
+                          >
+                            Yêu cầu điều chỉnh
+                          </button>
+                        )}
+                      </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             )}
           </div>
         </div>
       </div>
+
+      {/* Adjustment Request Modal */}
+      <Dialog.Root open={adjOpen} onOpenChange={setAdjOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.5)' }} />
+          <Dialog.Content aria-describedby={undefined} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl p-6 w-full max-w-md" style={{ background: 'white', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div className="flex items-center justify-between mb-4">
+              <Dialog.Title style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>Yêu cầu điều chỉnh</Dialog.Title>
+              <button onClick={() => setAdjOpen(false)} style={{ color: '#94a3b8' }}><X size={18} /></button>
+            </div>
+            {adjTarget && (
+              <div className="mb-4 p-3 rounded-lg" style={{ background: '#f8fafc', fontSize: '0.82rem', color: '#475569' }}>
+                <div>Bản ghi ngày: <span style={{ fontWeight: 600 }}>{adjTarget.date}</span></div>
+                <div>NL bổ sung gốc: <span style={{ fontWeight: 600 }}>{adjTarget.added} L</span> | Giờ chạy gốc: <span style={{ fontWeight: 600 }}>{adjTarget.hoursRun}h</span></div>
+              </div>
+            )}
+            <form onSubmit={handleAdjSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>NL bổ sung mới (L)</label>
+                  <input type="number" step="0.01" min="0" value={adjForm.newFuelAdded}
+                    onChange={e => setAdjForm(f => ({ ...f, newFuelAdded: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>Số giờ chạy mới (h)</label>
+                  <input type="number" step="0.1" min="0" value={adjForm.newHoursRun}
+                    onChange={e => setAdjForm(f => ({ ...f, newHoursRun: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0' }} />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>Ghi chú mới</label>
+                <input type="text" value={adjForm.newNotes}
+                  onChange={e => setAdjForm(f => ({ ...f, newNotes: e.target.value }))}
+                  placeholder="Ghi chú (tùy chọn)" className="w-full px-3 py-2 rounded-lg border" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>Lý do điều chỉnh <span style={{ color: '#dc2626' }}>*</span></label>
+                <textarea required value={adjForm.reason}
+                  onChange={e => setAdjForm(f => ({ ...f, reason: e.target.value }))}
+                  placeholder="Mô tả lý do cần điều chỉnh..." rows={3}
+                  className="w-full px-3 py-2 rounded-lg border resize-none" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0' }} />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setAdjOpen(false)}
+                  className="flex-1 py-2.5 rounded-lg border" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem' }}>
+                  Hủy
+                </button>
+                <button type="submit" disabled={adjSaving}
+                  className="flex-1 py-2.5 rounded-lg" style={{ background: adjSaving ? '#c4b5fd' : '#7c3aed', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
+                  {adjSaving ? 'Đang gửi...' : 'Gửi yêu cầu'}
+                </button>
+              </div>
+            </form>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }
