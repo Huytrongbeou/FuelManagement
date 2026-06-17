@@ -149,6 +149,7 @@ services:
       - "3000:3000"
     environment:
       PORT: 3000
+      JWT_SECRET: ${AUTH_JWT_SECRET:-change_me_in_production}
       AUTH_SERVICE_URL: http://auth-service:3001
       STATION_SERVICE_URL: http://station-service:3002
       FUEL_SERVICE_URL: http://fuel-service:3003

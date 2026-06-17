@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import * as userRepo from '../repositories/auth.repository'
-import type { LoginDto, LoginResponse, UserPayload } from '../models/auth.types'
+import type { LoginDto, LoginResponse, UserPayload, UserRole } from '../models/auth.types'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'change_me_in_production'
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h'
@@ -17,7 +17,12 @@ export async function login(dto: LoginDto): Promise<LoginResponse> {
     throw Object.assign(new Error('Invalid credentials'), { status: 401 })
   }
 
-  const payload: UserPayload = { id: user.id, username: user.username, isActive: user.isActive }
+  const payload: UserPayload = {
+    id: user.id,
+    username: user.username,
+    role: user.role as UserRole,
+    isActive: user.isActive,
+  }
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] })
 
   return { token, expiresIn: JWT_EXPIRES_IN, user: payload }
@@ -28,7 +33,7 @@ export async function me(userId: string): Promise<UserPayload> {
   if (!user || !user.isActive) {
     throw Object.assign(new Error('User not found'), { status: 404 })
   }
-  return { id: user.id, username: user.username, isActive: user.isActive }
+  return { id: user.id, username: user.username, role: user.role as UserRole, isActive: user.isActive }
 }
 
 export function verifyToken(token: string): UserPayload {
