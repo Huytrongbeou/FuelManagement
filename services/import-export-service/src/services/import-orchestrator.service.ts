@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client'
 import { parseAndValidate } from './excel-validator.service'
 import * as stationClient from '../clients/station.client'
 import * as fuelClient from '../clients/fuel.client'
+import type { UserContext } from '../clients/fuel.client'
 import * as mq from '../clients/rabbitmq'
 import fs from 'fs/promises'
 
@@ -52,9 +53,9 @@ export async function previewImport(jobId: string, filePath: string, importDate:
 
 export async function confirmImport(
   jobId: string,
-  opts: { committedBy?: string; source?: string } = {}
+  opts: { committedBy?: string; source?: string; userCtx?: UserContext } = {}
 ) {
-  const { committedBy, source = 'import' } = opts
+  const { committedBy, source = 'import', userCtx } = opts
   const job = await prisma.importJob.findUnique({ where: { id: jobId } })
   if (!job) throw Object.assign(new Error('Import job not found'), { status: 404 })
 
@@ -142,7 +143,7 @@ export async function confirmImport(
 
     let upsertResult: Awaited<ReturnType<typeof stationClient.bulkUpsert>>
     try {
-      upsertResult = await stationClient.bulkUpsert(upsertRows)
+      upsertResult = await stationClient.bulkUpsert(upsertRows, userCtx)
     } catch {
       await prisma.importJob.update({
         where: { id: jobId },
@@ -210,7 +211,7 @@ export async function confirmImport(
       records: fuelRecords,
       committed_by: committedBy,
       source,
-    })
+    }, userCtx)
   } catch (err: unknown) {
     const status = (err as { response?: { status?: number } }).response?.status
     if (status === 409) {

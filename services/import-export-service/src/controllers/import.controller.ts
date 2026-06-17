@@ -1,16 +1,26 @@
 import type { Request, Response } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { previewImport, confirmImport } from '../services/import-orchestrator.service'
+import type { UserContext } from '../clients/fuel.client'
 import { v4 as uuidv4 } from 'uuid'
 import path from 'path'
 
 const prisma = new PrismaClient()
+
+function extractUserCtx(req: Request): UserContext {
+  return {
+    userId: req.headers['x-user-id'] as string | undefined,
+    userRole: req.headers['x-user-role'] as string | undefined,
+    userName: req.headers['x-user-name'] as string | undefined,
+  }
+}
 
 export async function upload(req: Request, res: Response): Promise<void> {
   try {
     const file = (req as Request & { file?: { path: string; originalname: string } }).file
     if (!file) { res.status(400).json({ error: 'File is required' }); return }
 
+    const ctx = extractUserCtx(req)
     const job = await prisma.importJob.create({
       data: {
         idempotencyKey: uuidv4(),
@@ -19,8 +29,7 @@ export async function upload(req: Request, res: Response): Promise<void> {
       },
     })
 
-    // Run preview in background-ish (await is fine for MVP)
-    await previewImport(job.id, file.path, new Date())
+    await previewImport(job.id, file.path, new Date(), ctx.userName)
 
     const updated = await prisma.importJob.findUnique({ where: { id: job.id } })
     res.status(201).json(updated)
@@ -50,9 +59,11 @@ export async function listJobs(_req: Request, res: Response): Promise<void> {
 
 export async function confirm(req: Request, res: Response): Promise<void> {
   try {
+    const ctx = extractUserCtx(req)
     const result = await confirmImport(req.params.job_id, {
-      committedBy: req.body.committed_by,
+      committedBy: ctx.userName,
       source: 'import',
+      userCtx: ctx,
     })
     res.json(result)
   } catch (err: unknown) {

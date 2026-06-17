@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client'
 import { v4 as uuidv4 } from 'uuid'
 import * as stationClient from '../clients/station.client'
 import * as fuelClient from '../clients/fuel.client'
+import type { UserContext } from '../clients/fuel.client'
 import { confirmImport } from './import-orchestrator.service'
 import type { ParsedRow } from './excel-validator.service'
 
@@ -121,6 +122,6 @@ export async function preview(rows: DirectEntryRow[], createdBy?: string) {
   return { jobId: job.id, totalRows, validRows, invalidRows, warningRows, rows: parsedRows }
 }
 
-export async function confirm(jobId: string, committedBy?: string) {
-  return confirmImport(jobId, { committedBy, source: 'direct' })
+export async function confirm(jobId: string, committedBy?: string, userCtx?: UserContext) {
+  return confirmImport(jobId, { committedBy, source: 'direct', userCtx })
 }

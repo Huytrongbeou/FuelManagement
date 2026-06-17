@@ -1,4 +1,5 @@
 import axios from 'axios'
+import type { UserContext } from './fuel.client'
 
 const STATION_URL = process.env.STATION_SERVICE_URL || 'http://localhost:3002'
 
@@ -24,18 +25,28 @@ export interface Station {
   isActive: boolean
 }
 
+function userHeaders(ctx?: UserContext): Record<string, string> {
+  const h: Record<string, string> = {}
+  if (ctx?.userId) h['x-user-id'] = ctx.userId
+  if (ctx?.userRole) h['x-user-role'] = ctx.userRole
+  if (ctx?.userName) h['x-user-name'] = ctx.userName
+  return h
+}
+
 export async function getAllStations(opts: { active?: string } = {}): Promise<Station[]> {
   const qs = opts.active ? `?active=${opts.active}` : ''
   const { data } = await axios.get<Station[]>(`${STATION_URL}/stations${qs}`)
   return data
 }
 
-export async function bulkUpsert(stations: unknown[]): Promise<{
+export async function bulkUpsert(stations: unknown[], ctx?: UserContext): Promise<{
   success: boolean
   results: { station_code: string; station_id: string; action: string; warning: string | null }[]
   has_errors: boolean
   errors?: string[]
 }> {
-  const { data } = await axios.post(`${STATION_URL}/stations/bulk-upsert`, { stations })
+  const { data } = await axios.post(`${STATION_URL}/stations/bulk-upsert`, { stations }, {
+    headers: userHeaders(ctx),
+  })
   return data
 }
