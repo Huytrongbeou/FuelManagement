@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project uses **Monorepo Microservices + Modular MVC** — each service is an independent deployable unit; the monorepo layout is purely for developer convenience.
+This project uses **Monorepo Microservices + Layered MVC Architecture** — each service is an independent deployable unit; the monorepo layout is purely for developer convenience.
 
 ## Root
 
@@ -74,139 +74,138 @@ src/
 
 ## Backend Services — Internal Structure
 
-Each service follows **Modular MVC / Layered Architecture** inside its own `src/`:
+Each service follows **Microservices + Layered MVC Architecture** — flat layer grouping by technical concern, not by domain:
 
 ```
 src/
-├── server.ts
-├── modules/
-│   └── <domain>/
-│       ├── <domain>.controller.ts
-│       ├── <domain>.service.ts
-│       ├── <domain>.repository.ts  (if DB access)
-│       └── <domain>.routes.ts
-└── shared/
-    ├── clients/                    # HTTP clients for other services
-    └── utils/                      # Pure utility functions
+├── app.ts               # Express app: middleware + routes (exported)
+├── server.ts            # Entry: import app, connect RabbitMQ, listen
+├── controllers/         # Request/response handling
+├── services/            # Business logic
+├── repositories/        # DB queries (Prisma) — only if service has DB
+├── routes/              # Route declarations
+├── models/              # TypeScript interfaces & DTOs
+├── middleware/          # auth, validation
+├── clients/             # HTTP clients for other services + RabbitMQ
+├── utils/               # Pure helpers (no cross-service calls)
+├── socket/              # Only in realtime-service
+└── config/              # Only in realtime-service
 ```
 
 ### auth-service (port 3001)
 
 ```
 src/
+├── app.ts
 ├── server.ts
-├── modules/
-│   └── auth/
-│       ├── auth.controller.ts
-│       ├── auth.service.ts
-│       ├── auth.repository.ts
-│       └── auth.routes.ts
-└── shared/
-    └── middleware/
-        ├── authenticate.ts
-        └── validate-login.ts
+├── controllers/auth.controller.ts
+├── services/auth.service.ts
+├── repositories/auth.repository.ts
+├── routes/auth.routes.ts
+├── models/auth.types.ts
+└── middleware/
+    ├── authenticate.ts
+    └── validate-login.ts
 ```
 
 ### station-service (port 3002)
 
 ```
 src/
+├── app.ts
 ├── server.ts
-├── modules/
-│   ├── stations/
-│   │   ├── station.controller.ts
-│   │   ├── station.service.ts
-│   │   ├── station.repository.ts
-│   │   ├── station-bulk-upsert.service.ts
-│   │   └── station.routes.ts
-│   ├── generator-brands/
-│   │   ├── generator-brand.controller.ts
-│   │   ├── generator-brand.service.ts
-│   │   ├── generator-brand.repository.ts
-│   │   └── generator-brand.routes.ts
-│   └── generator-models/
-│       ├── generator-model.controller.ts
-│       ├── generator-model.service.ts
-│       ├── generator-model.repository.ts
-│       └── generator-model.routes.ts
-└── shared/
-    ├── clients/rabbitmq.ts
-    ├── utils/haversine.ts
-    └── types/station.types.ts
+├── controllers/
+│   ├── station.controller.ts
+│   ├── generator-brand.controller.ts
+│   └── generator-model.controller.ts
+├── services/
+│   ├── station.service.ts
+│   ├── station-bulk-upsert.service.ts
+│   ├── generator-brand.service.ts
+│   └── generator-model.service.ts
+├── repositories/
+│   ├── station.repository.ts
+│   ├── generator-brand.repository.ts
+│   └── generator-model.repository.ts
+├── routes/
+│   ├── station.routes.ts
+│   ├── generator-brand.routes.ts
+│   └── generator-model.routes.ts
+├── models/station.types.ts
+├── clients/rabbitmq.ts
+└── utils/haversine.ts
 ```
 
 ### fuel-service (port 3003)
 
 ```
 src/
+├── app.ts
 ├── server.ts
-├── modules/
-│   ├── fuel-records/
-│   │   ├── fuel-record.controller.ts
-│   │   ├── fuel-record.service.ts
-│   │   ├── fuel-record.repository.ts
-│   │   └── fuel-record.routes.ts
-│   └── import-commit/
-│       └── import-commit.service.ts
-└── shared/
-    ├── clients/
-    │   ├── rabbitmq.ts
-    │   └── station.client.ts
-    └── utils/
-        └── fuel-calculator.ts
+├── controllers/fuel-record.controller.ts
+├── services/
+│   ├── fuel-record.service.ts
+│   └── import-commit.service.ts
+├── repositories/fuel-record.repository.ts
+├── routes/fuel-record.routes.ts
+├── clients/
+│   ├── rabbitmq.ts
+│   └── station.client.ts
+└── utils/fuel-calculator.ts
 ```
 
 ### import-export-service (port 3004)
 
 ```
 src/
+├── app.ts
 ├── server.ts
-├── modules/
-│   ├── excel-import/
-│   │   ├── import.controller.ts
-│   │   ├── import.routes.ts
-│   │   ├── excel-validator.service.ts
-│   │   └── import-orchestrator.service.ts
-│   ├── excel-export/
-│   │   ├── export.controller.ts
-│   │   └── export.routes.ts
-│   └── manual-entry/
-│       ├── manual-entry.controller.ts
-│       ├── manual-entry.routes.ts
-│       └── manual-entry.service.ts
-└── shared/
-    ├── clients/
-    │   ├── fuel.client.ts
-    │   ├── rabbitmq.ts
-    │   └── station.client.ts
-    └── utils/
-        ├── excel-parser.ts
-        └── haversine.ts
+├── controllers/
+│   ├── import.controller.ts
+│   ├── export.controller.ts
+│   └── manual-entry.controller.ts
+├── services/
+│   ├── import-orchestrator.service.ts
+│   ├── excel-validator.service.ts
+│   └── manual-entry.service.ts
+├── routes/
+│   ├── import.routes.ts
+│   ├── export.routes.ts
+│   └── manual-entry.routes.ts
+├── clients/
+│   ├── fuel.client.ts
+│   ├── rabbitmq.ts
+│   └── station.client.ts
+└── utils/
+    ├── excel-parser.ts
+    └── haversine.ts
 ```
 
 ### gateway (port 3000)
 
 ```
 src/
-├── server.ts
-├── aggregates/
-│   ├── dashboard.aggregate.ts      # merges station + fuel for dashboard
-│   ├── map-stations.aggregate.ts   # merges station + fuel for map view
-│   ├── station-full.aggregate.ts   # single station + fuel state
-│   └── stations.aggregate.ts       # list with fuel state + shared helpers
+├── app.ts               # Express + CORS + rateLimit + all routes; exports app + wsProxy
+├── server.ts            # http.Server + WebSocket upgrade + listen
+├── controllers/
+│   ├── stations.controller.ts      # list with fuel state + shared helpers
+│   ├── dashboard.controller.ts     # aggregates station + fuel for dashboard
+│   ├── map-stations.controller.ts  # aggregates station + fuel for map
+│   └── station-full.controller.ts  # single station + fuel state
 └── middleware/
-    └── auth.middleware.ts           # JWT verification
+    └── auth.middleware.ts
 ```
 
 ### realtime-service (port 3005)
 
 ```
 src/
-├── server.ts                       # express + socket.io bootstrap
-├── config/
-│   └── rabbitmq.ts                 # RabbitMQ connection + queue binding
-└── handlers/
-    └── fuel-events.handler.ts      # consume events → emit to socket.io
+├── app.ts               # Express + health endpoint
+├── server.ts            # http.Server + Socket.io + RabbitMQ + listen
+├── socket/
+│   └── fuel-events.handler.ts   # consume RabbitMQ events → emit to socket.io
+└── config/
+    └── rabbitmq.ts              # RabbitMQ connection + queue binding
 ```
 
 ## Naming Conventions
