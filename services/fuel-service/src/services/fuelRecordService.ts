@@ -9,7 +9,6 @@ interface ManualRecordInput {
   recordedDate: string
   fuelAdded: number
   hoursRun: number
-  actualFuel: number | null
   notes?: string
   recordedBy?: string
 }
@@ -26,25 +25,23 @@ export async function createManualRecord(input: ManualRecordInput) {
 
   const currentState = await findCurrentState(input.stationId)
 
-  let fuelBefore: number
-  if (currentState) {
-    fuelBefore = Number(currentState.currentFuel)
-  } else {
-    if (input.actualFuel == null) {
-      throw Object.assign(
-        new Error('Trạm chưa có dữ liệu nhiên liệu. Vui lòng nhập Nhiên liệu tồn ban đầu.'),
-        { status: 400 }
-      )
-    }
-    fuelBefore = 0
+  const fuelBefore: number = currentState ? Number(currentState.currentFuel) : 0
+
+  const fuelAddedValue = input.fuelAdded ?? 0
+  const hoursRunValue = input.hoursRun ?? 0
+  if (fuelAddedValue < 0 || hoursRunValue < 0) {
+    throw Object.assign(new Error('Nhiên liệu bổ sung và số giờ chạy không được âm'), { status: 400 })
+  }
+  if (fuelAddedValue === 0 && hoursRunValue === 0) {
+    throw Object.assign(new Error('Không có phát sinh nhiên liệu để cập nhật'), { status: 400 })
   }
 
   const consumptionRate = Number(station.consumptionRate)
   const maxCapacity = Number(station.maxCapacity)
-  const fuelConsumed = calc.calculateFuelConsumed(input.hoursRun, consumptionRate)
-  const fuelCalculated = calc.calculateFuelResult(fuelBefore, input.fuelAdded, fuelConsumed)
-  const fuelAfter = calc.resolveFinalFuel(fuelCalculated, input.actualFuel)
-  const fuelDifference = calc.computeDifference(input.actualFuel, fuelCalculated)
+  const fuelConsumed = calc.calculateFuelConsumed(hoursRunValue, consumptionRate)
+  const fuelCalculated = calc.calculateFuelResult(fuelBefore, fuelAddedValue, fuelConsumed)
+  const fuelAfter = fuelCalculated
+  const fuelDifference = null
   const fuelStatus = calc.determineFuelStatus(fuelAfter) as calc.FuelStatus
 
   if (fuelAfter < 0) throw Object.assign(new Error('Nhiên liệu sau không thể âm'), { status: 400 })
@@ -59,15 +56,15 @@ export async function createManualRecord(input: ManualRecordInput) {
         stationCode: input.stationCode,
         recordedDate: new Date(input.recordedDate),
         fuelBefore,
-        fuelAdded: input.fuelAdded,
-        hoursRun: input.hoursRun,
+        fuelAdded: fuelAddedValue,
+        hoursRun: hoursRunValue,
         consumptionRate,
         maxCapacity,
         fuelConsumed,
         fuelCalculated,
-        actualFuel: input.actualFuel,
+        actualFuel: null,
         fuelAfter,
-        fuelDifference,
+        fuelDifference: null,
         fuelStatus,
         notes: input.notes,
         recordedBy: input.recordedBy,

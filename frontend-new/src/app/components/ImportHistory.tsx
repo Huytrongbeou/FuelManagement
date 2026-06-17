@@ -20,7 +20,6 @@ const mockErrors = [
 ];
 
 const mockWarnings = [
-  { row: 3,  code: 'ST003', field: 'Chênh lệch',  message: 'Chênh lệch -2L so với tính toán' },
   { row: 5,  code: 'ST006', field: 'Số giờ chạy', message: 'Số giờ chạy cao bất thường: 22h' },
 ];
 

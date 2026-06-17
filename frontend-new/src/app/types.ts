@@ -56,7 +56,6 @@ export interface FuelRecord {
   hoursRun: number;
   consumed: number;
   endFuel: number;
-  difference: number;
   source: 'manual' | 'import' | 'direct';
   note?: string;
 }

@@ -2,18 +2,19 @@ import { useState } from 'react';
 import { Plus, Edit, ToggleRight, ToggleLeft, Save, X, Search } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { toast } from 'sonner';
-import { GeneratorBrand, GeneratorModel, fuelTypeLabel } from '../types';
+import { GeneratorBrand, GeneratorModel, Station, fuelTypeLabel, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '../types';
 import { createModel, updateModel, deactivateModel, reactivateModel } from '../api/modelApi';
 
 interface Props {
   brands: GeneratorBrand[];
   models: GeneratorModel[];
+  stations: Station[];
   onUpdate: (models: GeneratorModel[]) => void;
 }
 
 const emptyForm = { brandId: '', modelName: '', powerKva: 0, fuelType: 'diesel' as const, suggestedRate: 0, suggestedCapacity: 0, note: '', active: true };
 
-export function GeneratorModels({ brands, models, onUpdate }: Props) {
+export function GeneratorModels({ brands, models, stations, onUpdate }: Props) {
   const [query, setQuery] = useState('');
   const [brandFilter, setBrandFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -21,8 +22,9 @@ export function GeneratorModels({ brands, models, onUpdate }: Props) {
   const [editing, setEditing] = useState<GeneratorModel | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [popupModel, setPopupModel] = useState<GeneratorModel | null>(null);
 
-  const stationCount = (_modelId: string) => 0;
+  const stationCount = (modelId: string) => stations.filter(s => s.modelId === modelId && s.active).length;
 
   const filtered = models.filter(m => {
     if (query && !m.modelName.toLowerCase().includes(query.toLowerCase()) && !m.brandName.toLowerCase().includes(query.toLowerCase())) return false;
@@ -149,7 +151,9 @@ export function GeneratorModels({ brands, models, onUpdate }: Props) {
                   <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.82rem', color: '#475569' }}>{m.suggestedRate} L/h</td>
                   <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.82rem', color: '#475569' }}>{m.suggestedCapacity} L</td>
                   <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9' }}>
-                    <span className="px-2 py-0.5 rounded-full" style={{ background: '#eff6ff', color: '#2563eb', fontSize: '0.78rem', fontWeight: 600 }}>{stationCount(m.id)} trạm</span>
+                    <button onClick={() => setPopupModel(m)} className="px-2 py-0.5 rounded-full" style={{ background: '#eff6ff', color: '#2563eb', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>
+                      {stationCount(m.id)} trạm
+                    </button>
                   </td>
                   <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9' }}>
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ background: m.active ? '#dcfce7' : '#f1f5f9', color: m.active ? '#16a34a' : '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>
@@ -176,6 +180,58 @@ export function GeneratorModels({ brands, models, onUpdate }: Props) {
           </table>
         </div>
       </div>
+
+      {/* Stations popup */}
+      <Dialog.Root open={!!popupModel} onOpenChange={open => !open && setPopupModel(null)}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.5)' }} />
+          <Dialog.Content aria-describedby={undefined} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto" style={{ background: 'white', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <Dialog.Title className="sr-only">Trạm dùng model {popupModel?.modelName}</Dialog.Title>
+            <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: '#f1f5f9' }}>
+              <div>
+                <h3 style={{ color: '#0f172a', marginBottom: '2px' }}>Trạm dùng model {popupModel?.modelName}</h3>
+                <p style={{ color: '#64748b', fontSize: '0.8rem' }}>{popupModel?.brandName} · {popupModel?.powerKva} kVA</p>
+              </div>
+              <Dialog.Close asChild>
+                <button style={{ color: '#94a3b8' }}><X size={20} /></button>
+              </Dialog.Close>
+            </div>
+            <div className="p-5">
+              {popupModel && (() => {
+                const modelStations = stations.filter(s => s.modelId === popupModel.id && s.active);
+                if (modelStations.length === 0) {
+                  return <div className="py-8 text-center" style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Không có trạm nào đang dùng model này.</div>;
+                }
+                return (
+                  <div className="space-y-2">
+                    {modelStations.map(s => {
+                      const st = getFuelStatus(s.currentFuel);
+                      const c = fuelStatusColor(st);
+                      return (
+                        <div key={s.id} className="flex items-center justify-between px-4 py-3 rounded-lg border" style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}>
+                          <div className="flex items-center gap-3">
+                            <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>{s.code}</span>
+                            <span style={{ fontSize: '0.85rem', color: '#1e293b', fontWeight: 500 }}>{s.name}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span style={{ fontSize: '0.82rem', color: '#475569' }}>
+                              {s.currentFuel !== null ? `${s.currentFuel} L` : 'Chưa có'}
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: c.bg, color: c.text, fontSize: '0.72rem', fontWeight: 600, border: `1px solid ${c.border}` }}>
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ background: c.dot }} />
+                              {fuelStatusLabel(st)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       {/* Add/Edit Dialog */}
       <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>

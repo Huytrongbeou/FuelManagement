@@ -52,6 +52,30 @@ export const api = {
   delete: <T>(path: string) => request<T>('DELETE', path),
 };
 
+export async function downloadWithAuth(path: string, filename: string): Promise<void> {
+  const base = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+  const token = localStorage.getItem('fuel_token');
+  if (!token) throw new Error('Bạn chưa đăng nhập');
+  const baseUrl = base.replace(/\/$/, '');
+  const cleanPath = path.replace(/^\//, '');
+  let url: string | null = null;
+  let a: HTMLAnchorElement | null = null;
+  try {
+    const res = await fetch(`${baseUrl}/${cleanPath}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error(`Download thất bại (${res.status})`);
+    const blob = await res.blob();
+    url = URL.createObjectURL(blob);
+    a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+  } finally {
+    if (a) a.remove();
+    if (url) URL.revokeObjectURL(url);
+  }
+}
+
 export async function uploadFile<T>(path: string, file: File, fieldName = 'file'): Promise<T> {
   const token = getToken();
   const form = new FormData();

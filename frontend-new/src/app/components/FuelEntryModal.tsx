@@ -21,7 +21,7 @@ function InfoChip({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export function FuelEntryModal({ station, open, onClose }: Props) {
-  const [form, setForm] = useState({ added: '', hoursRun: '', actualFuel: '', date: new Date().toISOString().slice(0, 10), note: '' });
+  const [form, setForm] = useState({ added: '', hoursRun: '', date: new Date().toISOString().slice(0, 10), note: '' });
   const [saving, setSaving] = useState(false);
 
   if (!station) return null;
@@ -34,9 +34,8 @@ export function FuelEntryModal({ station, open, onClose }: Props) {
   const consumed = hours * station.fuelRate;
   const prev = station.currentFuel ?? 0;
   const sysCalc = prev + added - consumed;
-  const finalFuel = form.actualFuel !== '' ? parseFloat(form.actualFuel) : (form.added || form.hoursRun ? sysCalc : null);
-  const diff = form.actualFuel !== '' && (form.added || form.hoursRun) ? parseFloat(form.actualFuel) - sysCalc : null;
-  const hasChange = form.added || form.hoursRun || form.actualFuel;
+  const finalFuel = (form.added || form.hoursRun) ? sysCalc : null;
+  const hasChange = form.added || form.hoursRun;
 
   const newStatus = finalFuel !== null ? getFuelStatus(finalFuel) : null;
   const newC = newStatus ? fuelStatusColor(newStatus) : null;
@@ -57,11 +56,10 @@ export function FuelEntryModal({ station, open, onClose }: Props) {
         recordedDate: form.date,
         fuelAdded: form.added !== '' ? parseFloat(form.added) : 0,
         hoursRun: form.hoursRun !== '' ? parseFloat(form.hoursRun) : 0,
-        actualFuel: form.actualFuel !== '' ? parseFloat(form.actualFuel) : null,
         notes: form.note || undefined,
       });
       toast.success(`Đã cập nhật nhiên liệu trạm ${station.code}`);
-      setForm({ added: '', hoursRun: '', actualFuel: '', date: new Date().toISOString().slice(0, 10), note: '' });
+      setForm({ added: '', hoursRun: '', date: new Date().toISOString().slice(0, 10), note: '' });
       onClose();
     } catch (err) {
       toast.error((err as Error).message || 'Lỗi lưu dữ liệu');
@@ -139,15 +137,6 @@ export function FuelEntryModal({ station, open, onClose }: Props) {
                     onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
                     onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }} />
                 </div>
-                <div>
-                  <label className="block mb-1.5" style={{ fontSize: '0.82rem', color: '#475569' }}>
-                    Nhiên liệu tồn thực tế (L)
-                    <span style={{ fontSize: '0.72rem', color: '#94a3b8', marginLeft: '4px' }}>ưu tiên hơn tự tính</span>
-                  </label>
-                  <input type="number" min={0} value={form.actualFuel} onChange={e => setForm(f => ({ ...f, actualFuel: e.target.value }))} placeholder="Đo thực tế — ô trống = dùng giá trị tự tính" style={inputStyle}
-                    onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
-                    onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }} />
-                </div>
               </div>
               <div>
                 <label className="block mb-1.5" style={{ fontSize: '0.82rem', color: '#475569' }}>Ghi chú</label>
@@ -166,7 +155,6 @@ export function FuelEntryModal({ station, open, onClose }: Props) {
                       { label: 'Bổ sung',            value: added ? `+${added} L` : '—', color: '#16a34a' },
                       { label: 'Tiêu hao định mức',  value: hours ? `-${consumed.toFixed(1)} L` : '—', color: '#dc2626' },
                       { label: 'Hệ thống tự tính',   value: `${sysCalc.toFixed(1)} L`, color: '#475569' },
-                      { label: 'Chênh lệch',         value: diff !== null ? `${diff > 0 ? '+' : ''}${diff.toFixed(1)} L` : '—', color: Math.abs(diff ?? 0) > 5 ? '#ca8a04' : '#475569' },
                       { label: 'Tồn cuối cùng',      value: finalFuel !== null ? `${finalFuel.toFixed(1)} L` : '—', color: isError ? '#dc2626' : (newC ? newC.text : '#475569') },
                     ].map(item => (
                       <div key={item.label} className="flex flex-col gap-0.5">

@@ -59,14 +59,14 @@ export const stations: Station[] = [
 ];
 
 export const fuelRecords: FuelRecord[] = [
-  { id: 'fr1',  stationId: 's1',  date: '2026-06-12', previousFuel: 38, added: 20, hoursRun: 12, consumed: 12, endFuel: 46,  difference: 0,  source: 'import',  note: 'Import định kỳ tháng 6' },
-  { id: 'fr2',  stationId: 's1',  date: '2026-06-11', previousFuel: 50, added: 0,  hoursRun: 12, consumed: 12, endFuel: 38,  difference: 0,  source: 'manual' },
-  { id: 'fr3',  stationId: 's1',  date: '2026-06-10', previousFuel: 62, added: 0,  hoursRun: 12, consumed: 12, endFuel: 50,  difference: 0,  source: 'manual' },
-  { id: 'fr4',  stationId: 's2',  date: '2026-06-12', previousFuel: 20, added: 10, hoursRun: 10, consumed: 18, endFuel: 12,  difference: 0,  source: 'import' },
-  { id: 'fr5',  stationId: 's5',  date: '2026-06-12', previousFuel: 53, added: 0,  hoursRun: 10, consumed: 18, endFuel: 35,  difference: 0,  source: 'import' },
-  { id: 'fr6',  stationId: 's9',  date: '2026-06-12', previousFuel: 74, added: 0,  hoursRun: 10, consumed: 14, endFuel: 60,  difference: 0,  source: 'import' },
-  { id: 'fr7',  stationId: 's11', date: '2026-06-12', previousFuel: 172,added: 0,  hoursRun: 10, consumed: 22, endFuel: 150, difference: 0,  source: 'import' },
-  { id: 'fr8',  stationId: 's12', date: '2026-06-12', previousFuel: 43, added: 0,  hoursRun: 10, consumed: 18, endFuel: 25,  difference: 0,  source: 'import' },
+  { id: 'fr1',  stationId: 's1',  date: '2026-06-12', previousFuel: 38, added: 20, hoursRun: 12, consumed: 12, endFuel: 46,  source: 'import',  note: 'Import định kỳ tháng 6' },
+  { id: 'fr2',  stationId: 's1',  date: '2026-06-11', previousFuel: 50, added: 0,  hoursRun: 12, consumed: 12, endFuel: 38,  source: 'manual' },
+  { id: 'fr3',  stationId: 's1',  date: '2026-06-10', previousFuel: 62, added: 0,  hoursRun: 12, consumed: 12, endFuel: 50,  source: 'manual' },
+  { id: 'fr4',  stationId: 's2',  date: '2026-06-12', previousFuel: 20, added: 10, hoursRun: 10, consumed: 18, endFuel: 12,  source: 'import' },
+  { id: 'fr5',  stationId: 's5',  date: '2026-06-12', previousFuel: 53, added: 0,  hoursRun: 10, consumed: 18, endFuel: 35,  source: 'import' },
+  { id: 'fr6',  stationId: 's9',  date: '2026-06-12', previousFuel: 74, added: 0,  hoursRun: 10, consumed: 14, endFuel: 60,  source: 'import' },
+  { id: 'fr7',  stationId: 's11', date: '2026-06-12', previousFuel: 172,added: 0,  hoursRun: 10, consumed: 22, endFuel: 150, source: 'import' },
+  { id: 'fr8',  stationId: 's12', date: '2026-06-12', previousFuel: 43, added: 0,  hoursRun: 10, consumed: 18, endFuel: 25,  source: 'import' },
 ];
 
 export const importSessions: ImportSession[] = [
