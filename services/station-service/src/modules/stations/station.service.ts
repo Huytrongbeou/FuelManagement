@@ -1,4 +1,4 @@
-import * as stationRepo from '../repositories/stationRepository'
+import * as stationRepo from './station.repository'
 
 type ListOpts = {
   active?: 'true' | 'false' | 'all'

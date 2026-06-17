@@ -1,8 +1,8 @@
 import express from 'express'
-import stationRoutes from './routes/stationRoutes'
-import brandRoutes from './routes/brandRoutes'
-import modelRoutes from './routes/modelRoutes'
-import { connect as connectRabbit } from './clients/rabbitmq'
+import stationRoutes from './modules/stations/station.routes'
+import brandRoutes from './modules/generator-brands/generator-brand.routes'
+import modelRoutes from './modules/generator-models/generator-model.routes'
+import { connect as connectRabbit } from './shared/clients/rabbitmq'
 
 const app = express()
 const PORT = parseInt(process.env.PORT || '3002', 10)
