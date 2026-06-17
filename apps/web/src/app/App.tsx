@@ -21,9 +21,12 @@ import { getBrands } from '@/features/generators/api/brandApi';
 import { getModels } from '@/features/generators/api/modelApi';
 import { getJobs } from '@/features/import-export/api/importApi';
 import type { ImportSession } from '@/shared/types';
+import { getMe } from '@/features/auth/api/authApi';
+import type { AuthUser } from '@/features/auth/api/authApi';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('fuel_token'));
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
@@ -35,6 +38,20 @@ export default function App() {
   const [importSessions, setImportSessions] = useState<ImportSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [addStationOpen, setAddStationOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    getMe().then(setCurrentUser).catch(() => {
+      // 401 is handled by api client (clears token + reloads)
+    });
+  }, [isLoggedIn]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('fuel_token');
+    localStorage.removeItem('fuel_user');
+    setIsLoggedIn(false);
+    setCurrentUser(null);
+  };
 
   const fetchAll = useCallback(async () => {
     if (!isLoggedIn) return;
@@ -85,6 +102,14 @@ export default function App() {
     );
   }
 
+  if (!currentUser) {
+    return (
+      <div className="flex items-center justify-center h-screen" style={{ background: '#f1f5f9' }}>
+        <div style={{ color: '#64748b', fontSize: '1rem' }}>Đang tải...</div>
+      </div>
+    );
+  }
+
   const handleViewStation = (id: string) => {
     setSelectedStationId(id);
     setCurrentPage('stations');
@@ -99,6 +124,16 @@ export default function App() {
   const isDirectEntry = currentPage === 'directEntry';
 
   const renderContent = () => {
+    const role = currentUser?.role;
+    const managerPages: Page[] = ['directEntry', 'import', 'history'];
+    const adminPages: Page[] = ['brands', 'models'];
+    if (role === 'staff' && (managerPages.includes(currentPage) || adminPages.includes(currentPage))) {
+      return <Dashboard stations={stations} onViewStation={handleViewStation} />;
+    }
+    if (role === 'manager' && adminPages.includes(currentPage)) {
+      return <Dashboard stations={stations} onViewStation={handleViewStation} />;
+    }
+
     if (loading && stations.length === 0) {
       return (
         <div className="flex items-center justify-center h-full">
@@ -171,6 +206,9 @@ export default function App() {
           onNavigate={handleNavigate}
           mobileOpen={mobileMenuOpen}
           onMobileClose={() => setMobileMenuOpen(false)}
+          userRole={currentUser.role}
+          username={currentUser.username}
+          onLogout={handleLogout}
         />
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
           <Topbar
