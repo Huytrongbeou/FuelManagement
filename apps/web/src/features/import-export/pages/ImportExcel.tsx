@@ -30,6 +30,7 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [warningAcknowledged, setWarningAcknowledged] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
   const [jobSummary, setJobSummary] = useState({ totalRows: 0, validRows: 0, warningRows: 0, errorRows: 0 });
@@ -55,6 +56,7 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
   const handleUpload = async () => {
     if (!file) return;
     setUploading(true);
+    setWarningAcknowledged(false);
     try {
       const job = await uploadExcel(file) as Record<string, unknown>;
       setJobId(job.id as string);
@@ -306,6 +308,20 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
               </div>
             </div>
 
+            {errorRows > 0 && (
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl" style={{ background: '#fff5f5', border: '1px solid #fca5a5' }}>
+                <XCircle size={16} style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
+                <div>
+                  <div style={{ fontWeight: 600, color: '#b91c1c', fontSize: '0.875rem' }}>
+                    File có {errorRows} dòng lỗi — không thể xác nhận
+                  </div>
+                  <div style={{ color: '#b91c1c', fontSize: '0.8rem', marginTop: '2px' }}>
+                    Vui lòng sửa file và upload lại. Không có "import một phần" — tất cả hoặc không có gì.
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
               <button
                 onClick={() => setStep(1)}
@@ -315,9 +331,10 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
                 <ArrowLeft size={16} /> Quay lại
               </button>
               <button
+                disabled={errorRows > 0}
                 onClick={() => setStep(3)}
                 className="flex items-center gap-2 px-6 py-2.5 rounded-lg transition-all"
-                style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}
+                style={{ background: errorRows > 0 ? '#e2e8f0' : '#2563eb', color: errorRows > 0 ? '#94a3b8' : 'white', fontSize: '0.875rem', fontWeight: 600, cursor: errorRows > 0 ? 'not-allowed' : 'pointer' }}
               >
                 Tiếp theo <ArrowRight size={16} />
               </button>
@@ -336,30 +353,34 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
                     <span style={{ color: '#1e293b', fontSize: '0.875rem', fontWeight: 500 }}>{file?.name}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b" style={{ borderColor: '#f1f5f9' }}>
-                    <span style={{ color: '#64748b', fontSize: '0.875rem' }}>Tổng dòng</span>
+                    <span style={{ color: '#64748b', fontSize: '0.875rem' }}>Tổng dòng sẽ import</span>
                     <span style={{ color: '#1e293b', fontWeight: 600 }}>{jobSummary.totalRows || previewRows.length}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b" style={{ borderColor: '#f1f5f9' }}>
-                    <span style={{ color: '#64748b', fontSize: '0.875rem' }}>Dòng hợp lệ sẽ import</span>
+                    <span style={{ color: '#64748b', fontSize: '0.875rem' }}>Dòng hợp lệ</span>
                     <span style={{ color: '#16a34a', fontWeight: 600 }}>{jobSummary.validRows || validRows}</span>
                   </div>
-                  <div className="flex justify-between py-2 border-b" style={{ borderColor: '#f1f5f9' }}>
-                    <span style={{ color: '#64748b', fontSize: '0.875rem' }}>Dòng cảnh báo (sẽ import)</span>
-                    <span style={{ color: '#ca8a04', fontWeight: 600 }}>{jobSummary.warningRows || warningRows}</span>
-                  </div>
-                  <div className="flex justify-between py-2" style={{ borderColor: '#f1f5f9' }}>
-                    <span style={{ color: '#64748b', fontSize: '0.875rem' }}>Dòng lỗi (sẽ bỏ qua)</span>
-                    <span style={{ color: '#dc2626', fontWeight: 600 }}>{jobSummary.errorRows || errorRows}</span>
-                  </div>
+                  {(jobSummary.warningRows || warningRows) > 0 && (
+                    <div className="flex justify-between py-2" style={{ borderColor: '#f1f5f9' }}>
+                      <span style={{ color: '#64748b', fontSize: '0.875rem' }}>Dòng cảnh báo (sẽ import)</span>
+                      <span style={{ color: '#ca8a04', fontWeight: 600 }}>{jobSummary.warningRows || warningRows}</span>
+                    </div>
+                  )}
                 </div>
 
-                {(jobSummary.errorRows || errorRows) > 0 && (
-                  <div className="mt-4 rounded-lg p-3 flex items-start gap-2" style={{ background: '#fff5f5', border: '1px solid #fca5a5' }}>
-                    <AlertTriangle size={15} style={{ color: '#dc2626', flexShrink: 0, marginTop: '1px' }} />
-                    <span style={{ fontSize: '0.8rem', color: '#b91c1c' }}>
-                      {jobSummary.errorRows || errorRows} dòng lỗi sẽ bị bỏ qua. Các trạm tương ứng sẽ không được cập nhật.
+                {(jobSummary.warningRows || warningRows) > 0 && (
+                  <label className="flex items-start gap-3 mt-5 cursor-pointer select-none p-3 rounded-lg" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+                    <input
+                      type="checkbox"
+                      checked={warningAcknowledged}
+                      onChange={e => setWarningAcknowledged(e.target.checked)}
+                      className="mt-0.5 flex-shrink-0"
+                      style={{ width: '16px', height: '16px', accentColor: '#ca8a04' }}
+                    />
+                    <span style={{ fontSize: '0.8rem', color: '#92400e' }}>
+                      Tôi đã kiểm tra các cảnh báo và xác nhận dữ liệu là đúng.
                     </span>
-                  </div>
+                  </label>
                 )}
               </div>
 
@@ -369,13 +390,18 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
                   className="flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-colors flex-1 justify-center"
                   style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem', background: 'white' }}
                 >
-                  <ArrowLeft size={16} /> Quay lại sửa file
+                  <ArrowLeft size={16} /> Quay lại
                 </button>
                 <button
                   onClick={handleConfirmImport}
-                  disabled={confirming}
+                  disabled={confirming || ((jobSummary.warningRows || warningRows) > 0 && !warningAcknowledged)}
                   className="flex items-center gap-2 px-6 py-2.5 rounded-lg transition-all flex-1 justify-center"
-                  style={{ background: confirming ? '#86efac' : '#16a34a', color: 'white', fontSize: '0.875rem', fontWeight: 600, cursor: confirming ? 'not-allowed' : 'pointer' }}
+                  style={{
+                    background: confirming || ((jobSummary.warningRows || warningRows) > 0 && !warningAcknowledged) ? '#e2e8f0' : '#16a34a',
+                    color: confirming || ((jobSummary.warningRows || warningRows) > 0 && !warningAcknowledged) ? '#94a3b8' : 'white',
+                    fontSize: '0.875rem', fontWeight: 600,
+                    cursor: confirming || ((jobSummary.warningRows || warningRows) > 0 && !warningAcknowledged) ? 'not-allowed' : 'pointer',
+                  }}
                 >
                   <Check size={16} /> {confirming ? 'Đang xử lý...' : 'Xác nhận import'}
                 </button>
