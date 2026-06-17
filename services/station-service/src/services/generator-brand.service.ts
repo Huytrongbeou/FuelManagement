@@ -1,4 +1,4 @@
-import * as brandRepo from './generator-brand.repository'
+import * as brandRepo from '../repositories/generator-brand.repository'
 
 export async function listAll() {
   return brandRepo.findAll()

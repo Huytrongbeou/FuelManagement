@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express'
-import * as service from './generator-model.service'
+import * as service from '../services/generator-model.service'
 
 function handleError(res: Response, err: unknown) {
   res.status((err as { status?: number }).status || 500).json({ error: (err as Error).message })

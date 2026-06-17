@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client'
-import type { BulkUpsertRow, BulkUpsertResult } from '../../shared/types/station.types'
-import * as brandRepo from '../generator-brands/generator-brand.repository'
-import * as modelRepo from '../generator-models/generator-model.repository'
+import type { BulkUpsertRow, BulkUpsertResult } from '../models/station.types'
+import * as brandRepo from '../repositories/generator-brand.repository'
+import * as modelRepo from '../repositories/generator-model.repository'
 
 const prisma = new PrismaClient()
 

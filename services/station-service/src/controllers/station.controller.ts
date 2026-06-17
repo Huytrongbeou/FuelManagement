@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
-import * as service from './station.service'
-import { bulkUpsert } from './station-bulk-upsert.service'
+import * as service from '../services/station.service'
+import { bulkUpsert } from '../services/station-bulk-upsert.service'
 
 function handleError(res: Response, err: unknown) {
   res.status((err as { status?: number }).status || 500).json({ error: (err as Error).message })
