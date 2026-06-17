@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs'
-import { parseCellAsNumber, parseCellAsString, parseCellAsDate } from '../utils/excelParser'
-import { haversineDistance } from '../utils/haversine'
-import type { Station } from '../clients/stationClient'
+import { parseCellAsNumber, parseCellAsString, parseCellAsDate } from '../../shared/utils/excel-parser'
+import { haversineDistance } from '../../shared/utils/haversine'
+import type { Station } from '../../shared/clients/station.client'
 
 export interface ParsedRow {
   rowNum: number

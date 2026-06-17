@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { previewHandler, confirmHandler } from '../controllers/manualEntryController'
+import { previewHandler, confirmHandler } from './manual-entry.controller'
 
 const router = Router()
 

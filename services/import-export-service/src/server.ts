@@ -1,8 +1,8 @@
 import express from 'express'
-import importRoutes from './routes/importRoutes'
-import exportRoutes from './routes/exportRoutes'
-import manualEntryRoutes from './routes/manualEntryRoutes'
-import { connect as connectRabbit } from './clients/rabbitmq'
+import importRoutes from './modules/excel-import/import.routes'
+import exportRoutes from './modules/excel-export/export.routes'
+import manualEntryRoutes from './modules/manual-entry/manual-entry.routes'
+import { connect as connectRabbit } from './shared/clients/rabbitmq'
 
 const app = express()
 const PORT = parseInt(process.env.PORT || '3004', 10)
