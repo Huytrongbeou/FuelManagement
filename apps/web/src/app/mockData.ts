@@ -1,4 +1,4 @@
-import { Station, FuelRecord, ImportSession, GeneratorBrand, GeneratorModel } from './types';
+import { Station, FuelRecord, ImportSession, GeneratorBrand, GeneratorModel } from '@/shared/types';
 
 export const generatorBrands: GeneratorBrand[] = [
   { id: 'b1', name: 'Cummins',    country: 'Mỹ',      active: true,  note: 'Thương hiệu phổ biến nhất' },
