@@ -90,6 +90,51 @@ src/
     └── utils/                      # Pure utility functions
 ```
 
+### auth-service (port 3001)
+
+```
+src/
+├── server.ts
+├── modules/
+│   └── auth/
+│       ├── auth.controller.ts
+│       ├── auth.service.ts
+│       ├── auth.repository.ts
+│       └── auth.routes.ts
+└── shared/
+    └── middleware/
+        ├── authenticate.ts
+        └── validate-login.ts
+```
+
+### station-service (port 3002)
+
+```
+src/
+├── server.ts
+├── modules/
+│   ├── stations/
+│   │   ├── station.controller.ts
+│   │   ├── station.service.ts
+│   │   ├── station.repository.ts
+│   │   ├── station-bulk-upsert.service.ts
+│   │   └── station.routes.ts
+│   ├── generator-brands/
+│   │   ├── generator-brand.controller.ts
+│   │   ├── generator-brand.service.ts
+│   │   ├── generator-brand.repository.ts
+│   │   └── generator-brand.routes.ts
+│   └── generator-models/
+│       ├── generator-model.controller.ts
+│       ├── generator-model.service.ts
+│       ├── generator-model.repository.ts
+│       └── generator-model.routes.ts
+└── shared/
+    ├── clients/rabbitmq.ts
+    ├── utils/haversine.ts
+    └── types/station.types.ts
+```
+
 ### fuel-service (port 3003)
 
 ```
@@ -137,6 +182,31 @@ src/
     └── utils/
         ├── excel-parser.ts
         └── haversine.ts
+```
+
+### gateway (port 3000)
+
+```
+src/
+├── server.ts
+├── aggregates/
+│   ├── dashboard.aggregate.ts      # merges station + fuel for dashboard
+│   ├── map-stations.aggregate.ts   # merges station + fuel for map view
+│   ├── station-full.aggregate.ts   # single station + fuel state
+│   └── stations.aggregate.ts       # list with fuel state + shared helpers
+└── middleware/
+    └── auth.middleware.ts           # JWT verification
+```
+
+### realtime-service (port 3005)
+
+```
+src/
+├── server.ts                       # express + socket.io bootstrap
+├── config/
+│   └── rabbitmq.ts                 # RabbitMQ connection + queue binding
+└── handlers/
+    └── fuel-events.handler.ts      # consume events → emit to socket.io
 ```
 
 ## Naming Conventions
