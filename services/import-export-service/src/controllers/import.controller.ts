@@ -17,8 +17,9 @@ function extractUserCtx(req: Request): UserContext {
 
 export async function upload(req: Request, res: Response): Promise<void> {
   try {
-    const file = (req as Request & { file?: { path: string; originalname: string } }).file
-    if (!file) { res.status(400).json({ error: 'File is required' }); return }
+    const file = (req as Request & { file?: { path: string; originalname: string; size: number } }).file
+    if (!file) { res.status(400).json({ error: 'Vui lòng chọn file để upload.' }); return }
+    if (file.size === 0) { res.status(400).json({ error: 'File rỗng. Vui lòng kiểm tra lại.' }); return }
 
     const ctx = extractUserCtx(req)
     const job = await prisma.importJob.create({
@@ -29,7 +30,15 @@ export async function upload(req: Request, res: Response): Promise<void> {
       },
     })
 
-    await previewImport(job.id, file.path, ctx.userName, ctx)
+    try {
+      await previewImport(job.id, file.path, ctx.userName, ctx)
+    } catch (err: unknown) {
+      const status = (err as { status?: number }).status
+      const message = (err as Error).message || 'Không thể đọc file Excel. Vui lòng kiểm tra định dạng file.'
+      await prisma.importJob.update({ where: { id: job.id }, data: { status: 'failed', errorMessage: message } }).catch(() => undefined)
+      res.status(status || 422).json({ error: message })
+      return
+    }
 
     const updated = await prisma.importJob.findUnique({ where: { id: job.id } })
     res.status(201).json(updated)
