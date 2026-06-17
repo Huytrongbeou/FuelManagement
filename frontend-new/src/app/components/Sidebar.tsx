@@ -53,8 +53,8 @@ export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobi
         </div>
         {!collapsed && (
           <div>
-            <div style={{ color: 'white', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.2 }}>FuelTrack</div>
-            <div style={{ color: '#7dd3fc', fontSize: '0.7rem' }}>Quản lý nhiên liệu</div>
+            <div style={{ color: 'white', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.2 }}>VNPT</div>
+            <div style={{ color: '#7dd3fc', fontSize: '0.7rem' }}>Hệ thống quản lý NL</div>
           </div>
         )}
         {mobileOpen && (

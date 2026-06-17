@@ -25,7 +25,6 @@ export interface DirectEntryRow {
   maxCapacity?: number | null
   fuelAdded?: number | null
   hoursRun?: number | null
-  actualFuel?: number | null
   recordedDate?: string | null
   notes?: string | null
 }
@@ -43,10 +42,7 @@ function toParsedRow(row: DirectEntryRow, stations: { stationCode: string }[], r
   if (isNewStation && (row.maxCapacity == null || row.maxCapacity <= 0)) {
     errors.push('Trạm mới cần nhập dung tích tối đa')
   }
-  const hasFuelActivity = row.fuelAdded != null || row.hoursRun != null || row.actualFuel != null
-  if (isNewStation && hasFuelActivity && row.actualFuel == null) {
-    errors.push('Trạm mới cần nhập Nhiên liệu tồn ban đầu')
-  }
+  const hasFuelActivity = (row.fuelAdded ?? 0) > 0 || (row.hoursRun ?? 0) > 0
 
   const recordedDate = row.recordedDate ? new Date(row.recordedDate) : (hasFuelActivity ? new Date() : null)
 
@@ -69,7 +65,6 @@ function toParsedRow(row: DirectEntryRow, stations: { stationCode: string }[], r
     maxCapacity: row.maxCapacity ?? null,
     fuelAdded: row.fuelAdded ?? null,
     hoursRun: row.hoursRun ?? null,
-    actualFuel: row.actualFuel ?? null,
     recordedDate,
     notes: row.notes || '',
     isNewStation,

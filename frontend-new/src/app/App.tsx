@@ -152,6 +152,7 @@ export default function App() {
           <GeneratorModels
             brands={brands}
             models={models}
+            stations={stations}
             onUpdate={(updated) => { setModels(updated); }}
           />
         );

@@ -23,7 +23,6 @@ export function StationDetail({ station, records, onBack }: StationDetailProps) 
   const [form, setForm] = useState({
     added: '',
     hoursRun: '',
-    actualFuel: '',
     date: new Date().toISOString().slice(0, 10),
     note: '',
   });
@@ -50,13 +49,12 @@ export function StationDetail({ station, records, onBack }: StationDetailProps) 
         recordedDate: form.date,
         fuelAdded: form.added !== '' ? parseFloat(form.added) : 0,
         hoursRun: form.hoursRun !== '' ? parseFloat(form.hoursRun) : 0,
-        actualFuel: form.actualFuel !== '' ? parseFloat(form.actualFuel) : null,
         notes: form.note || undefined,
       });
       toast.success('Đã cập nhật nhiên liệu thành công!', {
         description: `Trạm ${station.code} — ${station.name}`,
       });
-      setForm({ added: '', hoursRun: '', actualFuel: '', date: new Date().toISOString().slice(0, 10), note: '' });
+      setForm({ added: '', hoursRun: '', date: new Date().toISOString().slice(0, 10), note: '' });
       const updated = await getFuelHistory(station.id);
       setLocalRecords(updated);
     } catch (err) {
@@ -163,7 +161,6 @@ export function StationDetail({ station, records, onBack }: StationDetailProps) 
               { label: 'Ngày ghi nhận', type: 'date', key: 'date' },
               { label: 'Nhiên liệu bổ sung (L)', type: 'number', key: 'added', placeholder: '0' },
               { label: 'Số giờ chạy máy', type: 'number', key: 'hoursRun', placeholder: '0' },
-              { label: 'Nhiên liệu tồn thực tế (L)', type: 'number', key: 'actualFuel', placeholder: 'Đo thực tế' },
             ].map(field => (
               <div key={field.key}>
                 <label className="block mb-1.5" style={{ fontSize: '0.8rem', color: '#475569' }}>{field.label}</label>

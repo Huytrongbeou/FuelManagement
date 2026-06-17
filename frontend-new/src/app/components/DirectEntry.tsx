@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react';
-import { RefreshCw, Plus, CheckCircle, AlertTriangle, XCircle, Save, Download, RotateCcw, Trash2, Check } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { RefreshCw, CheckCircle, AlertTriangle, XCircle, Save, Download, RotateCcw, Trash2, Check } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { toast } from 'sonner';
 import { Station, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '../types';
 import { previewEntry, confirmEntry } from '../api/manualEntryApi';
+import { downloadWithAuth } from '../api/client';
 
 interface Props {
   stations: Station[];
@@ -19,14 +20,12 @@ interface EntryRow {
   name: string;
   added: string;
   hoursRun: string;
-  actualFuel: string;
   date: string;
   note: string;
   // computed
   prevFuel: number | null;
   consumed: number | null;
   systemCalc: number | null;
-  diff: number | null;
   finalFuel: number | null;
   status: RowStatus;
   errorMsg: string;
@@ -34,27 +33,25 @@ interface EntryRow {
 
 function calcRow(row: EntryRow, station: Station | undefined): Partial<EntryRow> {
   if (!station) {
-    return { prevFuel: null, consumed: null, systemCalc: null, diff: null, finalFuel: null, status: 'error', errorMsg: 'Mã trạm không tồn tại' };
+    return { prevFuel: null, consumed: null, systemCalc: null, finalFuel: null, status: 'error', errorMsg: 'Mã trạm không tồn tại' };
   }
-  const hasChange = row.added !== '' || row.hoursRun !== '' || row.actualFuel !== '';
-  if (!hasChange) return { prevFuel: station.currentFuel, consumed: null, systemCalc: null, diff: null, finalFuel: null, status: 'unchanged', errorMsg: '' };
+  const hasChange = row.added !== '' || row.hoursRun !== '';
+  if (!hasChange) return { prevFuel: station.currentFuel, consumed: null, systemCalc: null, finalFuel: null, status: 'unchanged', errorMsg: '' };
 
   const prev = station.currentFuel ?? 0;
   const added = row.added !== '' ? parseFloat(row.added) : 0;
   const hours = row.hoursRun !== '' ? parseFloat(row.hoursRun) : 0;
   const consumed = hours * station.fuelRate;
   const sysCalc = prev + added - consumed;
-  const finalFuel = row.actualFuel !== '' ? parseFloat(row.actualFuel) : sysCalc;
-  const diff = row.actualFuel !== '' ? finalFuel - sysCalc : 0;
+  const finalFuel = sysCalc;
 
   let status: RowStatus = 'valid';
   let errorMsg = '';
 
   if (finalFuel < 0) { status = 'error'; errorMsg = 'Nhiên liệu tồn cuối âm'; }
   else if (finalFuel > station.maxCapacity) { status = 'error'; errorMsg = `Vượt dung tích tối đa (${station.maxCapacity}L)`; }
-  else if (Math.abs(diff) > 5) { status = 'warning'; errorMsg = `Chênh lệch lớn: ${diff > 0 ? '+' : ''}${diff.toFixed(1)}L`; }
 
-  return { prevFuel: prev, consumed, systemCalc: sysCalc, diff, finalFuel, status, errorMsg };
+  return { prevFuel: prev, consumed, systemCalc: sysCalc, finalFuel, status, errorMsg };
 }
 
 function fmt(n: number | null, suffix = 'L') {
@@ -67,39 +64,38 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
   const [checked, setChecked] = useState(false);
   const [successOpen, setSuccessOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const hasAutoLoadedRef = useRef(false);
 
-  const loadCurrent = () => {
-    const loaded = stations.slice(0, 15).map(s => {
-      const base: EntryRow = { id: s.id, stationId: s.id, code: s.code, name: s.name, added: '', hoursRun: '', actualFuel: '', date: today, note: '', prevFuel: s.currentFuel, consumed: null, systemCalc: null, diff: null, finalFuel: null, status: 'unchanged', errorMsg: '' };
-      return base;
-    });
+  const loadCurrent = (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    const loaded = stations.map(s => ({
+      id: s.id, stationId: s.id, code: s.code, name: s.name,
+      added: '', hoursRun: '', date: today, note: '',
+      prevFuel: s.currentFuel, consumed: null, systemCalc: null, finalFuel: null,
+      status: 'unchanged' as RowStatus, errorMsg: '',
+    }));
     setRows(loaded);
     setChecked(false);
-    toast.success('Đã tải dữ liệu hiện tại');
+    if (!silent) toast.success('Đã tải dữ liệu hiện tại');
   };
 
-  const addRow = () => {
-    const newRow: EntryRow = { id: `new-${Date.now()}`, stationId: null, code: '', name: '', added: '', hoursRun: '', actualFuel: '', date: today, note: '', prevFuel: null, consumed: null, systemCalc: null, diff: null, finalFuel: null, status: 'unchanged', errorMsg: '' };
-    setRows(r => [...r, newRow]);
-    setChecked(false);
-  };
+  // Auto-load once when stations first become available
+  useEffect(() => {
+    if (!hasAutoLoadedRef.current && stations.length > 0) {
+      hasAutoLoadedRef.current = true;
+      loadCurrent({ silent: true });
+    }
+  // loadCurrent captures stations/today from render scope; hasAutoLoadedRef guards against re-runs
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stations]);
 
   const updateRow = (id: string, field: string, value: string) => {
-    setRows(prev => prev.map(r => {
-      if (r.id !== id) return r;
-      const updated = { ...r, [field]: value };
-      if (field === 'code') {
-        const st = stations.find(s => s.code.toLowerCase() === value.toLowerCase());
-        updated.stationId = st?.id ?? null;
-        if (st) updated.name = st.name;
-      }
-      return updated;
-    }));
+    setRows(prev => prev.map(r => r.id !== id ? r : { ...r, [field]: value }));
     setChecked(false);
   };
 
   const removeRow = (id: string) => setRows(r => r.filter(x => x.id !== id));
-  const revertRow = (id: string) => setRows(r => r.map(x => x.id !== id ? x : { ...x, added: '', hoursRun: '', actualFuel: '', note: '', status: 'unchanged', errorMsg: '' }));
+  const revertRow = (id: string) => setRows(r => r.map(x => x.id !== id ? x : { ...x, added: '', hoursRun: '', note: '', status: 'unchanged' as RowStatus, errorMsg: '' }));
 
   const checkData = () => {
     setRows(prev => prev.map(r => {
@@ -120,7 +116,6 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
         stationCode: r.code,
         fuelAdded: r.added !== '' ? parseFloat(r.added) : null,
         hoursRun: r.hoursRun !== '' ? parseFloat(r.hoursRun) : null,
-        actualFuel: r.actualFuel !== '' ? parseFloat(r.actualFuel) : null,
         recordedDate: r.date,
         notes: r.note || null,
       }));
@@ -149,10 +144,10 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
 
   const statusBadge = (status: RowStatus) => {
     const cfg = {
-      unchanged: { bg: '#f1f5f9', text: '#64748b', icon: null,         label: 'Không thay đổi' },
-      valid:     { bg: '#dcfce7', text: '#16a34a', icon: CheckCircle,  label: 'Hợp lệ' },
-      warning:   { bg: '#fef9c3', text: '#ca8a04', icon: AlertTriangle, label: 'Cảnh báo' },
-      error:     { bg: '#fee2e2', text: '#dc2626', icon: XCircle,       label: 'Lỗi' },
+      unchanged: { bg: '#f1f5f9', text: '#64748b', icon: null,          label: 'Không thay đổi' },
+      valid:     { bg: '#dcfce7', text: '#16a34a', icon: CheckCircle,   label: 'Hợp lệ' },
+      warning:   { bg: '#fef9c3', text: '#ca8a04', icon: AlertTriangle,  label: 'Cảnh báo' },
+      error:     { bg: '#fee2e2', text: '#dc2626', icon: XCircle,        label: 'Lỗi' },
     }[status];
     const Icon = cfg.icon;
     return (
@@ -185,11 +180,8 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
             <p style={{ color: '#64748b', fontSize: '0.8rem' }}>Cập nhật thông tin và nhiên liệu nhiều trạm cùng lúc, giống nhập Excel.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={loadCurrent} className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.82rem', background: 'white' }}>
+            <button onClick={() => loadCurrent({ silent: false })} className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.82rem', background: 'white' }}>
               <RefreshCw size={14} /> Tải dữ liệu hiện tại
-            </button>
-            <button onClick={addRow} className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.82rem', background: 'white' }}>
-              <Plus size={14} /> Thêm dòng mới
             </button>
             <button onClick={checkData} disabled={rows.length === 0} className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors" style={{ background: '#f0f9ff', color: '#0284c7', fontSize: '0.82rem', border: '1px solid #bae6fd', cursor: rows.length === 0 ? 'not-allowed' : 'pointer' }}>
               <CheckCircle size={14} /> Kiểm tra dữ liệu
@@ -197,7 +189,11 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
             <button onClick={handleSave} disabled={!checked || hasErrors || saving || rows.length === 0} className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all" style={{ background: !checked || hasErrors || rows.length === 0 ? '#e2e8f0' : '#16a34a', color: !checked || hasErrors || rows.length === 0 ? '#94a3b8' : 'white', fontSize: '0.82rem', cursor: !checked || hasErrors || rows.length === 0 ? 'not-allowed' : 'pointer' }}>
               <Save size={14} />{saving ? 'Đang lưu...' : 'Xác nhận lưu'}
             </button>
-            <button className="flex items-center gap-2 px-3 py-2 rounded-lg border" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.82rem', background: 'white' }}>
+            <button
+              onClick={() => downloadWithAuth('export/snapshot', 'fuel-snapshot.xlsx').catch(e => toast.error((e as Error).message))}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border"
+              style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.82rem', background: 'white' }}
+            >
               <Download size={14} /> Export
             </button>
           </div>
@@ -207,11 +203,11 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
         {checked && rows.length > 0 && (
           <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t" style={{ borderColor: '#f1f5f9' }}>
             {[
-              { label: 'Tổng dòng',    value: rows.length,    bg: '#f1f5f9', text: '#475569' },
-              { label: 'Hợp lệ',       value: validRows,      bg: '#dcfce7', text: '#16a34a' },
-              { label: 'Cảnh báo',     value: warningRows,    bg: '#fef9c3', text: '#ca8a04' },
-              { label: 'Lỗi',          value: errorRows,      bg: '#fee2e2', text: '#dc2626' },
-              { label: 'Không thay đổi',value: unchangedRows, bg: '#f8fafc', text: '#64748b' },
+              { label: 'Tổng dòng',     value: rows.length,    bg: '#f1f5f9', text: '#475569' },
+              { label: 'Hợp lệ',        value: validRows,      bg: '#dcfce7', text: '#16a34a' },
+              { label: 'Cảnh báo',      value: warningRows,    bg: '#fef9c3', text: '#ca8a04' },
+              { label: 'Lỗi',           value: errorRows,      bg: '#fee2e2', text: '#dc2626' },
+              { label: 'Không thay đổi', value: unchangedRows,  bg: '#f8fafc', text: '#64748b' },
             ].map(s => (
               <div key={s.label} className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: s.bg }}>
                 <span style={{ fontSize: '1rem', fontWeight: 700, color: s.text }}>{s.value}</span>
@@ -235,7 +231,6 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
           'Số 0 = giá trị hợp lệ',
           'NL bổ sung cộng trước',
           'Số giờ chạy → tính tiêu hao',
-          'NL tồn nhập tay = tồn thực tế cuối',
           'Không cho tồn cuối âm hoặc vượt tối đa',
         ].map(rule => (
           <span key={rule} className="flex items-center gap-1" style={{ fontSize: '0.72rem', color: '#92400e' }}>
@@ -250,54 +245,45 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
           <div className="flex flex-col items-center justify-center h-full gap-4" style={{ color: '#94a3b8' }}>
             <RefreshCw size={40} style={{ opacity: 0.3 }} />
             <div style={{ fontSize: '1rem', color: '#64748b' }}>Chưa có dữ liệu</div>
-            <div className="flex gap-3">
-              <button onClick={loadCurrent} className="flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
-                <RefreshCw size={15} /> Tải dữ liệu hiện tại
-              </button>
-              <button onClick={addRow} className="flex items-center gap-2 px-4 py-2.5 rounded-lg border" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem', background: 'white' }}>
-                <Plus size={15} /> Thêm dòng trống
-              </button>
-            </div>
+            <button onClick={() => loadCurrent({ silent: false })} className="flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
+              <RefreshCw size={15} /> Tải dữ liệu hiện tại
+            </button>
           </div>
         ) : (
-          <div style={{ minWidth: '1400px' }}>
+          <div style={{ minWidth: '1200px' }}>
             <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '110px' }} /> {/* Mã trạm - sticky */}
                 <col style={{ width: '160px' }} /> {/* Tên trạm - sticky */}
                 <col style={{ width: '90px' }} />  {/* NL bổ sung */}
                 <col style={{ width: '90px' }} />  {/* Số giờ chạy */}
-                <col style={{ width: '100px' }} /> {/* NL tồn TT */}
                 <col style={{ width: '100px' }} /> {/* Ngày GN */}
                 <col style={{ width: '140px' }} /> {/* Ghi chú */}
                 {/* Readonly */}
                 <col style={{ width: '90px' }} />  {/* Tồn trước */}
                 <col style={{ width: '90px' }} />  {/* Tiêu hao */}
                 <col style={{ width: '100px' }} /> {/* Tự tính */}
-                <col style={{ width: '80px' }} />  {/* Chênh lệch */}
                 <col style={{ width: '100px' }} /> {/* Tồn cuối */}
                 <col style={{ width: '110px' }} /> {/* Trạng thái */}
-                <col style={{ width: '140px' }} /> {/* Lỗi - sticky right */}
+                <col style={{ width: '140px' }} /> {/* Lỗi */}
                 <col style={{ width: '70px' }} />  {/* Actions */}
               </colgroup>
               <thead>
                 <tr style={{ background: '#0c2340', color: 'white', position: 'sticky', top: 0, zIndex: 30 }}>
                   {[
-                    { label: 'Mã trạm',     sticky: true,  left: 0,      width: 110 },
-                    { label: 'Tên trạm',    sticky: true,  left: 110,    width: 160 },
-                    { label: 'NL bổ sung',  sticky: false, left: null,   width: null },
-                    { label: 'Số giờ chạy', sticky: false, left: null,   width: null },
-                    { label: 'NL tồn TT',   sticky: false, left: null,   width: null },
-                    { label: 'Ngày GN',     sticky: false, left: null,   width: null },
-                    { label: 'Ghi chú',     sticky: false, left: null,   width: null },
-                    { label: 'Tồn trước',   sticky: false, left: null,   width: null, readonly: true },
-                    { label: 'Tiêu hao',    sticky: false, left: null,   width: null, readonly: true },
-                    { label: 'Tự tính',     sticky: false, left: null,   width: null, readonly: true },
-                    { label: 'Chênh lệch',  sticky: false, left: null,   width: null, readonly: true },
-                    { label: 'Tồn cuối',    sticky: false, left: null,   width: null, readonly: true },
-                    { label: 'Cảnh báo',    sticky: false, left: null,   width: null, readonly: true },
-                    { label: 'Lỗi / Cảnh báo', sticky: false, left: null, width: null },
-                    { label: '',            sticky: false, left: null,   width: null },
+                    { label: 'Mã trạm',        sticky: true,  left: 0,   readonly: false },
+                    { label: 'Tên trạm',        sticky: true,  left: 110, readonly: false },
+                    { label: 'NL bổ sung',      sticky: false, left: null, readonly: false },
+                    { label: 'Số giờ chạy',     sticky: false, left: null, readonly: false },
+                    { label: 'Ngày GN',         sticky: false, left: null, readonly: false },
+                    { label: 'Ghi chú',         sticky: false, left: null, readonly: false },
+                    { label: 'Tồn trước',       sticky: false, left: null, readonly: true },
+                    { label: 'Tiêu hao',        sticky: false, left: null, readonly: true },
+                    { label: 'Tự tính',         sticky: false, left: null, readonly: true },
+                    { label: 'Tồn cuối',        sticky: false, left: null, readonly: true },
+                    { label: 'Cảnh báo',        sticky: false, left: null, readonly: true },
+                    { label: 'Lỗi / Cảnh báo', sticky: false, left: null, readonly: false },
+                    { label: '',                sticky: false, left: null, readonly: false },
                   ].map((col, ci) => (
                     <th key={ci} style={{
                       padding: '10px 8px',
@@ -320,27 +306,44 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
                 {rows.map((row, i) => {
                   const newFuelStatus = row.finalFuel !== null ? getFuelStatus(row.finalFuel) : null;
                   const c = newFuelStatus ? fuelStatusColor(newFuelStatus) : null;
+                  const noFuelData = row.prevFuel === null;
                   return (
                     <tr key={row.id} style={{ background: rowBg(row.status, i) }}>
-                      {/* Mã trạm - sticky */}
+                      {/* Mã trạm - sticky readonly */}
                       <td style={{ position: 'sticky', left: 0, zIndex: 10, background: rowBg(row.status, i), borderRight: '2px solid #e2e8f0', padding: '4px 6px' }}>
-                        <input value={row.code} onChange={e => updateRow(row.id, 'code', e.target.value)} placeholder="ST001" style={cellStyle()} onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)'; }} onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }} />
+                        <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center' }}>{row.code}</div>
                       </td>
-                      {/* Tên trạm - sticky */}
+                      {/* Tên trạm - sticky readonly */}
                       <td style={{ position: 'sticky', left: 110, zIndex: 10, background: rowBg(row.status, i), borderRight: '2px solid #e2e8f0', padding: '4px 6px' }}>
-                        <input value={row.name} onChange={e => updateRow(row.id, 'name', e.target.value)} placeholder="Tên trạm" style={cellStyle()} onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)'; }} onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }} />
+                        <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center', fontFamily: 'inherit' }}>{row.name}</div>
                       </td>
                       {/* NL bổ sung */}
                       <td style={{ padding: '4px 6px' }}>
-                        <input type="number" min={0} value={row.added} onChange={e => updateRow(row.id, 'added', e.target.value)} placeholder="0" style={cellStyle()} onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)'; }} onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }} />
+                        <input
+                          type="number" min={0}
+                          value={row.added}
+                          onChange={e => updateRow(row.id, 'added', e.target.value)}
+                          placeholder="0"
+                          disabled={noFuelData}
+                          title={noFuelData ? 'Trạm chưa có tồn ban đầu. Vui lòng nhập tồn ban đầu trước khi tính tự động.' : undefined}
+                          style={{ ...cellStyle(noFuelData), opacity: noFuelData ? 0.5 : 1, cursor: noFuelData ? 'not-allowed' : 'text' }}
+                          onFocus={e => { if (!noFuelData) { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)'; } }}
+                          onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
+                        />
                       </td>
                       {/* Số giờ chạy */}
                       <td style={{ padding: '4px 6px' }}>
-                        <input type="number" min={0} value={row.hoursRun} onChange={e => updateRow(row.id, 'hoursRun', e.target.value)} placeholder="0" style={cellStyle()} onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)'; }} onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }} />
-                      </td>
-                      {/* NL tồn TT */}
-                      <td style={{ padding: '4px 6px' }}>
-                        <input type="number" min={0} value={row.actualFuel} onChange={e => updateRow(row.id, 'actualFuel', e.target.value)} placeholder="Thực tế" style={cellStyle()} onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)'; }} onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }} />
+                        <input
+                          type="number" min={0}
+                          value={row.hoursRun}
+                          onChange={e => updateRow(row.id, 'hoursRun', e.target.value)}
+                          placeholder="0"
+                          disabled={noFuelData}
+                          title={noFuelData ? 'Trạm chưa có tồn ban đầu. Vui lòng nhập tồn ban đầu trước khi tính tự động.' : undefined}
+                          style={{ ...cellStyle(noFuelData), opacity: noFuelData ? 0.5 : 1, cursor: noFuelData ? 'not-allowed' : 'text' }}
+                          onFocus={e => { if (!noFuelData) { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)'; } }}
+                          onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
+                        />
                       </td>
                       {/* Ngày GN */}
                       <td style={{ padding: '4px 6px' }}>
@@ -361,12 +364,6 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
                       {/* Tự tính - readonly */}
                       <td style={{ padding: '4px 6px', background: '#f8fafc' }}>
                         <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center' }}>{fmt(row.systemCalc)}</div>
-                      </td>
-                      {/* Chênh lệch - readonly */}
-                      <td style={{ padding: '4px 6px', background: '#f8fafc' }}>
-                        <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center', color: row.diff && Math.abs(row.diff) > 2 ? '#ca8a04' : '#64748b' }}>
-                          {row.diff !== null ? `${row.diff > 0 ? '+' : ''}${row.diff.toFixed(1)}L` : '—'}
-                        </div>
                       </td>
                       {/* Tồn cuối - readonly */}
                       <td style={{ padding: '4px 6px', background: '#f8fafc' }}>
@@ -396,7 +393,7 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
                           <button onClick={() => revertRow(row.id)} title="Hoàn tác" className="p-1 rounded" style={{ color: '#94a3b8' }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f1f5f9'} onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                             <RotateCcw size={12} />
                           </button>
-                          <button onClick={() => removeRow(row.id)} title="Xóa dòng" className="p-1 rounded" style={{ color: '#94a3b8' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fee2e2'; (e.currentTarget as HTMLElement).style.color = '#dc2626'; }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#94a3b8'; }}>
+                          <button onClick={() => removeRow(row.id)} title="Bỏ khỏi lần nhập" className="p-1 rounded" style={{ color: '#94a3b8' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fee2e2'; (e.currentTarget as HTMLElement).style.color = '#dc2626'; }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#94a3b8'; }}>
                             <Trash2 size={12} />
                           </button>
                         </div>
@@ -421,11 +418,10 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
             </div>
             <h3 className="mb-2" style={{ color: '#0f172a' }}>Lưu thành công!</h3>
             <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '20px' }}>Dữ liệu đã được ghi nhận vào hệ thống.</p>
-            <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="grid grid-cols-2 gap-3 mb-6">
               {[
                 { label: 'Trạm cập nhật', value: validRows + warningRows, color: '#16a34a' },
-                { label: 'Trạm tạo mới',  value: rows.filter(r => !r.stationId && r.code).length, color: '#2563eb' },
-                { label: 'Dòng NL',        value: rows.filter(r => r.added || r.actualFuel).length, color: '#7c3aed' },
+                { label: 'Dòng NL',       value: rows.filter(r => r.added || r.hoursRun).length, color: '#7c3aed' },
               ].map(s => (
                 <div key={s.label} className="rounded-xl p-3" style={{ background: '#f8fafc' }}>
                   <div style={{ fontSize: '1.5rem', fontWeight: 700, color: s.color }}>{s.value}</div>

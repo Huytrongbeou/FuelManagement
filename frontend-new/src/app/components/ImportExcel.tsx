@@ -3,7 +3,8 @@ import { Upload, FileSpreadsheet, Download, CheckCircle, AlertTriangle, XCircle,
 import * as Dialog from '@radix-ui/react-dialog';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
-import { uploadExcel, confirmJob, getTemplateUrl, getSnapshotUrl } from '../api/importApi';
+import { uploadExcel, confirmJob } from '../api/importApi';
+import { downloadWithAuth } from '../api/client';
 
 type RowStatus = 'valid' | 'warning' | 'error';
 
@@ -12,7 +13,6 @@ interface PreviewRow {
   name: string;
   added: number | string;
   hoursRun: number | string;
-  actualFuel: number | string;
   calculated: number | string;
   status: RowStatus;
   message?: string;
@@ -69,7 +69,6 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
           name: (r.stationName as string) ?? '',
           added: r.fuelAdded != null ? Number(r.fuelAdded) : '',
           hoursRun: r.hoursRun != null ? Number(r.hoursRun) : '',
-          actualFuel: r.actualFuel != null ? Number(r.actualFuel) : '',
           calculated: r.fuelCalculated != null ? Number(r.fuelCalculated) : '',
           status,
           message: errors[0] ?? warnings[0] ?? undefined,
@@ -187,20 +186,20 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
 
                 {/* Action buttons */}
                 <div className="flex gap-3">
-                  <a
-                    href={getTemplateUrl()}
+                  <button
+                    onClick={() => downloadWithAuth('export/template', 'import-template.xlsx').catch(e => toast.error((e as Error).message))}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-colors"
-                    style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem', background: 'white', textDecoration: 'none' }}
+                    style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem', background: 'white' }}
                   >
                     <Download size={16} /> Tải file mẫu
-                  </a>
-                  <a
-                    href={getSnapshotUrl()}
+                  </button>
+                  <button
+                    onClick={() => downloadWithAuth('export/snapshot', 'fuel-snapshot.xlsx').catch(e => toast.error((e as Error).message))}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-colors"
-                    style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem', background: 'white', textDecoration: 'none' }}
+                    style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem', background: 'white' }}
                   >
                     <Download size={16} /> Export file tổng hiện tại
-                  </a>
+                  </button>
                 </div>
               </div>
 
@@ -214,9 +213,9 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
                   {[
                     'Ô trống có nghĩa là không cập nhật cho trạm đó.',
                     'Số 0 là giá trị hợp lệ (không chạy máy).',
-                    'Các cột hệ thống (U-AB) không cần sửa.',
-                    'Nhiên liệu tồn thực tế ưu tiên hơn tính toán.',
-                    'Chênh lệch ± 2L được coi là cảnh báo.',
+                    'Cột P: Nhiên liệu bổ sung. Cột Q: Số giờ chạy.',
+                    'Các cột hệ thống (T-Z) không cần sửa.',
+                    'Hệ thống tự tính tồn cuối từ giờ chạy và định mức.',
                   ].map((item, i) => (
                     <li key={i} className="flex items-start gap-2" style={{ fontSize: '0.8rem', color: '#92400e' }}>
                       <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: '#ca8a04' }} />
@@ -266,7 +265,7 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
                 <table className="w-full" style={{ borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
-                      {['Mã trạm', 'Tên trạm', 'NL bổ sung', 'Số giờ chạy', 'NL tồn thực', 'Tồn sau tính', 'Trạng thái', 'Ghi chú'].map(h => (
+                      {['Mã trạm', 'Tên trạm', 'NL bổ sung', 'Số giờ chạy', 'Tồn sau tính', 'Trạng thái', 'Ghi chú'].map(h => (
                         <th key={h} className="px-4 py-2.5 text-left border-b" style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, borderColor: '#e2e8f0', whiteSpace: 'nowrap', background: '#f8fafc' }}>
                           {h}
                         </th>
@@ -282,7 +281,6 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
                           <td className="px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', color: '#1e293b', whiteSpace: 'nowrap' }}>{row.name}</td>
                           <td className="px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', color: '#64748b' }}>{row.added !== '' ? `${row.added} L` : '—'}</td>
                           <td className="px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', color: '#64748b' }}>{row.hoursRun !== '' ? `${row.hoursRun}h` : '—'}</td>
-                          <td className="px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', color: '#64748b' }}>{row.actualFuel !== '' ? `${row.actualFuel} L` : '—'}</td>
                           <td className="px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', fontWeight: 500, color: '#475569' }}>{row.calculated !== '' ? `${row.calculated} L` : '—'}</td>
                           <td className="px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9' }}>
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style={{
@@ -301,7 +299,7 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
                       );
                     })}
                     {previewRows.length === 0 && (
-                      <tr><td colSpan={8} className="px-4 py-8 text-center" style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Không có dữ liệu preview</td></tr>
+                      <tr><td colSpan={7} className="px-4 py-8 text-center" style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Không có dữ liệu preview</td></tr>
                     )}
                   </tbody>
                 </table>

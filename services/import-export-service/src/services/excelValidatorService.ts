@@ -22,7 +22,6 @@ export interface ParsedRow {
   maxCapacity: number | null
   fuelAdded: number | null
   hoursRun: number | null
-  actualFuel: number | null
   recordedDate: Date | null
   notes: string
   isNewStation: boolean
@@ -31,7 +30,7 @@ export interface ParsedRow {
   warnings: string[]
 }
 
-// 28-column layout:
+// 26-column layout:
 // A(1)  Mã trạm
 // B(2)  Tên trạm
 // C(3)  Tên máy phát
@@ -49,10 +48,9 @@ export interface ParsedRow {
 // O(15) Dung tích tối đa L
 // P(16) Nhiên liệu bổ sung L
 // Q(17) Số giờ chạy
-// R(18) Nhiên liệu tồn L
-// S(19) Ngày ghi nhận
-// T(20) Ghi chú
-// U-AB (21-28): system columns — IGNORED
+// R(18) Ngày ghi nhận
+// S(19) Ghi chú
+// T-Z (20-26): system columns — IGNORED
 
 export async function parseAndValidate(
   buffer: Buffer,
@@ -89,10 +87,9 @@ export async function parseAndValidate(
     const maxCapParsed   = parseCellAsNumber(row.getCell(15))
     const fuelAddedP     = parseCellAsNumber(row.getCell(16))
     const hoursRunP      = parseCellAsNumber(row.getCell(17))
-    const actualFuelP    = parseCellAsNumber(row.getCell(18))
-    const dateCell       = row.getCell(19)
-    const notes          = parseCellAsString(row.getCell(20))
-    // cols 21-28 (U-AB) are system/read-only — skip completely
+    const dateCell       = row.getCell(18)
+    const notes          = parseCellAsString(row.getCell(19))
+    // cols 20-26 (T-Z) are system/read-only — skip completely
 
     if (!stationCode && !stationName) return // blank row
 
@@ -158,7 +155,6 @@ export async function parseAndValidate(
     // fuel fields
     let fuelAdded: number | null = null
     let hoursRun: number | null = null
-    let actualFuel: number | null = null
 
     if (fuelAddedP.type === 'invalid') errors.push(`Nhiên liệu bổ sung không hợp lệ: "${fuelAddedP.raw}"`)
     else if (fuelAddedP.type === 'valid') {
@@ -172,18 +168,7 @@ export async function parseAndValidate(
       else hoursRun = hoursRunP.value
     }
 
-    if (actualFuelP.type === 'invalid') errors.push(`Nhiên liệu tồn không hợp lệ: "${actualFuelP.raw}"`)
-    else if (actualFuelP.type === 'valid') {
-      if (actualFuelP.value < 0) errors.push('Nhiên liệu tồn không thể âm')
-      else if (maxCapacity != null && actualFuelP.value > maxCapacity) errors.push(`Nhiên liệu tồn (${actualFuelP.value}) vượt dung tích (${maxCapacity})`)
-      else actualFuel = actualFuelP.value
-    }
-
-    const hasFuelActivity = fuelAdded != null || hoursRun != null || actualFuel != null
-
-    if (isNewStation && hasFuelActivity && actualFuel == null) {
-      errors.push('Trạm mới cần nhập Nhiên liệu tồn ban đầu (cột R)')
-    }
+    const hasFuelActivity = (fuelAdded ?? 0) > 0 || (hoursRun ?? 0) > 0
 
     let recordedDate: Date | null = parseCellAsDate(dateCell)
     if (!recordedDate && hasFuelActivity) {
@@ -220,7 +205,6 @@ export async function parseAndValidate(
       maxCapacity,
       fuelAdded,
       hoursRun,
-      actualFuel,
       recordedDate,
       notes,
       isNewStation,

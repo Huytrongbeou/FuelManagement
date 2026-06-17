@@ -11,7 +11,6 @@ function toRecord(r: Record<string, unknown>): FuelRecord {
     hoursRun: r.hoursRun != null ? Number(r.hoursRun) : 0,
     consumed: r.consumed != null ? Number(r.consumed) : 0,
     endFuel: r.endFuel != null ? Number(r.endFuel) : 0,
-    difference: r.difference != null ? Number(r.difference) : 0,
     source: (r.source as 'manual' | 'import' | 'direct') ?? 'manual',
     note: (r.note as string) ?? undefined,
   };
@@ -32,7 +31,6 @@ export async function postFuelRecord(dto: {
   recordedDate: string;
   fuelAdded?: number;
   hoursRun?: number;
-  actualFuel?: number | null;
   notes?: string;
   recordedBy?: string;
 }): Promise<FuelRecord> {

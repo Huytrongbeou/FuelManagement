@@ -8,12 +8,12 @@ const INPUT_HEADERS = [
   'Đơn vị hành chính hiện tại', 'Địa bàn cũ', 'Khu vực quản lý nội bộ',
   'Hãng máy', 'Model máy', 'Công suất kVA', 'Loại nhiên liệu',
   'Định mức tiêu hao L/giờ', 'Dung tích tối đa L',
-  'Nhiên liệu bổ sung L', 'Số giờ chạy', 'Nhiên liệu tồn L',
+  'Nhiên liệu bổ sung L', 'Số giờ chạy',
   'Ngày ghi nhận', 'Ghi chú',
 ]
 const SYSTEM_HEADERS = [
   'Tồn trước cập nhật L', 'Tiêu hao theo định mức L', 'Tồn hệ thống tự tính L',
-  'Chênh lệch L', 'Tồn cuối cùng L', 'Trạng thái cảnh báo',
+  'Tồn cuối cùng L', 'Trạng thái cảnh báo',
   'Ngày export', 'Mã lần import gần nhất',
 ]
 const ALL_HEADERS = [...INPUT_HEADERS, ...SYSTEM_HEADERS]
@@ -55,23 +55,22 @@ export async function exportSnapshot(_req: Request, res: Response): Promise<void
         station.fuelType || 'diesel',
         Number(station.consumptionRate),
         Number(station.maxCapacity),
-        '', '', '',              // P-R: user fills (fuel_added, hours_run, actual_fuel)
-        '',                      // S: recorded_date
-        '',                      // T: notes
-        // U-AB: system columns (read-only)
-        fuel ? Number(fuel.currentFuel) : '',  // U: current fuel (fuel_before for next entry)
-        '',                                     // V: consumed
-        '',                                     // W: calculated
-        '',                                     // X: difference
-        fuel ? Number(fuel.currentFuel) : '',  // Y: end fuel
-        fuel ? fuel.fuelStatus : '',           // Z: status
-        exportDate,                             // AA
-        '',                                     // AB: last import job id
+        '', '',   // P-Q: user fills (fuel_added, hours_run)
+        '',      // R: recorded_date
+        '',      // S: notes
+        // T-Z: system columns (read-only)
+        fuel ? Number(fuel.currentFuel) : '',  // T: current fuel (fuel_before for next entry)
+        '',                                     // U: consumed
+        '',                                     // V: calculated
+        fuel ? Number(fuel.currentFuel) : '',  // W: end fuel
+        fuel ? fuel.fuelStatus : '',           // X: status
+        exportDate,                             // Y
+        '',                                     // Z: last import job id
       ])
     }
 
-    // System columns U-AB: grey fill
-    for (let col = 21; col <= 28; col++) {
+    // System columns T-Z: grey fill
+    for (let col = 20; col <= 26; col++) {
       ws.getColumn(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } } as ExcelJS.Fill
     }
 

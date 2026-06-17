@@ -222,7 +222,7 @@ export function Settings() {
               <h4 className="mb-4" style={{ color: '#0f172a' }}>Thông tin hệ thống</h4>
               <div className="space-y-0">
                 {[
-                  { label: 'Phiên bản',           value: 'FuelTrack v2.1.0' },
+                  { label: 'Phiên bản',           value: 'VNPT v2.1.0' },
                   { label: 'Cập nhật lần cuối',   value: '12/06/2026' },
                   { label: 'Tổng số trạm',         value: '30 trạm' },
                   { label: 'Người dùng đang hoạt động', value: '3 người' },

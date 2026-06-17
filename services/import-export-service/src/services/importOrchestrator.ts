@@ -88,7 +88,6 @@ export async function confirmImport(
     maxCapacity: number | null
     fuelAdded: number | null
     hoursRun: number | null
-    actualFuel: number | null
     recordedDate: string | null
     notes: string
     isNewStation: boolean
@@ -191,14 +190,13 @@ export async function confirmImport(
   const codeToId = new Map(upsertResults.results.map((r: { station_code: string; station_id: string }) => [r.station_code, r.station_id]))
 
   const fuelRecords = validRows
-    .filter(r => r.hasFuelActivity && r.recordedDate)
+    .filter(r => ((r.fuelAdded ?? 0) > 0 || (r.hoursRun ?? 0) > 0))
     .map(r => ({
       station_id: codeToId.get(r.stationCode) || '',
       station_code: r.stationCode,
-      recorded_date: r.recordedDate!,
+      recorded_date: (r.recordedDate ?? new Date()).toISOString(),
       fuel_added: r.fuelAdded ?? 0,
       hours_run: r.hoursRun ?? 0,
-      actual_fuel: r.actualFuel,
       notes: r.notes,
     }))
     .filter(r => r.station_id)

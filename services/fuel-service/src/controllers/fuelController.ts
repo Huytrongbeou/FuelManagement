@@ -14,9 +14,7 @@ function toFuelRecordDto(r: Record<string, unknown>) {
     hoursRun: r.hoursRun != null ? Number(r.hoursRun) : null,
     consumed: r.fuelConsumed != null ? Number(r.fuelConsumed) : null,
     systemCalculated: r.fuelCalculated != null ? Number(r.fuelCalculated) : null,
-    actualFuel: r.actualFuel != null ? Number(r.actualFuel) : null,
     endFuel: r.fuelAfter != null ? Number(r.fuelAfter) : null,
-    difference: r.fuelDifference != null ? Number(r.fuelDifference) : null,
     status: r.fuelStatus,
     source: r.source,
     note: r.notes ?? null,
@@ -37,7 +35,7 @@ function toCurrentStateDto(s: Record<string, unknown>) {
 
 export async function postRecord(req: Request, res: Response): Promise<void> {
   try {
-    const { stationId, stationCode, recordedDate, fuelAdded, hoursRun, actualFuel, notes, recordedBy } = req.body
+    const { stationId, stationCode, recordedDate, fuelAdded, hoursRun, notes, recordedBy } = req.body
     if (!stationId || !stationCode || !recordedDate) {
       res.status(400).json({ error: 'stationId, stationCode, recordedDate are required' })
       return
@@ -46,7 +44,6 @@ export async function postRecord(req: Request, res: Response): Promise<void> {
       stationId, stationCode, recordedDate,
       fuelAdded: Number(fuelAdded ?? 0),
       hoursRun: Number(hoursRun ?? 0),
-      actualFuel: actualFuel != null ? Number(actualFuel) : null,
       notes, recordedBy,
     })
     res.status(201).json(toFuelRecordDto(record as unknown as Record<string, unknown>))

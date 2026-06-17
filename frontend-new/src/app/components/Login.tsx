@@ -95,7 +95,7 @@ export function Login({ onLogin }: LoginProps) {
             <div className="flex items-center justify-center w-10 h-10 rounded-xl" style={{ background: '#0c2340' }}>
               <Zap size={20} className="text-white" />
             </div>
-            <span style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0c2340' }}>FuelTrack</span>
+            <span style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0c2340' }}>VNPT</span>
           </div>
 
           <h2 className="mb-2" style={{ color: '#0c2340' }}>Đăng nhập hệ thống</h2>
@@ -189,7 +189,7 @@ export function Login({ onLogin }: LoginProps) {
 
           <div className="mt-8 pt-6 border-t" style={{ borderColor: '#f1f5f9' }}>
             <p style={{ color: '#94a3b8', fontSize: '0.8rem', textAlign: 'center' }}>
-              © 2026 FuelTrack — Hệ thống Quản lý Nhiên liệu Trạm
+              © 2026 VNPT — Hệ thống Quản lý Nhiên liệu Trạm
             </p>
           </div>
         </motion.div>

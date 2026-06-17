@@ -9,7 +9,6 @@ export interface DirectEntryRow {
   maxCapacity?: number | null;
   fuelAdded?: number | null;
   hoursRun?: number | null;
-  actualFuel?: number | null;
   recordedDate?: string | null;
   notes?: string | null;
 }

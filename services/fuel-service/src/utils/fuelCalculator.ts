@@ -16,10 +16,3 @@ export function calculateFuelResult(fuelBefore: number, fuelAdded: number, fuelC
   return fuelBefore + fuelAdded - fuelConsumed
 }
 
-export function resolveFinalFuel(fuelCalculated: number, actualFuel: number | null): number {
-  return actualFuel != null ? actualFuel : fuelCalculated
-}
-
-export function computeDifference(actualFuel: number | null, fuelCalculated: number): number | null {
-  return actualFuel != null ? actualFuel - fuelCalculated : null
-}
