@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { exportSnapshot, exportTemplate } from './export.controller'
+import { exportSnapshot, exportTemplate } from '../controllers/export.controller'
 
 const router = Router()
 

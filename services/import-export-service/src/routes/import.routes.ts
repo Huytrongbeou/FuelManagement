@@ -2,7 +2,7 @@ import { Router } from 'express'
 import multer from 'multer'
 import path from 'path'
 import os from 'os'
-import { upload, getJob, listJobs, confirm, cancel } from './import.controller'
+import { upload, getJob, listJobs, confirm, cancel } from '../controllers/import.controller'
 
 const storage = multer.diskStorage({
   destination: os.tmpdir(),

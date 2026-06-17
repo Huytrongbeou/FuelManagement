@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client'
 import { parseAndValidate } from './excel-validator.service'
-import * as stationClient from '../../shared/clients/station.client'
-import * as fuelClient from '../../shared/clients/fuel.client'
-import * as mq from '../../shared/clients/rabbitmq'
+import * as stationClient from '../clients/station.client'
+import * as fuelClient from '../clients/fuel.client'
+import * as mq from '../clients/rabbitmq'
 import fs from 'fs/promises'
 
 const prisma = new PrismaClient()
