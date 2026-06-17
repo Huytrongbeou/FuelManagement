@@ -193,7 +193,7 @@ export default function App() {
           />
         );
       case 'settings':
-        return <Settings />;
+        return <Settings userRole={currentUser?.role} stations={stations} />;
       default:
         return <Dashboard stations={stations} onViewStation={handleViewStation} />;
     }
