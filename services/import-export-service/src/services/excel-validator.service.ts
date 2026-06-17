@@ -55,7 +55,8 @@ export interface ParsedRow {
 export async function parseAndValidate(
   buffer: Buffer,
   existingStations: Station[],
-  importDate: Date
+  importDate: Date,
+  mode: 'full' | 'fuel-only' = 'full'
 ): Promise<ParsedRow[]> {
   const wb = new ExcelJS.Workbook()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -106,50 +107,59 @@ export async function parseAndValidate(
     }
     if (stationCode) seenCodes.add(stationCode)
 
-    const isNewStation = !stationCodeMap.has(stationCode)
+    const existingStation = stationCodeMap.get(stationCode)
+    const isNewStation = !existingStation
 
-    // station_name required for new station
-    if (isNewStation && !stationName) errors.push('Tên trạm là bắt buộc cho trạm mới')
-
-    // lat/lon
     let latitude: number | null = null
     let longitude: number | null = null
-    if (latParsed.type === 'invalid') errors.push(`Vĩ độ không hợp lệ: "${latParsed.raw}"`)
-    else if (latParsed.type === 'valid') {
-      if (latParsed.value < -90 || latParsed.value > 90) errors.push('Vĩ độ phải trong khoảng -90 đến 90')
-      else latitude = latParsed.value
-    }
-    if (lonParsed.type === 'invalid') errors.push(`Kinh độ không hợp lệ: "${lonParsed.raw}"`)
-    else if (lonParsed.type === 'valid') {
-      if (lonParsed.value < -180 || lonParsed.value > 180) errors.push('Kinh độ phải trong khoảng -180 đến 180')
-      else longitude = lonParsed.value
-    }
-
-    // power_kva
     let powerKva: number | null = null
-    if (powerKvaParsed.type === 'invalid') errors.push(`Công suất kVA không hợp lệ: "${powerKvaParsed.raw}"`)
-    else if (powerKvaParsed.type === 'valid') powerKva = powerKvaParsed.value
-
-    // consumption_rate
     let consumptionRate: number | null = null
-    if (rateParsed.type === 'invalid') errors.push(`Định mức tiêu thụ không hợp lệ: "${rateParsed.raw}"`)
-    else if (rateParsed.type === 'valid') {
-      if (rateParsed.value <= 0) errors.push('Định mức tiêu thụ phải > 0')
-      else consumptionRate = rateParsed.value
-    }
-    if (isNewStation && consumptionRate == null) {
-      errors.push('Trạm mới cần nhập định mức tiêu thụ (cột N)')
-    }
-
-    // max_capacity
     let maxCapacity: number | null = null
-    if (maxCapParsed.type === 'invalid') errors.push(`Dung tích tối đa không hợp lệ: "${maxCapParsed.raw}"`)
-    else if (maxCapParsed.type === 'valid') {
-      if (maxCapParsed.value <= 0) errors.push('Dung tích tối đa phải > 0')
-      else maxCapacity = maxCapParsed.value
-    }
-    if (isNewStation && maxCapacity == null) {
-      errors.push('Trạm mới cần nhập dung tích tối đa (cột O)')
+
+    if (mode === 'fuel-only') {
+      // Manager fuel-only import: station must exist and be active
+      if (isNewStation) {
+        errors.push(`Mã trạm "${stationCode}" chưa có trong hệ thống. Vui lòng liên hệ Admin để thêm trạm.`)
+      } else {
+        if (!existingStation.isActive) {
+          errors.push(`Trạm "${existingStation.stationName}" đang bị vô hiệu hóa. Vui lòng liên hệ Admin để kích hoạt lại.`)
+        }
+        if (stationName && existingStation.stationName !== stationName) {
+          warnings.push(`Tên trạm trong file ("${stationName}") khác với hệ thống ("${existingStation.stationName}"). Hệ thống giữ tên hiện tại và chỉ xử lý dữ liệu nhiên liệu.`)
+        }
+      }
+      // Master data columns B-O are ignored in fuel-only mode
+    } else {
+      // Admin full import: validate all master data fields
+      if (isNewStation && !stationName) errors.push('Tên trạm là bắt buộc cho trạm mới')
+
+      if (latParsed.type === 'invalid') errors.push(`Vĩ độ không hợp lệ: "${latParsed.raw}"`)
+      else if (latParsed.type === 'valid') {
+        if (latParsed.value < -90 || latParsed.value > 90) errors.push('Vĩ độ phải trong khoảng -90 đến 90')
+        else latitude = latParsed.value
+      }
+      if (lonParsed.type === 'invalid') errors.push(`Kinh độ không hợp lệ: "${lonParsed.raw}"`)
+      else if (lonParsed.type === 'valid') {
+        if (lonParsed.value < -180 || lonParsed.value > 180) errors.push('Kinh độ phải trong khoảng -180 đến 180')
+        else longitude = lonParsed.value
+      }
+
+      if (powerKvaParsed.type === 'invalid') errors.push(`Công suất kVA không hợp lệ: "${powerKvaParsed.raw}"`)
+      else if (powerKvaParsed.type === 'valid') powerKva = powerKvaParsed.value
+
+      if (rateParsed.type === 'invalid') errors.push(`Định mức tiêu thụ không hợp lệ: "${rateParsed.raw}"`)
+      else if (rateParsed.type === 'valid') {
+        if (rateParsed.value <= 0) errors.push('Định mức tiêu thụ phải > 0')
+        else consumptionRate = rateParsed.value
+      }
+      if (isNewStation && consumptionRate == null) errors.push('Trạm mới cần nhập định mức tiêu thụ (cột N)')
+
+      if (maxCapParsed.type === 'invalid') errors.push(`Dung tích tối đa không hợp lệ: "${maxCapParsed.raw}"`)
+      else if (maxCapParsed.type === 'valid') {
+        if (maxCapParsed.value <= 0) errors.push('Dung tích tối đa phải > 0')
+        else maxCapacity = maxCapParsed.value
+      }
+      if (isNewStation && maxCapacity == null) errors.push('Trạm mới cần nhập dung tích tối đa (cột O)')
     }
 
     // fuel fields
@@ -175,8 +185,8 @@ export async function parseAndValidate(
       recordedDate = importDate
     }
 
-    // haversine proximity check
-    if (isNewStation && latitude != null && longitude != null) {
+    // haversine proximity check (admin full mode only)
+    if (mode === 'full' && isNewStation && latitude != null && longitude != null) {
       for (const [code, s] of stationCodeMap) {
         if (s.latitude == null || s.longitude == null) continue
         const dist = haversineDistance(latitude, longitude, Number(s.latitude), Number(s.longitude))

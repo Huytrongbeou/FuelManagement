@@ -8,20 +8,58 @@ import fs from 'fs/promises'
 
 const prisma = new PrismaClient()
 
-export async function previewImport(jobId: string, filePath: string, importDate: Date, createdBy?: string) {
+export async function previewImport(
+  jobId: string,
+  filePath: string,
+  importDate: Date,
+  createdBy?: string,
+  userCtx?: UserContext
+) {
+  const isFuelOnly = userCtx?.userRole === 'manager'
+
   const [stations, fuelStates] = await Promise.all([
     stationClient.getAllStations({ active: 'all' }),
     fuelClient.getAllCurrentStates(),
   ])
 
   const buffer = await fs.readFile(filePath)
-  const rows = await parseAndValidate(buffer, stations, importDate)
+  const rows = await parseAndValidate(buffer, stations, importDate, isFuelOnly ? 'fuel-only' : 'full')
 
   const fuelStateMap = new Map(fuelStates.map(s => [s.stationId, s]))
+  const stationCodeMap = new Map(stations.map(s => [s.stationCode, s]))
+
+  // Exact duplicate check: applies to both admin and manager for rows with fuel activity
+  const dupCheckItems = rows
+    .filter(r => r.errors.length === 0 && r.hasFuelActivity && r.recordedDate)
+    .map(r => {
+      const station = stationCodeMap.get(r.stationCode)
+      if (!station) return null
+      return { stationId: station.id, recordedDate: r.recordedDate as Date, fuelAdded: r.fuelAdded ?? 0, hoursRun: r.hoursRun ?? 0, stationCode: r.stationCode, stationName: station.stationName }
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
+
+  if (dupCheckItems.length > 0) {
+    try {
+      const dupResults = await fuelClient.checkExactDuplicates(dupCheckItems, userCtx)
+      const dupByStationId = new Map(dupResults.map(d => [d.stationId, d.isDuplicate]))
+      for (const row of rows) {
+        const station = stationCodeMap.get(row.stationCode)
+        if (!station || !row.hasFuelActivity) continue
+        if (dupByStationId.get(station.id)) {
+          const dateStr = row.recordedDate ? row.recordedDate.toLocaleDateString('vi-VN') : ''
+          row.errors.push(
+            `Trạm "${station.stationName}" đã có bản ghi ngày ${dateStr} với cùng số liệu — có thể là nhập trùng. Liên hệ Admin nếu đây là phát sinh thực sự.`
+          )
+        }
+      }
+    } catch {
+      // non-blocking: if duplicate check fails, continue without it
+    }
+  }
 
   const versions: Record<string, number | null> = {}
   for (const row of rows) {
-    const existing = stations.find(s => s.stationCode === row.stationCode)
+    const existing = stationCodeMap.get(row.stationCode)
     if (existing) {
       const fuelState = fuelStateMap.get(existing.id)
       versions[existing.id] = fuelState ? Number(fuelState.snapshotVersion) : null
@@ -97,91 +135,122 @@ export async function confirmImport(
   }>) || []
 
   const validRows = previewRows.filter(r => r.errors.length === 0)
+  const isFuelOnly = userCtx?.userRole === 'manager'
 
-  // Step 2: BACKUP
-  if (!job.failureStage || job.failureStage === 'backup') {
-    try {
-      const [backupStations, backupFuelStates] = await Promise.all([
-        stationClient.getAllStations({ active: 'all' }),
-        fuelClient.getAllCurrentStates(),
-      ])
-      await prisma.importJob.update({
-        where: { id: jobId },
-        data: {
-          backupStations: backupStations as unknown as object,
-          backupFuelStates: backupFuelStates as unknown as object,
-        },
+  if (isFuelOnly) {
+    // Manager fuel-only: skip backup and upsert; just verify stations still exist and are active
+    if (!job.failureStage || ['backup', 'station_upsert'].includes(job.failureStage || '')) {
+      let stations: Awaited<ReturnType<typeof stationClient.getAllStations>>
+      try {
+        stations = await stationClient.getAllStations({ active: 'all' })
+      } catch {
+        await prisma.importJob.update({ where: { id: jobId }, data: { status: 'failed', failureStage: 'station_upsert', retryable: true, errorMessage: 'Lỗi kết nối station-service' } })
+        throw Object.assign(new Error('Lỗi kết nối station-service, vui lòng thử lại'), { status: 500 })
+      }
+      const stationByCode = new Map(stations.map(s => [s.stationCode, s]))
+      const invalid = validRows.filter(r => {
+        const s = stationByCode.get(r.stationCode)
+        return !s || !s.isActive
       })
-    } catch {
-      await prisma.importJob.update({
-        where: { id: jobId },
-        data: { status: 'failed', failureStage: 'backup', retryable: true, errorMessage: 'Backup thất bại' },
+      if (invalid.length > 0) {
+        const msg = invalid.map(r => r.stationCode).join(', ')
+        await prisma.importJob.update({ where: { id: jobId }, data: { status: 'failed', failureStage: 'station_upsert', retryable: false, errorMessage: `Trạm không hợp lệ tại thời điểm xác nhận: ${msg}` } })
+        throw Object.assign(new Error(`Trạm không hợp lệ tại thời điểm xác nhận: ${msg}`), { status: 422 })
+      }
+      const lookupResults = validRows.map(r => {
+        const s = stationByCode.get(r.stationCode)!
+        return { station_code: r.stationCode, station_id: s.id, action: 'lookup', warning: null }
       })
-      throw Object.assign(new Error('Backup thất bại, vui lòng thử lại'), { status: 500 })
+      await prisma.importJob.update({ where: { id: jobId }, data: { stationUpsertResults: { results: lookupResults, has_errors: false } as unknown as object } })
     }
-  }
+  } else {
+    // Admin full import: backup then upsert stations
 
-  // Step 3: UPSERT STATIONS
-  if (!job.failureStage || job.failureStage === 'backup' || job.failureStage === 'station_upsert') {
-    const upsertRows = validRows.map(r => ({
-      station_code: r.stationCode,
-      station_name: r.stationName,
-      generator_name: r.generatorName,
-      address: r.address,
-      latitude: r.latitude,
-      longitude: r.longitude,
-      current_admin_unit_name: r.currentAdminUnitName,
-      legacy_area_name: r.legacyAreaName,
-      operation_area_name: r.operationAreaName,
-      brand_name: r.brandName,
-      model_name: r.modelName,
-      power_kva: r.powerKva,
-      fuel_type: r.fuelType,
-      consumption_rate: r.consumptionRate,
-      max_capacity: r.maxCapacity,
-    }))
-
-    let upsertResult: Awaited<ReturnType<typeof stationClient.bulkUpsert>>
-    try {
-      upsertResult = await stationClient.bulkUpsert(upsertRows, userCtx)
-    } catch {
-      await prisma.importJob.update({
-        where: { id: jobId },
-        data: { status: 'failed', failureStage: 'station_upsert', retryable: true, errorMessage: 'Lỗi kết nối station-service' },
-      })
-      throw Object.assign(new Error('Lỗi kết nối station-service, vui lòng thử lại'), { status: 500 })
-    }
-
-    await prisma.importJob.update({
-      where: { id: jobId },
-      data: { stationUpsertResults: upsertResult as unknown as object },
-    })
-
-    if (upsertResult.has_errors) {
-      await prisma.importJob.update({
-        where: { id: jobId },
-        data: {
-          status: 'failed', failureStage: 'station_upsert', retryable: true,
-          errorMessage: (upsertResult.errors || []).join('; '),
-        },
-      })
-      throw Object.assign(new Error('Cập nhật trạm thất bại: ' + (upsertResult.errors || []).join('; ')), { status: 422 })
+    // Step 2: BACKUP
+    if (!job.failureStage || job.failureStage === 'backup') {
+      try {
+        const [backupStations, backupFuelStates] = await Promise.all([
+          stationClient.getAllStations({ active: 'all' }),
+          fuelClient.getAllCurrentStates(),
+        ])
+        await prisma.importJob.update({
+          where: { id: jobId },
+          data: {
+            backupStations: backupStations as unknown as object,
+            backupFuelStates: backupFuelStates as unknown as object,
+          },
+        })
+      } catch {
+        await prisma.importJob.update({
+          where: { id: jobId },
+          data: { status: 'failed', failureStage: 'backup', retryable: true, errorMessage: 'Backup thất bại' },
+        })
+        throw Object.assign(new Error('Backup thất bại, vui lòng thử lại'), { status: 500 })
+      }
     }
 
-    const codeToId = new Map(upsertResult.results.map(r => [r.station_code, r.station_id]))
-    const versionsAtPreview = (job.fuelStateVersionsAtPreview as Record<string, number | null>) || {}
-    const resolvedVersions: Record<string, number | null> = {}
+    // Step 3: UPSERT STATIONS
+    if (!job.failureStage || job.failureStage === 'backup' || job.failureStage === 'station_upsert') {
+      const upsertRows = validRows.map(r => ({
+        station_code: r.stationCode,
+        station_name: r.stationName,
+        generator_name: r.generatorName,
+        address: r.address,
+        latitude: r.latitude,
+        longitude: r.longitude,
+        current_admin_unit_name: r.currentAdminUnitName,
+        legacy_area_name: r.legacyAreaName,
+        operation_area_name: r.operationAreaName,
+        brand_name: r.brandName,
+        model_name: r.modelName,
+        power_kva: r.powerKva,
+        fuel_type: r.fuelType,
+        consumption_rate: r.consumptionRate,
+        max_capacity: r.maxCapacity,
+      }))
 
-    for (const r of validRows) {
-      const stationId = codeToId.get(r.stationCode)
-      if (!stationId) continue
-      resolvedVersions[stationId] = r.isNewStation ? null : (versionsAtPreview[stationId] ?? null)
+      let upsertResult: Awaited<ReturnType<typeof stationClient.bulkUpsert>>
+      try {
+        upsertResult = await stationClient.bulkUpsert(upsertRows, userCtx)
+      } catch {
+        await prisma.importJob.update({
+          where: { id: jobId },
+          data: { status: 'failed', failureStage: 'station_upsert', retryable: true, errorMessage: 'Lỗi kết nối station-service' },
+        })
+        throw Object.assign(new Error('Lỗi kết nối station-service, vui lòng thử lại'), { status: 500 })
+      }
+
+      await prisma.importJob.update({
+        where: { id: jobId },
+        data: { stationUpsertResults: upsertResult as unknown as object },
+      })
+
+      if (upsertResult.has_errors) {
+        await prisma.importJob.update({
+          where: { id: jobId },
+          data: {
+            status: 'failed', failureStage: 'station_upsert', retryable: true,
+            errorMessage: (upsertResult.errors || []).join('; '),
+          },
+        })
+        throw Object.assign(new Error('Cập nhật trạm thất bại: ' + (upsertResult.errors || []).join('; ')), { status: 422 })
+      }
+
+      const codeToId = new Map(upsertResult.results.map(r => [r.station_code, r.station_id]))
+      const versionsAtPreview = (job.fuelStateVersionsAtPreview as Record<string, number | null>) || {}
+      const resolvedVersions: Record<string, number | null> = {}
+
+      for (const r of validRows) {
+        const stationId = codeToId.get(r.stationCode)
+        if (!stationId) continue
+        resolvedVersions[stationId] = r.isNewStation ? null : (versionsAtPreview[stationId] ?? null)
+      }
+
+      await prisma.importJob.update({
+        where: { id: jobId },
+        data: { fuelStateVersionsAtPreview: resolvedVersions as unknown as object },
+      })
     }
-
-    await prisma.importJob.update({
-      where: { id: jobId },
-      data: { fuelStateVersionsAtPreview: resolvedVersions as unknown as object },
-    })
   }
 
   // Step 4: COMMIT FUEL
