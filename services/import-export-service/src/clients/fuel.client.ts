@@ -28,6 +28,24 @@ export async function getAllCurrentStates(): Promise<CurrentFuelState[]> {
   return data
 }
 
+export async function checkExactDuplicates(
+  items: Array<{ stationId: string; recordedDate: Date; fuelAdded: number; hoursRun: number }>,
+  ctx?: UserContext
+): Promise<Array<{ stationId: string; isDuplicate: boolean }>> {
+  const body = items.map(i => ({
+    stationId: i.stationId,
+    recordedDate: i.recordedDate.toISOString().split('T')[0],
+    fuelAdded: i.fuelAdded,
+    hoursRun: i.hoursRun,
+  }))
+  const { data } = await axios.post<Array<{ stationId: string; isDuplicate: boolean }>>(
+    `${FUEL_URL}/fuel/records/check-exact-duplicates`,
+    body,
+    { headers: userHeaders(ctx) }
+  )
+  return data
+}
+
 export async function commitImport(body: unknown, ctx?: UserContext): Promise<unknown> {
   const { data } = await axios.post(`${FUEL_URL}/fuel/import-commit`, body, {
     headers: userHeaders(ctx),

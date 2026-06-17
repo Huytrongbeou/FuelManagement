@@ -34,3 +34,20 @@ export async function findRecordsByStation(stationId: string, opts: {
 export async function findImportCommit(idempotencyKey: string) {
   return prisma.fuelImportCommit.findUnique({ where: { idempotencyKey } })
 }
+
+export async function checkExactDuplicates(
+  items: Array<{ stationId: string; recordedDate: Date; fuelAdded: number; hoursRun: number }>
+): Promise<Array<{ stationId: string; isDuplicate: boolean }>> {
+  return Promise.all(items.map(async item => {
+    const existing = await prisma.fuelRecord.findFirst({
+      where: {
+        stationId: item.stationId,
+        recordedDate: item.recordedDate,
+        fuelAdded: item.fuelAdded,
+        hoursRun: item.hoursRun,
+      },
+      select: { id: true },
+    })
+    return { stationId: item.stationId, isDuplicate: !!existing }
+  }))
+}
