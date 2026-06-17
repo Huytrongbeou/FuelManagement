@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
-import * as authService from '../services/authService'
-import type { UserPayload } from '../models/user'
+import * as authService from './auth.service'
+import type { UserPayload } from './auth.types'
 
 export async function login(req: Request, res: Response): Promise<void> {
   try {
