@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Map, Upload, History, Settings, Zap, ChevronRight, Cpu, Factory, X, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, MapPin, Map, Upload, History, Settings, Zap, ChevronRight, Cpu, Factory, X, ClipboardList, LogOut } from 'lucide-react';
 import { Page } from '@/shared/types';
 
 interface SidebarProps {
@@ -7,7 +7,16 @@ interface SidebarProps {
   collapsed?: boolean;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
+  userRole?: string;
+  username?: string;
+  onLogout?: () => void;
 }
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Quản trị viên',
+  manager: 'Quản lý',
+  staff: 'Nhân viên',
+};
 
 const navGroups = [
   {
@@ -41,8 +50,19 @@ const navGroups = [
   },
 ];
 
-export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobileClose }: SidebarProps) {
+export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobileClose, userRole, username, onLogout }: SidebarProps) {
   const handleNav = (page: Page) => { onNavigate(page); onMobileClose?.(); };
+
+  const visibleGroups = navGroups.filter(group => {
+    if (group.label === 'Vận hành' || group.label === 'Hệ thống') return true;
+    if (group.label === 'Nhập liệu') return userRole === 'admin' || userRole === 'manager';
+    if (group.label === 'Danh mục') return userRole === 'admin';
+    return true;
+  });
+
+  const displayName = username || '—';
+  const roleLabel = userRole ? (ROLE_LABELS[userRole] ?? userRole) : '';
+  const initial = displayName.charAt(0).toUpperCase();
 
   const sidebarContent = (
     <div className="flex flex-col h-full" style={{ background: '#0c2340' }}>
@@ -64,7 +84,7 @@ export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobi
 
       {/* Nav groups */}
       <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
-        {navGroups.map(group => (
+        {visibleGroups.map(group => (
           <div key={group.label}>
             {!collapsed && (
               <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#4b6cb7', textTransform: 'uppercase', letterSpacing: '0.1em', paddingLeft: '12px', marginBottom: '4px' }}>
@@ -106,11 +126,22 @@ export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobi
       {!collapsed && (
         <div className="px-3 py-4 border-t flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.06)' }}>
-            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#2563eb', color: 'white', fontSize: '0.85rem', fontWeight: 700 }}>A</div>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#2563eb', color: 'white', fontSize: '0.85rem', fontWeight: 700 }}>{initial}</div>
             <div className="flex-1 min-w-0">
-              <div style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Nguyễn Văn A</div>
-              <div style={{ color: '#7dd3fc', fontSize: '0.7rem' }}>Quản trị viên</div>
+              <div style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
+              <div style={{ color: '#7dd3fc', fontSize: '0.7rem' }}>{roleLabel}</div>
             </div>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                title="Đăng xuất"
+                style={{ color: '#94a3b8', flexShrink: 0 }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#94a3b8'; }}
+              >
+                <LogOut size={15} />
+              </button>
+            )}
           </div>
         </div>
       )}

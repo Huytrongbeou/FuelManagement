@@ -1,8 +1,12 @@
 import { api } from '@/shared/api/client';
 
+export type UserRole = 'admin' | 'manager' | 'staff'
+
 export interface AuthUser {
   id: string;
   username: string;
+  role: UserRole;
+  isActive: boolean;
 }
 
 export interface LoginResponse {
