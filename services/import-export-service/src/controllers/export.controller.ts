@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import ExcelJS from 'exceljs'
-import * as stationClient from '../../shared/clients/station.client'
-import * as fuelClient from '../../shared/clients/fuel.client'
+import * as stationClient from '../clients/station.client'
+import * as fuelClient from '../clients/fuel.client'
 
 const INPUT_HEADERS = [
   'Mã trạm', 'Tên trạm', 'Tên máy phát', 'Địa chỉ', 'Lat', 'Long',

@@ -1,9 +1,9 @@
 import { PrismaClient } from '@prisma/client'
 import { v4 as uuidv4 } from 'uuid'
-import * as stationClient from '../../shared/clients/station.client'
-import * as fuelClient from '../../shared/clients/fuel.client'
-import { confirmImport } from '../excel-import/import-orchestrator.service'
-import type { ParsedRow } from '../excel-import/excel-validator.service'
+import * as stationClient from '../clients/station.client'
+import * as fuelClient from '../clients/fuel.client'
+import { confirmImport } from './import-orchestrator.service'
+import type { ParsedRow } from './excel-validator.service'
 
 const prisma = new PrismaClient()
 
