@@ -56,8 +56,28 @@ export interface FuelRecord {
   hoursRun: number;
   consumed: number;
   endFuel: number;
-  source: 'manual' | 'import' | 'direct';
+  adjustmentAmount?: number | null;
+  adjustmentForId?: string | null;
+  source: 'manual' | 'import' | 'direct' | 'adjustment';
   note?: string;
+}
+
+export interface AdjustmentRequest {
+  id: string;
+  originalRecordId: string;
+  stationId: string;
+  reason: string;
+  newFuelAdded: number;
+  newHoursRun: number;
+  newNotes?: string | null;
+  requestedById: string;
+  requestedByName: string;
+  status: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string | null;
+  approvedById?: string | null;
+  approvedByName?: string | null;
+  approvedAt?: string | null;
+  createdAt: string;
 }
 
 export interface ImportSession {

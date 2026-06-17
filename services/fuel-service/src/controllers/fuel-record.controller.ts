@@ -15,6 +15,8 @@ function toFuelRecordDto(r: Record<string, unknown>) {
     consumed: r.fuelConsumed != null ? Number(r.fuelConsumed) : null,
     systemCalculated: r.fuelCalculated != null ? Number(r.fuelCalculated) : null,
     endFuel: r.fuelAfter != null ? Number(r.fuelAfter) : null,
+    adjustmentAmount: r.adjustmentAmount != null ? Number(r.adjustmentAmount) : null,
+    adjustmentForId: r.adjustmentForId ?? null,
     status: r.fuelStatus,
     source: r.source,
     note: r.notes ?? null,
