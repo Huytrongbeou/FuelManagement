@@ -58,14 +58,14 @@ export async function previewValidate(items: PreviewValidateItem[], ctx?: UserCo
 export async function checkExactDuplicates(
   items: Array<{ stationId: string; recordedDate: Date; fuelAdded: number; hoursRun: number }>,
   ctx?: UserContext
-): Promise<Array<{ stationId: string; isDuplicate: boolean }>> {
+): Promise<Array<{ stationId: string; isDuplicate: boolean; hasSameDateDifferentValues: boolean }>> {
   const body = items.map(i => ({
     stationId: i.stationId,
     recordedDate: i.recordedDate.toISOString().split('T')[0],
     fuelAdded: i.fuelAdded,
     hoursRun: i.hoursRun,
   }))
-  const { data } = await axios.post<Array<{ stationId: string; isDuplicate: boolean }>>(
+  const { data } = await axios.post<Array<{ stationId: string; isDuplicate: boolean; hasSameDateDifferentValues: boolean }>>(
     `${FUEL_URL}/fuel/records/check-exact-duplicates`,
     body,
     { headers: userHeaders(ctx) }

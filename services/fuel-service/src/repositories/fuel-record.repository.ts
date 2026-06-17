@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client'
+import { toBusinessDateRangeVN, formatBusinessDateVN } from '../utils/date-vn'
+import { normalizeDecimal2 } from '../utils/normalize'
 
 const prisma = new PrismaClient()
 export { prisma }
@@ -74,17 +76,41 @@ export async function previewValidate(items: PreviewValidateItem[]): Promise<Pre
 
 export async function checkExactDuplicates(
   items: Array<{ stationId: string; recordedDate: Date; fuelAdded: number; hoursRun: number }>
-): Promise<Array<{ stationId: string; isDuplicate: boolean }>> {
+): Promise<Array<{ stationId: string; isDuplicate: boolean; hasSameDateDifferentValues: boolean }>> {
   return Promise.all(items.map(async item => {
-    const existing = await prisma.fuelRecord.findFirst({
+    const dateStr = formatBusinessDateVN(item.recordedDate)
+    const { gte, lt } = toBusinessDateRangeVN(dateStr)
+    const normFuelAdded = normalizeDecimal2(item.fuelAdded)
+    const normHoursRun = normalizeDecimal2(item.hoursRun)
+
+    const exactMatch = await prisma.fuelRecord.findFirst({
       where: {
         stationId: item.stationId,
-        recordedDate: item.recordedDate,
-        fuelAdded: item.fuelAdded,
-        hoursRun: item.hoursRun,
+        recordedDate: { gte, lt },
+        fuelAdded: normFuelAdded,
+        hoursRun: normHoursRun,
       },
       select: { id: true },
     })
-    return { stationId: item.stationId, isDuplicate: !!existing }
+
+    let hasSameDateDifferentValues = false
+    if (!exactMatch) {
+      const sameDateOther = await prisma.fuelRecord.findFirst({
+        where: {
+          stationId: item.stationId,
+          recordedDate: { gte, lt },
+          NOT: {
+            AND: [
+              { fuelAdded: normFuelAdded },
+              { hoursRun: normHoursRun },
+            ],
+          },
+        },
+        select: { id: true },
+      })
+      hasSameDateDifferentValues = !!sameDateOther
+    }
+
+    return { stationId: item.stationId, isDuplicate: !!exactMatch, hasSameDateDifferentValues }
   }))
 }

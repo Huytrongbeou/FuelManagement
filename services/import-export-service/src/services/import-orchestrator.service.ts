@@ -40,14 +40,21 @@ export async function previewImport(
   if (dupCheckItems.length > 0) {
     try {
       const dupResults = await fuelClient.checkExactDuplicates(dupCheckItems, userCtx)
-      const dupByStationId = new Map(dupResults.map(d => [d.stationId, d.isDuplicate]))
+      const dupByStationId = new Map(dupResults.map(d => [d.stationId, d]))
       for (const row of rows) {
         const station = stationCodeMap.get(row.stationCode)
         if (!station || !row.hasFuelActivity) continue
-        if (dupByStationId.get(station.id)) {
+        const dup = dupByStationId.get(station.id)
+        if (!dup) continue
+        if (dup.isDuplicate) {
           const dateStr = row.recordedDate ? row.recordedDate.toLocaleDateString('vi-VN') : ''
           row.errors.push(
             `Trạm "${station.stationName}" đã có bản ghi ngày ${dateStr} với cùng số liệu — có thể là nhập trùng. Liên hệ Admin nếu đây là phát sinh thực sự.`
+          )
+        } else if (dup.hasSameDateDifferentValues) {
+          const dateStr = row.recordedDate ? row.recordedDate.toLocaleDateString('vi-VN') : ''
+          row.warnings.push(
+            `Trạm "${station.stationName}" đã có bản ghi ngày ${dateStr}. Xác nhận sẽ tạo thêm một phát sinh mới.`
           )
         }
       }
