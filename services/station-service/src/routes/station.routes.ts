@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { list, getOne, create, update, deactivate, reactivate, bulkUpsertHandler } from './station.controller'
+import { list, getOne, create, update, deactivate, reactivate, bulkUpsertHandler } from '../controllers/station.controller'
 
 const router = Router()
 
