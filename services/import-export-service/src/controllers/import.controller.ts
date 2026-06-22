@@ -36,7 +36,11 @@ export async function upload(req: Request, res: Response): Promise<void> {
       signatureWarning = result.signatureWarning
     } catch (err: unknown) {
       const status = (err as { status?: number }).status
-      const message = (err as Error).message || 'Không thể đọc file Excel. Vui lòng kiểm tra định dạng file.'
+      const rawMsg = (err as Error).message || ''
+      const isFormatError = /zip|central.?directory|not a zip|jszipexception/i.test(rawMsg)
+      const message = (isFormatError || !rawMsg)
+        ? 'Không thể đọc file Excel. Vui lòng kiểm tra định dạng file.'
+        : rawMsg
       await prisma.importJob.update({ where: { id: job.id }, data: { status: 'failed', errorMessage: message } }).catch(() => undefined)
       res.status(status || 422).json({ error: message })
       return

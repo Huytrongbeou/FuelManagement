@@ -231,6 +231,9 @@ export async function confirmImport(
   }>) || []
 
   const validRows = previewRows.filter(r => r.errors.length === 0)
+  if (validRows.length === 0) {
+    throw Object.assign(new Error('Không có dòng hợp lệ để xác nhận. Vui lòng kiểm tra lại dữ liệu.'), { status: 422 })
+  }
   const isFuelOnly = userCtx?.userRole === 'manager'
 
   if (isFuelOnly) {
@@ -285,29 +288,11 @@ export async function confirmImport(
       }
     }
 
-    // Step 3: UPSERT STATIONS
+    // Step 3: VERIFY STATIONS (fuel-only import: no station creation or master data update)
     if (!job.failureStage || job.failureStage === 'backup' || job.failureStage === 'station_upsert') {
-      const upsertRows = validRows.map(r => ({
-        station_code: r.stationCode,
-        station_name: r.stationName,
-        generator_name: r.generatorName,
-        address: r.address,
-        latitude: r.latitude,
-        longitude: r.longitude,
-        current_admin_unit_name: r.currentAdminUnitName,
-        legacy_area_name: r.legacyAreaName,
-        operation_area_name: r.operationAreaName,
-        brand_name: r.brandName,
-        model_name: r.modelName,
-        power_kva: r.powerKva,
-        fuel_type: r.fuelType,
-        consumption_rate: r.consumptionRate,
-        max_capacity: r.maxCapacity,
-      }))
-
-      let upsertResult: Awaited<ReturnType<typeof stationClient.bulkUpsert>>
+      let freshStations: Awaited<ReturnType<typeof stationClient.getAllStations>>
       try {
-        upsertResult = await stationClient.bulkUpsert(upsertRows, userCtx)
+        freshStations = await stationClient.getAllStations({ active: 'all' })
       } catch {
         await prisma.importJob.update({
           where: { id: jobId },
@@ -315,37 +300,21 @@ export async function confirmImport(
         })
         throw Object.assign(new Error('Lỗi kết nối station-service, vui lòng thử lại'), { status: 500 })
       }
-
-      await prisma.importJob.update({
-        where: { id: jobId },
-        data: { stationUpsertResults: upsertResult as unknown as object },
+      const stationByCode = new Map(freshStations.map(s => [s.stationCode, s]))
+      const invalid = validRows.filter(r => {
+        const s = stationByCode.get(r.stationCode)
+        return !s || !s.isActive
       })
-
-      if (upsertResult.has_errors) {
-        await prisma.importJob.update({
-          where: { id: jobId },
-          data: {
-            status: 'failed', failureStage: 'station_upsert', retryable: true,
-            errorMessage: (upsertResult.errors || []).join('; '),
-          },
-        })
-        throw Object.assign(new Error('Cập nhật trạm thất bại: ' + (upsertResult.errors || []).join('; ')), { status: 422 })
+      if (invalid.length > 0) {
+        const msg = invalid.map(r => r.stationCode).join(', ')
+        await prisma.importJob.update({ where: { id: jobId }, data: { status: 'failed', failureStage: 'station_upsert', retryable: false, errorMessage: `Trạm không hợp lệ tại thời điểm xác nhận: ${msg}` } })
+        throw Object.assign(new Error(`Trạm không hợp lệ tại thời điểm xác nhận: ${msg}`), { status: 422 })
       }
-
-      const codeToId = new Map(upsertResult.results.map(r => [r.station_code, r.station_id]))
-      const versionsAtPreview = (job.fuelStateVersionsAtPreview as Record<string, number | null>) || {}
-      const resolvedVersions: Record<string, number | null> = {}
-
-      for (const r of validRows) {
-        const stationId = codeToId.get(r.stationCode)
-        if (!stationId) continue
-        resolvedVersions[stationId] = r.isNewStation ? null : (versionsAtPreview[stationId] ?? null)
-      }
-
-      await prisma.importJob.update({
-        where: { id: jobId },
-        data: { fuelStateVersionsAtPreview: resolvedVersions as unknown as object },
+      const lookupResults = validRows.map(r => {
+        const s = stationByCode.get(r.stationCode)!
+        return { station_code: r.stationCode, station_id: s.id, action: 'lookup', warning: null }
       })
+      await prisma.importJob.update({ where: { id: jobId }, data: { stationUpsertResults: { results: lookupResults, has_errors: false } as unknown as object } })
     }
   }
 

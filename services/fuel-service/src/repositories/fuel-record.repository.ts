@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { toBusinessDateRangeVN, formatBusinessDateVN } from '../utils/date-vn'
+import { formatBusinessDateVN } from '../utils/date-vn'
 import { normalizeDecimal2 } from '../utils/normalize'
 
 const prisma = new PrismaClient()
@@ -79,38 +79,33 @@ export async function checkExactDuplicates(
 ): Promise<Array<{ stationId: string; isDuplicate: boolean; hasSameDateDifferentValues: boolean }>> {
   return Promise.all(items.map(async item => {
     const dateStr = formatBusinessDateVN(item.recordedDate)
-    const { gte, lt } = toBusinessDateRangeVN(dateStr)
     const normFuelAdded = normalizeDecimal2(item.fuelAdded)
     const normHoursRun = normalizeDecimal2(item.hoursRun)
 
-    const exactMatch = await prisma.fuelRecord.findFirst({
-      where: {
-        stationId: item.stationId,
-        recordedDate: { gte, lt },
-        fuelAdded: normFuelAdded,
-        hoursRun: normHoursRun,
-      },
-      select: { id: true },
-    })
+    const exactRows = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM fuel_records
+      WHERE station_id = ${item.stationId}::uuid
+        AND recorded_date = ${dateStr}::date
+        AND fuel_added = ${normFuelAdded}::numeric
+        AND hours_run = ${normHoursRun}::numeric
+        AND source != 'adjustment'
+      LIMIT 1
+    `
 
+    const isDuplicate = exactRows.length > 0
     let hasSameDateDifferentValues = false
-    if (!exactMatch) {
-      const sameDateOther = await prisma.fuelRecord.findFirst({
-        where: {
-          stationId: item.stationId,
-          recordedDate: { gte, lt },
-          NOT: {
-            AND: [
-              { fuelAdded: normFuelAdded },
-              { hoursRun: normHoursRun },
-            ],
-          },
-        },
-        select: { id: true },
-      })
-      hasSameDateDifferentValues = !!sameDateOther
+
+    if (!isDuplicate) {
+      const sameDateRows = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM fuel_records
+        WHERE station_id = ${item.stationId}::uuid
+          AND recorded_date = ${dateStr}::date
+          AND source != 'adjustment'
+        LIMIT 1
+      `
+      hasSameDateDifferentValues = sameDateRows.length > 0
     }
 
-    return { stationId: item.stationId, isDuplicate: !!exactMatch, hasSameDateDifferentValues }
+    return { stationId: item.stationId, isDuplicate, hasSameDateDifferentValues }
   }))
 }
