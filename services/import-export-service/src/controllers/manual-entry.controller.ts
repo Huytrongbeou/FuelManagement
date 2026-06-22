@@ -18,7 +18,7 @@ export async function previewHandler(req: Request, res: Response): Promise<void>
       return
     }
     const ctx = extractUserCtx(req)
-    const result = await preview(rows, ctx.userName)
+    const result = await preview(rows, ctx.userName, ctx)
     res.status(201).json(result)
   } catch (err: unknown) {
     res.status((err as { status?: number }).status || 500).json({ error: (err as Error).message })

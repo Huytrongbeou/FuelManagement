@@ -107,7 +107,7 @@ function toParsedRow(row: DirectEntryRow, stations: { stationCode: string }[], r
   }
 }
 
-export async function preview(rows: DirectEntryRow[], createdBy?: string) {
+export async function preview(rows: DirectEntryRow[], createdBy?: string, userCtx?: UserContext) {
   if (!rows || rows.length === 0) {
     throw Object.assign(new Error('rows array must not be empty'), { status: 400 })
   }
@@ -121,11 +121,46 @@ export async function preview(rows: DirectEntryRow[], createdBy?: string) {
   const fuelStateMap = new Map(fuelStates.map(s => [s.stationId, s]))
 
   const versions: Record<string, number | null> = {}
+  const stationCodeMap = new Map(stations.map(s => [s.stationCode, s]))
   for (const row of parsedRows) {
-    const existing = stations.find(s => s.stationCode === row.stationCode)
+    const existing = stationCodeMap.get(row.stationCode)
     if (existing) {
       const fuelState = fuelStateMap.get(existing.id)
       versions[existing.id] = fuelState ? Number(fuelState.snapshotVersion) : null
+    }
+  }
+
+  const pvEntries: Array<{ idx: number; item: { stationId: string; fuelAdded: number; hoursRun: number; consumptionRate: number; maxCapacity: number } }> = []
+  parsedRows.forEach((r, idx) => {
+    if (!r.hasFuelActivity || r.errors.length > 0) return
+    const station = stationCodeMap.get(r.stationCode)
+    if (!station) return
+    pvEntries.push({
+      idx,
+      item: {
+        stationId: station.id,
+        fuelAdded: r.fuelAdded ?? 0,
+        hoursRun: r.hoursRun ?? 0,
+        consumptionRate: Number(station.consumptionRate ?? 0),
+        maxCapacity: Number(station.maxCapacity ?? 0),
+      }
+    })
+  })
+  if (pvEntries.length > 0) {
+    try {
+      const pvResults = await fuelClient.previewValidate(pvEntries.map(e => e.item), userCtx)
+      pvEntries.forEach(({ idx }, i) => {
+        const pv = pvResults[i]
+        if (pv && !pv.valid && pv.errorCode) {
+          parsedRows[idx].errors.push(
+            pv.errorCode === 'EXCEEDS_CAPACITY'
+              ? 'Nhiên liệu vượt quá dung tích tối đa'
+              : 'Nhiên liệu âm sau khi trừ tiêu thụ'
+          )
+        }
+      })
+    } catch {
+      // non-blocking advisory
     }
   }
 
@@ -168,6 +203,48 @@ export async function confirm(jobId: string, committedBy?: string, userCtx?: Use
       new Error('Dữ liệu này đã được gửi trong 60 giây qua. Vui lòng đợi trước khi gửi lại.'),
       { status: 409 }
     )
+  }
+
+  const freshStations = await stationClient.getAllStations({ active: 'all' })
+  const activeMap = new Map(freshStations.map(s => [s.stationCode, s]))
+
+  for (const r of previewRows) {
+    if (!r.hasFuelActivity) continue
+    const station = activeMap.get(r.stationCode ?? '')
+    if (!station) {
+      const err = new Error(`Trạm ${r.stationCode} không xác định được. Vui lòng thử lại.`)
+      ;(err as { status?: number }).status = 422; throw err
+    }
+    if (!station.isActive) {
+      const err = new Error(`Trạm ${r.stationCode} không còn hoạt động.`)
+      ;(err as { status?: number }).status = 422; throw err
+    }
+  }
+
+  const pvItems = previewRows
+    .filter(r => r.hasFuelActivity)
+    .map(r => {
+      const station = activeMap.get(r.stationCode ?? '')!
+      return {
+        stationId: station.id,
+        fuelAdded: r.fuelAdded ?? 0,
+        hoursRun: r.hoursRun ?? 0,
+        consumptionRate: Number(station.consumptionRate ?? 0),
+        maxCapacity: Number(station.maxCapacity ?? 0),
+      }
+    })
+
+  if (pvItems.length > 0) {
+    const pvResults = await fuelClient.previewValidate(pvItems, userCtx)
+    for (let i = 0; i < pvItems.length; i++) {
+      const pv = pvResults[i]
+      if (pv && !pv.valid) {
+        const err = new Error(pv.errorCode === 'EXCEEDS_CAPACITY'
+          ? 'Nhiên liệu vượt quá dung tích tối đa. Vui lòng kiểm tra lại trước khi xác nhận.'
+          : 'Nhiên liệu âm sau khi trừ tiêu thụ. Vui lòng kiểm tra lại trước khi xác nhận.')
+        ;(err as { status?: number }).status = 422; throw err
+      }
+    }
   }
 
   const result = await confirmImport(jobId, { committedBy, source: 'direct', userCtx })
