@@ -104,9 +104,8 @@ export function MapView({ stations, onViewStation }: Props) {
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
 
-    filtered
-      .filter(s => s.lat !== null && s.lng !== null)
-      .forEach(s => {
+    filtered.forEach(s => {
+      if (s.lat === null || s.lng === null) return;
         const status = getFuelStatus(s.currentFuel);
         const c = fuelStatusColor(status);
         const icon = status === 'red' ? makePulseIcon(c.dot) : makeMarkerIcon(c.dot, status === 'gray' ? 9 : 11);
@@ -114,6 +113,11 @@ export function MapView({ stations, onViewStation }: Props) {
         marker.on('click', () => setSelectedStation(prev => prev?.id === s.id ? null : s));
         markersRef.current.push(marker);
       });
+
+    return () => {
+      markersRef.current.forEach(m => m.remove());
+      markersRef.current = [];
+    };
   }, [filtered, filterStatus]);
 
   const statusFilters = [
@@ -143,7 +147,7 @@ export function MapView({ stations, onViewStation }: Props) {
             ].map(s => (
               <div key={s.label} className="rounded-lg p-2.5 text-center" style={{ background: s.bg }}>
                 <div style={{ fontSize: '1.4rem', fontWeight: 700, color: s.text, lineHeight: 1.1 }}>{s.value}</div>
-                <div style={{ fontSize: '0.7rem', color: s.text + 'cc' }}>{s.label}</div>
+                <div style={{ fontSize: '0.75rem', color: s.text + 'cc' }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -151,13 +155,14 @@ export function MapView({ stations, onViewStation }: Props) {
           {noCoords > 0 && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg mb-3" style={{ background: '#fef9c3', border: '1px solid #fde047' }}>
               <AlertTriangle size={13} style={{ color: '#a16207', flexShrink: 0 }} />
-              <span style={{ fontSize: '0.72rem', color: '#a16207' }}>{noCoords} trạm chưa có tọa độ</span>
+              <span style={{ fontSize: '0.75rem', color: '#a16207' }}>{noCoords} trạm chưa có tọa độ</span>
             </div>
           )}
 
           <div className="space-y-1">
             {statusFilters.map(f => (
               <button
+                type="button"
                 key={f.key}
                 onClick={() => { setFilterStatus(f.key); setSelectedStation(null); }}
                 className="w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all"
@@ -170,7 +175,7 @@ export function MapView({ stations, onViewStation }: Props) {
                   <span className="w-2.5 h-2.5 rounded-full" style={{ background: f.color }} />
                   <span style={{ fontSize: '0.8rem', color: '#374151' }}>{f.label}</span>
                 </div>
-                <span className="px-2 py-0.5 rounded-full" style={{ fontSize: '0.72rem', fontWeight: 600, background: f.color + '20', color: f.color }}>
+                <span className="px-2 py-0.5 rounded-full" style={{ fontSize: '0.75rem', fontWeight: 600, background: f.color + '20', color: f.color }}>
                   {f.count}
                 </span>
               </button>
@@ -187,6 +192,7 @@ export function MapView({ stations, onViewStation }: Props) {
               const hasCoords = s.lat !== null && s.lng !== null;
               return (
                 <button
+                  type="button"
                   key={s.id}
                   onClick={() => {
                     setSelectedStation(s);
@@ -202,13 +208,13 @@ export function MapView({ stations, onViewStation }: Props) {
                   }}
                 >
                   <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: c.dot }}>
-                    <span style={{ color: 'white', fontSize: '0.6rem', fontWeight: 700 }}>{s.code.replace('CL-', '')}</span>
+                    <span style={{ color: 'white', fontSize: '0.75rem', fontWeight: 700 }}>{s.code.replace('CL-', '')}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {s.name}
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
                       {hasCoords
                         ? (s.currentFuel !== null ? `${s.currentFuel} L` : 'Chưa có dữ liệu')
                         : 'Chưa có tọa độ'}
@@ -237,17 +243,17 @@ export function MapView({ stations, onViewStation }: Props) {
               <div className="flex items-start justify-between px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', background: c.bg }}>
                 <div>
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: c.text, background: 'white', padding: '1px 6px', borderRadius: '4px', border: `1px solid ${c.border}` }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: c.text, background: 'white', padding: '1px 6px', borderRadius: '4px', border: `1px solid ${c.border}` }}>
                       {selectedStation.code}
                     </span>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'white', color: c.text, fontSize: '0.7rem', fontWeight: 600, border: `1px solid ${c.border}` }}>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'white', color: c.text, fontSize: '0.75rem', fontWeight: 600, border: `1px solid ${c.border}` }}>
                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: c.dot }} />
                       {fuelStatusLabel(status)}
                     </span>
                   </div>
                   <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1e293b' }}>{selectedStation.name}</div>
                 </div>
-                <button onClick={() => setSelectedStation(null)} style={{ color: '#94a3b8' }}>
+                <button type="button" onClick={() => setSelectedStation(null)} style={{ color: '#94a3b8' }}>
                   <X size={16} />
                 </button>
               </div>
@@ -284,7 +290,7 @@ export function MapView({ stations, onViewStation }: Props) {
                     : 'Chưa có'}</span>
                 </div>
                 {(selectedStation.lat === null || selectedStation.lng === null) && (
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded" style={{ background: '#fef9c3', fontSize: '0.72rem', color: '#a16207' }}>
+                  <div className="flex items-center gap-2 px-2 py-1.5 rounded" style={{ background: '#fef9c3', fontSize: '0.75rem', color: '#a16207' }}>
                     <AlertTriangle size={12} />
                     Chưa có tọa độ — không hiển thị trên bản đồ
                   </div>
@@ -292,6 +298,7 @@ export function MapView({ stations, onViewStation }: Props) {
               </div>
               <div className="px-4 py-3 border-t" style={{ borderColor: '#f1f5f9' }}>
                 <button
+                  type="button"
                   onClick={() => onViewStation(selectedStation.id)}
                   className="w-full flex items-center justify-center gap-2 py-2 rounded-lg"
                   style={{ background: '#2563eb', color: 'white', fontSize: '0.8rem', fontWeight: 600 }}
@@ -309,7 +316,7 @@ export function MapView({ stations, onViewStation }: Props) {
           className="absolute rounded-xl p-3 space-y-1.5"
           style={{ bottom: '24px', left: '16px', background: 'white', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', zIndex: 1000 }}
         >
-          <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '6px' }}>CHÚ GIẢI</div>
+          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginBottom: '6px' }}>CHÚ GIẢI</div>
           {[
             { color: '#16a34a', label: '> 20 L — Đủ nhiên liệu' },
             { color: '#ca8a04', label: '10–20 L — Sắp hết' },
@@ -318,7 +325,7 @@ export function MapView({ stations, onViewStation }: Props) {
           ].map(item => (
             <div key={item.label} className="flex items-center gap-2">
               <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: item.color }} />
-              <span style={{ fontSize: '0.72rem', color: '#475569' }}>{item.label}</span>
+              <span style={{ fontSize: '0.75rem', color: '#475569' }}>{item.label}</span>
             </div>
           ))}
         </div>

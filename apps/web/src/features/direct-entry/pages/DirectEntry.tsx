@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useReducer, useCallback } from 'react';
 import { RefreshCw, CheckCircle, AlertTriangle, XCircle, Save, Download, RotateCcw, Trash2, Check } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { toast } from 'sonner';
@@ -58,38 +58,282 @@ function fmt(n: number | null, suffix = 'L') {
   return n !== null ? `${n.toFixed(1)} ${suffix}` : '—';
 }
 
+const TODAY = new Date().toISOString().slice(0, 10);
+
+const RULES = [
+  'Ô trống = không cập nhật',
+  'Số 0 = giá trị hợp lệ',
+  'NL bổ sung cộng trước',
+  'Số giờ chạy → tính tiêu hao',
+  'Không cho tồn cuối âm hoặc vượt tối đa',
+];
+
+const TABLE_COLS = [
+  { label: 'Mã trạm',        sticky: true,  left: 0   as number | null, readonly: false },
+  { label: 'Tên trạm',        sticky: true,  left: 110 as number | null, readonly: false },
+  { label: 'NL bổ sung',      sticky: false, left: null,                 readonly: false },
+  { label: 'Số giờ chạy',     sticky: false, left: null,                 readonly: false },
+  { label: 'Ngày GN',         sticky: false, left: null,                 readonly: false },
+  { label: 'Ghi chú',         sticky: false, left: null,                 readonly: false },
+  { label: 'Tồn trước',       sticky: false, left: null,                 readonly: true  },
+  { label: 'Tiêu hao',        sticky: false, left: null,                 readonly: true  },
+  { label: 'Tự tính',         sticky: false, left: null,                 readonly: true  },
+  { label: 'Tồn cuối',        sticky: false, left: null,                 readonly: true  },
+  { label: 'Cảnh báo',        sticky: false, left: null,                 readonly: true  },
+  { label: 'Lỗi / Cảnh báo', sticky: false, left: null,                 readonly: false },
+  { label: 'Hành động',      sticky: false, left: null,                 readonly: false },
+];
+
+const TABLE_COL_TH_STYLES = TABLE_COLS.map(col => ({
+  padding: '10px 8px',
+  fontSize: '0.75rem',
+  fontWeight: 600,
+  textAlign: 'left' as const,
+  whiteSpace: 'nowrap' as const,
+  background: col.readonly ? '#162d4d' : '#0c2340',
+  position: (col.sticky ? 'sticky' : 'relative') as 'sticky' | 'relative',
+  left: col.sticky ? col.left! : undefined,
+  zIndex: col.sticky ? 31 : 1,
+  borderRight: '1px solid rgba(255,255,255,0.1)',
+}));
+
+type SaveState = { saving: boolean; successOpen: boolean; doubleSubmitOpen: boolean };
+type SaveAction =
+  | { type: 'save-start' }
+  | { type: 'save-success' }
+  | { type: 'save-error' }
+  | { type: 'double-submit-open' }
+  | { type: 'double-submit-close' }
+  | { type: 'close-success' };
+
+function saveReducer(state: SaveState, action: SaveAction): SaveState {
+  switch (action.type) {
+    case 'save-start':          return { ...state, saving: true };
+    case 'save-success':        return { saving: false, successOpen: true, doubleSubmitOpen: false };
+    case 'save-error':          return { ...state, saving: false };
+    case 'double-submit-open':  return { ...state, doubleSubmitOpen: true };
+    case 'double-submit-close': return { ...state, doubleSubmitOpen: false };
+    case 'close-success':       return { ...state, successOpen: false };
+    default:                    return state;
+  }
+}
+
+function rowBg(status: RowStatus, i: number) {
+  if (status === 'error')   return '#fff5f5';
+  if (status === 'warning') return '#fffbeb';
+  if (status === 'valid')   return '#f0fdf4';
+  return i % 2 === 0 ? 'white' : '#fafafa';
+}
+
+const STATUS_BADGE_CFG = {
+  unchanged: { bg: '#f1f5f9', text: '#64748b', icon: null,          label: 'Không thay đổi' },
+  valid:     { bg: '#dcfce7', text: '#16a34a', icon: CheckCircle,   label: 'Hợp lệ' },
+  warning:   { bg: '#fef9c3', text: '#ca8a04', icon: AlertTriangle, label: 'Cảnh báo' },
+  error:     { bg: '#fee2e2', text: '#dc2626', icon: XCircle,       label: 'Lỗi' },
+} as const;
+
+function statusBadge(status: RowStatus) {
+  const cfg = STATUS_BADGE_CFG[status];
+  const Icon = cfg.icon;
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: cfg.bg, color: cfg.text, fontSize: '0.75rem', fontWeight: 600 }}>
+      {Icon && <Icon size={10} />}{cfg.label}
+    </span>
+  );
+}
+
+function cellStyle(readonly = false) {
+  return {
+    padding: '5px 8px',
+    fontSize: '0.8rem',
+    borderColor: '#e2e8f0',
+    background: readonly ? '#f8fafc' : 'white',
+    color: readonly ? '#64748b' : '#1e293b',
+    outline: 'none',
+    width: '100%',
+    border: '1px solid #e2e8f0',
+    borderRadius: '6px',
+    fontFamily: readonly ? 'monospace' : 'inherit',
+  };
+}
+
+// ── Table sub-component ───────────────────────────────────────────────────────
+
+interface DirectEntryTableProps {
+  rows: EntryRow[];
+  onUpdateRow: (id: string, field: string, value: string) => void;
+  onRemoveRow: (id: string) => void;
+  onRevertRow: (id: string) => void;
+  onLoadCurrent: () => void;
+}
+
+function DirectEntryTable({ rows, onUpdateRow, onRemoveRow, onRevertRow, onLoadCurrent }: DirectEntryTableProps) {
+  if (rows.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4" style={{ color: '#94a3b8' }}>
+        <RefreshCw size={40} style={{ opacity: 0.3 }} />
+        <div style={{ fontSize: '1rem', color: '#64748b' }}>Chưa có dữ liệu</div>
+        <button type="button" onClick={onLoadCurrent} className="flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
+          <RefreshCw size={15} /> Tải dữ liệu hiện tại
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minWidth: '1200px' }}>
+      <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
+        <colgroup>
+          <col style={{ width: '110px' }} />
+          <col style={{ width: '160px' }} />
+          <col style={{ width: '90px' }} />
+          <col style={{ width: '90px' }} />
+          <col style={{ width: '100px' }} />
+          <col style={{ width: '140px' }} />
+          <col style={{ width: '90px' }} />
+          <col style={{ width: '90px' }} />
+          <col style={{ width: '100px' }} />
+          <col style={{ width: '100px' }} />
+          <col style={{ width: '110px' }} />
+          <col style={{ width: '140px' }} />
+          <col style={{ width: '70px' }} />
+        </colgroup>
+        <thead>
+          <tr style={{ background: '#0c2340', color: 'white', position: 'sticky', top: 0, zIndex: 30 }}>
+            {TABLE_COLS.map((col, i) => (
+              <th key={col.label} style={TABLE_COL_TH_STYLES[i]}>
+                {col.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => {
+            const newFuelStatus = row.finalFuel !== null ? getFuelStatus(row.finalFuel) : null;
+            const c = newFuelStatus ? fuelStatusColor(newFuelStatus) : null;
+            const noFuelData = row.prevFuel === null;
+            return (
+              <tr key={row.id} style={{ background: rowBg(row.status, i) }}>
+                <td style={{ position: 'sticky', left: 0, zIndex: 10, background: rowBg(row.status, i), borderRight: '2px solid #e2e8f0', padding: '4px 6px' }}>
+                  <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center' }}>{row.code}</div>
+                </td>
+                <td style={{ position: 'sticky', left: 110, zIndex: 10, background: rowBg(row.status, i), borderRight: '2px solid #e2e8f0', padding: '4px 6px' }}>
+                  <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center', fontFamily: 'inherit' }}>{row.name}</div>
+                </td>
+                <td style={{ padding: '4px 6px' }}>
+                  <input
+                    type="number" min={0}
+                    value={row.added}
+                    onChange={e => onUpdateRow(row.id, 'added', e.target.value)}
+                    placeholder="0"
+                    disabled={noFuelData}
+                    aria-label={`NL bổ sung — ${row.name}`}
+                    title={noFuelData ? 'Trạm chưa có tồn ban đầu. Vui lòng nhập tồn ban đầu trước khi tính tự động.' : undefined}
+                    style={{ ...cellStyle(noFuelData), opacity: noFuelData ? 0.5 : 1, cursor: noFuelData ? 'not-allowed' : 'text' }}
+                    onFocus={e => { if (!noFuelData) { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)'; } }}
+                    onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
+                  />
+                </td>
+                <td style={{ padding: '4px 6px' }}>
+                  <input
+                    type="number" min={0}
+                    value={row.hoursRun}
+                    onChange={e => onUpdateRow(row.id, 'hoursRun', e.target.value)}
+                    placeholder="0"
+                    disabled={noFuelData}
+                    aria-label={`Số giờ chạy — ${row.name}`}
+                    title={noFuelData ? 'Trạm chưa có tồn ban đầu. Vui lòng nhập tồn ban đầu trước khi tính tự động.' : undefined}
+                    style={{ ...cellStyle(noFuelData), opacity: noFuelData ? 0.5 : 1, cursor: noFuelData ? 'not-allowed' : 'text' }}
+                    onFocus={e => { if (!noFuelData) { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)'; } }}
+                    onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
+                  />
+                </td>
+                <td style={{ padding: '4px 6px' }}>
+                  <input type="date" value={row.date} onChange={e => onUpdateRow(row.id, 'date', e.target.value)} aria-label={`Ngày giao nhận — ${row.name}`} style={cellStyle()} onFocus={e => { e.target.style.borderColor = '#2563eb'; }} onBlur={e => { e.target.style.borderColor = '#e2e8f0'; }} />
+                </td>
+                <td style={{ padding: '4px 6px' }}>
+                  <input value={row.note} onChange={e => onUpdateRow(row.id, 'note', e.target.value)} placeholder="Ghi chú..." aria-label={`Ghi chú — ${row.name}`} style={cellStyle()} />
+                </td>
+                <td style={{ padding: '4px 6px', background: '#f8fafc' }}>
+                  <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center' }}>{fmt(row.prevFuel)}</div>
+                </td>
+                <td style={{ padding: '4px 6px', background: '#f8fafc' }}>
+                  <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center', color: row.consumed ? '#dc2626' : '#94a3b8' }}>{fmt(row.consumed)}</div>
+                </td>
+                <td style={{ padding: '4px 6px', background: '#f8fafc' }}>
+                  <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center' }}>{fmt(row.systemCalc)}</div>
+                </td>
+                <td style={{ padding: '4px 6px', background: '#f8fafc' }}>
+                  <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center', color: c ? c.text : '#94a3b8', fontWeight: row.finalFuel !== null ? 600 : 400 }}>
+                    {fmt(row.finalFuel)}
+                  </div>
+                </td>
+                <td style={{ padding: '4px 6px', background: '#f8fafc' }}>
+                  {c ? (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full" style={{ background: c.bg, color: c.text, fontSize: '0.75rem', fontWeight: 600, whiteSpace: 'nowrap', border: `1px solid ${c.border}` }}>
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: c.dot }} />
+                      {fuelStatusLabel(newFuelStatus!)}
+                    </span>
+                  ) : '—'}
+                </td>
+                <td style={{ padding: '4px 6px', zIndex: 10 }}>
+                  <div className="flex items-center gap-1.5">
+                    {statusBadge(row.status)}
+                    {row.errorMsg && <span style={{ fontSize: '0.75rem', color: row.status === 'error' ? '#dc2626' : '#ca8a04' }}>{row.errorMsg}</span>}
+                  </div>
+                </td>
+                <td style={{ padding: '4px 6px' }}>
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => onRevertRow(row.id)} title="Hoàn tác" className="p-1 rounded" style={{ color: '#94a3b8' }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f1f5f9'} onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                      <RotateCcw size={12} />
+                    </button>
+                    <button type="button" onClick={() => onRemoveRow(row.id)} title="Bỏ khỏi lần nhập" className="p-1 rounded" style={{ color: '#94a3b8' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fee2e2'; (e.currentTarget as HTMLElement).style.color = '#dc2626'; }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#94a3b8'; }}>
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [checked, setChecked] = useState(false);
-  const [successOpen, setSuccessOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [doubleSubmitOpen, setDoubleSubmitOpen] = useState(false);
-  const hasAutoLoadedRef = useRef(false);
+  const [save, dispatchSave] = useReducer(saveReducer, { saving: false, successOpen: false, doubleSubmitOpen: false });
   const lastSubmitRef = useRef<{ signature: string; time: number } | null>(null);
   const pendingSubmitRef = useRef<(() => Promise<void>) | null>(null);
+  const hasAutoLoadedRef = useRef(false);
 
-  const loadCurrent = (options?: { silent?: boolean }) => {
+  // Auto-load once when stations first become available.
+  // Called during render (not effect) so rows are ready before the first paint.
+  if (!hasAutoLoadedRef.current && stations.length > 0) {
+    hasAutoLoadedRef.current = true;
+    setRows(stations.map(s => ({
+      id: s.id, stationId: s.id, code: s.code, name: s.name,
+      added: '', hoursRun: '', date: TODAY, note: '',
+      prevFuel: s.currentFuel, consumed: null, systemCalc: null, finalFuel: null,
+      status: 'unchanged' as RowStatus, errorMsg: '',
+    })));
+  }
+
+  const loadCurrent = useCallback((options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
     const loaded = stations.map(s => ({
       id: s.id, stationId: s.id, code: s.code, name: s.name,
-      added: '', hoursRun: '', date: today, note: '',
+      added: '', hoursRun: '', date: TODAY, note: '',
       prevFuel: s.currentFuel, consumed: null, systemCalc: null, finalFuel: null,
       status: 'unchanged' as RowStatus, errorMsg: '',
     }));
     setRows(loaded);
     setChecked(false);
     if (!silent) toast.success('Đã tải dữ liệu hiện tại');
-  };
-
-  // Auto-load once when stations first become available
-  useEffect(() => {
-    if (!hasAutoLoadedRef.current && stations.length > 0) {
-      hasAutoLoadedRef.current = true;
-      loadCurrent({ silent: true });
-    }
-  // loadCurrent captures stations/today from render scope; hasAutoLoadedRef guards against re-runs
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stations]);
 
   const updateRow = (id: string, field: string, value: string) => {
@@ -110,7 +354,7 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
 
   const doSave = async (changedRows: typeof rows, signature: string) => {
     lastSubmitRef.current = { signature, time: Date.now() };
-    setSaving(true);
+    dispatchSave({ type: 'save-start' });
     try {
       const payload = changedRows.map(r => ({
         stationCode: r.code,
@@ -121,11 +365,10 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
       }));
       const preview = await previewEntry(payload);
       await confirmEntry(preview.jobId);
-      setSuccessOpen(true);
+      dispatchSave({ type: 'save-success' });
     } catch (err) {
       toast.error((err as Error).message || 'Lỗi lưu dữ liệu');
-    } finally {
-      setSaving(false);
+      dispatchSave({ type: 'save-error' });
     }
   };
 
@@ -139,7 +382,7 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
     const last = lastSubmitRef.current;
     if (last?.signature === signature && Date.now() - last.time < 60_000) {
       pendingSubmitRef.current = () => doSave(changedRows, signature);
-      setDoubleSubmitOpen(true);
+      dispatchSave({ type: 'double-submit-open' });
       return;
     }
 
@@ -152,41 +395,6 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
   const unchangedRows = rows.filter(r => r.status === 'unchanged').length;
   const hasErrors = rows.some(r => r.status === 'error');
 
-  const rowBg = (status: RowStatus, i: number) => {
-    if (status === 'error')   return '#fff5f5';
-    if (status === 'warning') return '#fffbeb';
-    if (status === 'valid')   return '#f0fdf4';
-    return i % 2 === 0 ? 'white' : '#fafafa';
-  };
-
-  const statusBadge = (status: RowStatus) => {
-    const cfg = {
-      unchanged: { bg: '#f1f5f9', text: '#64748b', icon: null,          label: 'Không thay đổi' },
-      valid:     { bg: '#dcfce7', text: '#16a34a', icon: CheckCircle,   label: 'Hợp lệ' },
-      warning:   { bg: '#fef9c3', text: '#ca8a04', icon: AlertTriangle,  label: 'Cảnh báo' },
-      error:     { bg: '#fee2e2', text: '#dc2626', icon: XCircle,        label: 'Lỗi' },
-    }[status];
-    const Icon = cfg.icon;
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: cfg.bg, color: cfg.text, fontSize: '0.72rem', fontWeight: 600 }}>
-        {Icon && <Icon size={10} />}{cfg.label}
-      </span>
-    );
-  };
-
-  const cellStyle = (readonly = false) => ({
-    padding: '5px 8px',
-    fontSize: '0.8rem',
-    borderColor: '#e2e8f0',
-    background: readonly ? '#f8fafc' : 'white',
-    color: readonly ? '#64748b' : '#1e293b',
-    outline: 'none',
-    width: '100%',
-    border: '1px solid #e2e8f0',
-    borderRadius: '6px',
-    fontFamily: readonly ? 'monospace' : 'inherit',
-  });
-
   return (
     <div className="flex flex-col h-full" style={{ height: 'calc(100vh - 60px)' }}>
       {/* Header */}
@@ -197,16 +405,17 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
             <p style={{ color: '#64748b', fontSize: '0.8rem' }}>Cập nhật thông tin và nhiên liệu nhiều trạm cùng lúc, giống nhập Excel.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => loadCurrent({ silent: false })} className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.82rem', background: 'white' }}>
+            <button type="button" onClick={() => loadCurrent({ silent: false })} className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.82rem', background: 'white' }}>
               <RefreshCw size={14} /> Tải dữ liệu hiện tại
             </button>
-            <button onClick={checkData} disabled={rows.length === 0} className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors" style={{ background: '#f0f9ff', color: '#0284c7', fontSize: '0.82rem', border: '1px solid #bae6fd', cursor: rows.length === 0 ? 'not-allowed' : 'pointer' }}>
+            <button type="button" onClick={checkData} disabled={rows.length === 0} className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors" style={{ background: '#f0f9ff', color: '#0284c7', fontSize: '0.82rem', border: '1px solid #bae6fd', cursor: rows.length === 0 ? 'not-allowed' : 'pointer' }}>
               <CheckCircle size={14} /> Kiểm tra dữ liệu
             </button>
-            <button onClick={handleSave} disabled={!checked || hasErrors || saving || rows.length === 0} className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all" style={{ background: !checked || hasErrors || rows.length === 0 ? '#e2e8f0' : '#16a34a', color: !checked || hasErrors || rows.length === 0 ? '#94a3b8' : 'white', fontSize: '0.82rem', cursor: !checked || hasErrors || rows.length === 0 ? 'not-allowed' : 'pointer' }}>
-              <Save size={14} />{saving ? 'Đang lưu...' : 'Xác nhận lưu'}
+            <button type="button" onClick={handleSave} disabled={!checked || hasErrors || save.saving || rows.length === 0} className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all" style={{ background: !checked || hasErrors || rows.length === 0 ? '#e2e8f0' : '#16a34a', color: !checked || hasErrors || rows.length === 0 ? '#94a3b8' : 'white', fontSize: '0.82rem', cursor: !checked || hasErrors || rows.length === 0 ? 'not-allowed' : 'pointer' }}>
+              <Save size={14} />{save.saving ? 'Đang lưu...' : 'Xác nhận lưu'}
             </button>
             <button
+              type="button"
               onClick={() => downloadWithAuth('export/snapshot', 'fuel-snapshot.xlsx').catch(e => toast.error((e as Error).message))}
               className="flex items-center gap-2 px-3 py-2 rounded-lg border"
               style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.82rem', background: 'white' }}
@@ -216,7 +425,6 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
           </div>
         </div>
 
-        {/* Summary after check */}
         {checked && rows.length > 0 && (
           <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t" style={{ borderColor: '#f1f5f9' }}>
             {[
@@ -243,14 +451,8 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
 
       {/* Rules */}
       <div className="flex-shrink-0 px-6 py-2 flex flex-wrap gap-4" style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a' }}>
-        {[
-          'Ô trống = không cập nhật',
-          'Số 0 = giá trị hợp lệ',
-          'NL bổ sung cộng trước',
-          'Số giờ chạy → tính tiêu hao',
-          'Không cho tồn cuối âm hoặc vượt tối đa',
-        ].map(rule => (
-          <span key={rule} className="flex items-center gap-1" style={{ fontSize: '0.72rem', color: '#92400e' }}>
+        {RULES.map(rule => (
+          <span key={rule} className="flex items-center gap-1" style={{ fontSize: '0.75rem', color: '#92400e' }}>
             <span style={{ color: '#ca8a04' }}>•</span> {rule}
           </span>
         ))}
@@ -258,174 +460,17 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
 
       {/* Table */}
       <div className="flex-1 overflow-auto" style={{ background: '#f1f5f9' }}>
-        {rows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4" style={{ color: '#94a3b8' }}>
-            <RefreshCw size={40} style={{ opacity: 0.3 }} />
-            <div style={{ fontSize: '1rem', color: '#64748b' }}>Chưa có dữ liệu</div>
-            <button onClick={() => loadCurrent({ silent: false })} className="flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
-              <RefreshCw size={15} /> Tải dữ liệu hiện tại
-            </button>
-          </div>
-        ) : (
-          <div style={{ minWidth: '1200px' }}>
-            <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
-              <colgroup>
-                <col style={{ width: '110px' }} /> {/* Mã trạm - sticky */}
-                <col style={{ width: '160px' }} /> {/* Tên trạm - sticky */}
-                <col style={{ width: '90px' }} />  {/* NL bổ sung */}
-                <col style={{ width: '90px' }} />  {/* Số giờ chạy */}
-                <col style={{ width: '100px' }} /> {/* Ngày GN */}
-                <col style={{ width: '140px' }} /> {/* Ghi chú */}
-                {/* Readonly */}
-                <col style={{ width: '90px' }} />  {/* Tồn trước */}
-                <col style={{ width: '90px' }} />  {/* Tiêu hao */}
-                <col style={{ width: '100px' }} /> {/* Tự tính */}
-                <col style={{ width: '100px' }} /> {/* Tồn cuối */}
-                <col style={{ width: '110px' }} /> {/* Trạng thái */}
-                <col style={{ width: '140px' }} /> {/* Lỗi */}
-                <col style={{ width: '70px' }} />  {/* Actions */}
-              </colgroup>
-              <thead>
-                <tr style={{ background: '#0c2340', color: 'white', position: 'sticky', top: 0, zIndex: 30 }}>
-                  {[
-                    { label: 'Mã trạm',        sticky: true,  left: 0,   readonly: false },
-                    { label: 'Tên trạm',        sticky: true,  left: 110, readonly: false },
-                    { label: 'NL bổ sung',      sticky: false, left: null, readonly: false },
-                    { label: 'Số giờ chạy',     sticky: false, left: null, readonly: false },
-                    { label: 'Ngày GN',         sticky: false, left: null, readonly: false },
-                    { label: 'Ghi chú',         sticky: false, left: null, readonly: false },
-                    { label: 'Tồn trước',       sticky: false, left: null, readonly: true },
-                    { label: 'Tiêu hao',        sticky: false, left: null, readonly: true },
-                    { label: 'Tự tính',         sticky: false, left: null, readonly: true },
-                    { label: 'Tồn cuối',        sticky: false, left: null, readonly: true },
-                    { label: 'Cảnh báo',        sticky: false, left: null, readonly: true },
-                    { label: 'Lỗi / Cảnh báo', sticky: false, left: null, readonly: false },
-                    { label: '',                sticky: false, left: null, readonly: false },
-                  ].map((col, ci) => (
-                    <th key={ci} style={{
-                      padding: '10px 8px',
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      textAlign: 'left',
-                      whiteSpace: 'nowrap',
-                      background: col.readonly ? '#162d4d' : '#0c2340',
-                      position: col.sticky ? 'sticky' : 'relative',
-                      left: col.sticky ? col.left! : undefined,
-                      zIndex: col.sticky ? 31 : 1,
-                      borderRight: '1px solid rgba(255,255,255,0.1)',
-                    }}>
-                      {col.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, i) => {
-                  const newFuelStatus = row.finalFuel !== null ? getFuelStatus(row.finalFuel) : null;
-                  const c = newFuelStatus ? fuelStatusColor(newFuelStatus) : null;
-                  const noFuelData = row.prevFuel === null;
-                  return (
-                    <tr key={row.id} style={{ background: rowBg(row.status, i) }}>
-                      {/* Mã trạm - sticky readonly */}
-                      <td style={{ position: 'sticky', left: 0, zIndex: 10, background: rowBg(row.status, i), borderRight: '2px solid #e2e8f0', padding: '4px 6px' }}>
-                        <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center' }}>{row.code}</div>
-                      </td>
-                      {/* Tên trạm - sticky readonly */}
-                      <td style={{ position: 'sticky', left: 110, zIndex: 10, background: rowBg(row.status, i), borderRight: '2px solid #e2e8f0', padding: '4px 6px' }}>
-                        <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center', fontFamily: 'inherit' }}>{row.name}</div>
-                      </td>
-                      {/* NL bổ sung */}
-                      <td style={{ padding: '4px 6px' }}>
-                        <input
-                          type="number" min={0}
-                          value={row.added}
-                          onChange={e => updateRow(row.id, 'added', e.target.value)}
-                          placeholder="0"
-                          disabled={noFuelData}
-                          title={noFuelData ? 'Trạm chưa có tồn ban đầu. Vui lòng nhập tồn ban đầu trước khi tính tự động.' : undefined}
-                          style={{ ...cellStyle(noFuelData), opacity: noFuelData ? 0.5 : 1, cursor: noFuelData ? 'not-allowed' : 'text' }}
-                          onFocus={e => { if (!noFuelData) { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)'; } }}
-                          onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
-                        />
-                      </td>
-                      {/* Số giờ chạy */}
-                      <td style={{ padding: '4px 6px' }}>
-                        <input
-                          type="number" min={0}
-                          value={row.hoursRun}
-                          onChange={e => updateRow(row.id, 'hoursRun', e.target.value)}
-                          placeholder="0"
-                          disabled={noFuelData}
-                          title={noFuelData ? 'Trạm chưa có tồn ban đầu. Vui lòng nhập tồn ban đầu trước khi tính tự động.' : undefined}
-                          style={{ ...cellStyle(noFuelData), opacity: noFuelData ? 0.5 : 1, cursor: noFuelData ? 'not-allowed' : 'text' }}
-                          onFocus={e => { if (!noFuelData) { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)'; } }}
-                          onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
-                        />
-                      </td>
-                      {/* Ngày GN */}
-                      <td style={{ padding: '4px 6px' }}>
-                        <input type="date" value={row.date} onChange={e => updateRow(row.id, 'date', e.target.value)} style={cellStyle()} onFocus={e => { e.target.style.borderColor = '#2563eb'; }} onBlur={e => { e.target.style.borderColor = '#e2e8f0'; }} />
-                      </td>
-                      {/* Ghi chú */}
-                      <td style={{ padding: '4px 6px' }}>
-                        <input value={row.note} onChange={e => updateRow(row.id, 'note', e.target.value)} placeholder="Ghi chú..." style={cellStyle()} />
-                      </td>
-                      {/* Tồn trước - readonly */}
-                      <td style={{ padding: '4px 6px', background: '#f8fafc' }}>
-                        <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center' }}>{fmt(row.prevFuel)}</div>
-                      </td>
-                      {/* Tiêu hao - readonly */}
-                      <td style={{ padding: '4px 6px', background: '#f8fafc' }}>
-                        <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center', color: row.consumed ? '#dc2626' : '#94a3b8' }}>{fmt(row.consumed)}</div>
-                      </td>
-                      {/* Tự tính - readonly */}
-                      <td style={{ padding: '4px 6px', background: '#f8fafc' }}>
-                        <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center' }}>{fmt(row.systemCalc)}</div>
-                      </td>
-                      {/* Tồn cuối - readonly */}
-                      <td style={{ padding: '4px 6px', background: '#f8fafc' }}>
-                        <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center', color: c ? c.text : '#94a3b8', fontWeight: row.finalFuel !== null ? 600 : 400 }}>
-                          {fmt(row.finalFuel)}
-                        </div>
-                      </td>
-                      {/* Cảnh báo mới - readonly */}
-                      <td style={{ padding: '4px 6px', background: '#f8fafc' }}>
-                        {c ? (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full" style={{ background: c.bg, color: c.text, fontSize: '0.68rem', fontWeight: 600, whiteSpace: 'nowrap', border: `1px solid ${c.border}` }}>
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: c.dot }} />
-                            {fuelStatusLabel(newFuelStatus!)}
-                          </span>
-                        ) : '—'}
-                      </td>
-                      {/* Lỗi/Cảnh báo */}
-                      <td style={{ padding: '4px 6px', zIndex: 10 }}>
-                        <div className="flex items-center gap-1.5">
-                          {statusBadge(row.status)}
-                          {row.errorMsg && <span style={{ fontSize: '0.7rem', color: row.status === 'error' ? '#dc2626' : '#ca8a04' }}>{row.errorMsg}</span>}
-                        </div>
-                      </td>
-                      {/* Actions */}
-                      <td style={{ padding: '4px 6px' }}>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => revertRow(row.id)} title="Hoàn tác" className="p-1 rounded" style={{ color: '#94a3b8' }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f1f5f9'} onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-                            <RotateCcw size={12} />
-                          </button>
-                          <button onClick={() => removeRow(row.id)} title="Bỏ khỏi lần nhập" className="p-1 rounded" style={{ color: '#94a3b8' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fee2e2'; (e.currentTarget as HTMLElement).style.color = '#dc2626'; }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#94a3b8'; }}>
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DirectEntryTable
+          rows={rows}
+          onUpdateRow={updateRow}
+          onRemoveRow={removeRow}
+          onRevertRow={revertRow}
+          onLoadCurrent={() => loadCurrent({ silent: false })}
+        />
       </div>
 
       {/* Double-submit confirm dialog */}
-      <Dialog.Root open={doubleSubmitOpen} onOpenChange={setDoubleSubmitOpen}>
+      <Dialog.Root open={save.doubleSubmitOpen} onOpenChange={open => !open && dispatchSave({ type: 'double-submit-close' })}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.5)' }} />
           <Dialog.Content aria-describedby={undefined} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl p-6 w-full max-w-sm" style={{ background: 'white', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
@@ -434,18 +479,10 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
               Dữ liệu này vừa được gửi trong vòng 60 giây qua. Bạn có chắc muốn tạo thêm một phát sinh mới?
             </p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setDoubleSubmitOpen(false)}
-                className="flex-1 py-2.5 rounded-lg border"
-                style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem' }}
-              >
+              <button type="button" onClick={() => dispatchSave({ type: 'double-submit-close' })} className="flex-1 py-2.5 rounded-lg border" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem' }}>
                 Hủy
               </button>
-              <button
-                onClick={() => { setDoubleSubmitOpen(false); pendingSubmitRef.current?.(); }}
-                className="flex-1 py-2.5 rounded-lg"
-                style={{ background: '#dc2626', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}
-              >
+              <button type="button" onClick={() => { dispatchSave({ type: 'double-submit-close' }); pendingSubmitRef.current?.(); }} className="flex-1 py-2.5 rounded-lg" style={{ background: '#dc2626', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
                 Vẫn gửi
               </button>
             </div>
@@ -454,7 +491,7 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
       </Dialog.Root>
 
       {/* Success Modal */}
-      <Dialog.Root open={successOpen} onOpenChange={setSuccessOpen}>
+      <Dialog.Root open={save.successOpen} onOpenChange={open => !open && dispatchSave({ type: 'close-success' })}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.5)' }} />
           <Dialog.Content aria-describedby={undefined} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl p-8 w-full max-w-sm text-center" style={{ background: 'white', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
@@ -471,15 +508,15 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
               ].map(s => (
                 <div key={s.label} className="rounded-xl p-3" style={{ background: '#f8fafc' }}>
                   <div style={{ fontSize: '1.5rem', fontWeight: 700, color: s.color }}>{s.value}</div>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>{s.label}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>{s.label}</div>
                 </div>
               ))}
             </div>
             <div className="flex gap-3">
-              <button onClick={() => { setSuccessOpen(false); setRows([]); setChecked(false); }} className="flex-1 py-2.5 rounded-lg border" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem' }}>
+              <button type="button" onClick={() => { dispatchSave({ type: 'close-success' }); setRows([]); setChecked(false); }} className="flex-1 py-2.5 rounded-lg border" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem' }}>
                 Tiếp tục nhập
               </button>
-              <button onClick={() => { setSuccessOpen(false); onNavigateToDashboard(); }} className="flex-1 py-2.5 rounded-lg" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
+              <button type="button" onClick={() => { dispatchSave({ type: 'close-success' }); onNavigateToDashboard(); }} className="flex-1 py-2.5 rounded-lg" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
                 Về Dashboard
               </button>
             </div>
