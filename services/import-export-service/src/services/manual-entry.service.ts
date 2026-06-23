@@ -8,6 +8,7 @@ import { confirmImport } from './import-orchestrator.service'
 import type { ParsedRow } from './excel-validator.service'
 import { formatBusinessDateVN } from '../utils/date-vn'
 import { normalizeDecimal2 } from '../utils/normalize'
+import { auditLog } from '../utils/audit-log'
 
 const prisma = new PrismaClient()
 
@@ -249,5 +250,16 @@ export async function confirm(jobId: string, committedBy?: string, userCtx?: Use
 
   const result = await confirmImport(jobId, { committedBy, source: 'direct', userCtx })
   batchSubmitCache.set(batchSignature, Date.now())
+
+  auditLog({
+    action: 'manual_entry_confirm',
+    jobId,
+    committedBy,
+    userId: userCtx?.userId,
+    userName: userCtx?.userName,
+    role: userCtx?.userRole,
+    result: 'success',
+  })
+
   return result
 }

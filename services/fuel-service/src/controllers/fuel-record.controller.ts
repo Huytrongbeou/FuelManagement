@@ -35,6 +35,13 @@ function toCurrentStateDto(s: Record<string, unknown>) {
   }
 }
 
+function requireFiniteNonNeg(val: unknown, name: string): number {
+  const n = Number(val)
+  if (!Number.isFinite(n) || n < 0)
+    throw Object.assign(new Error(`Giá trị ${name} không hợp lệ.`), { status: 400 })
+  return n
+}
+
 export async function postRecord(req: Request, res: Response): Promise<void> {
   try {
     const { stationId, stationCode, recordedDate, fuelAdded, hoursRun, notes, recordedBy } = req.body
@@ -44,8 +51,8 @@ export async function postRecord(req: Request, res: Response): Promise<void> {
     }
     const record = await createManualRecord({
       stationId, stationCode, recordedDate,
-      fuelAdded: Number(fuelAdded ?? 0),
-      hoursRun: Number(hoursRun ?? 0),
+      fuelAdded: requireFiniteNonNeg(fuelAdded ?? 0, 'lượng nhiên liệu'),
+      hoursRun: requireFiniteNonNeg(hoursRun ?? 0, 'số giờ chạy'),
       notes, recordedBy,
     })
     res.status(201).json(toFuelRecordDto(record as unknown as Record<string, unknown>))
