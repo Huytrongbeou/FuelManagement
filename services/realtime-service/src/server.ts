@@ -6,7 +6,25 @@ import { connectRabbitMQ } from './config/rabbitmq'
 
 const PORT = parseInt(process.env.PORT || '3005', 10)
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173'
-const JWT_SECRET = process.env.JWT_SECRET || 'change_me_in_production'
+function loadJwtSecret(): string {
+  const s = process.env.JWT_SECRET ?? process.env.AUTH_JWT_SECRET ?? ''
+  if (!s || s.length < 32 || s.toLowerCase().includes('change_me')) {
+    console.error('FATAL: JWT_SECRET missing, too short, or using placeholder value. Exiting.')
+    process.exit(1)
+  }
+  return s
+}
+
+const JWT_SECRET = loadJwtSecret()
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] realtime-service: Unhandled rejection:', reason)
+  process.exit(1)
+})
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] realtime-service: Uncaught exception:', err)
+  process.exit(1)
+})
 
 const server = http.createServer(app)
 

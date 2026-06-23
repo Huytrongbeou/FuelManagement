@@ -1,7 +1,8 @@
-import { prisma, findCurrentState, findImportCommit } from '../repositories/fuel-record.repository'
+import { prisma, findImportCommit } from '../repositories/fuel-record.repository'
 import * as calc from '../utils/fuel-calculator'
 import * as stationClient from '../clients/station.client'
 import * as mq from '../clients/rabbitmq'
+import { auditLog } from '../utils/audit-log'
 
 interface ImportRecordRow {
   station_id: string
@@ -22,127 +23,204 @@ interface ImportCommitInput {
 }
 
 export async function commitImport(input: ImportCommitInput) {
-  // Idempotency check
+  // Idempotency check — BEFORE everything else
   const existing = await findImportCommit(input.idempotency_key)
   if (existing) {
     return existing.result as object
   }
 
-  const affectedStationIds: string[] = []
+  // Validate numeric fields — reject NaN/Infinity before any DB work
+  for (const r of input.records) {
+    if (!Number.isFinite(r.fuel_added) || r.fuel_added < 0)
+      throw Object.assign(new Error(`Giá trị lượng nhiên liệu không hợp lệ cho trạm ${r.station_code}.`), { status: 400 })
+    if (!Number.isFinite(r.hours_run) || r.hours_run < 0)
+      throw Object.assign(new Error(`Giá trị số giờ chạy không hợp lệ cho trạm ${r.station_code}.`), { status: 400 })
+  }
 
-  // Build fuel rows with server-side fuel_before and DB-sourced rates
-  const rows = await Promise.all(input.records.map(async (row) => {
-    const station = await stationClient.getStation(row.station_id)
+  // Batch fetch all unique stations + isActive check — OUTSIDE tx (HTTP call)
+  const uniqueIds = [...new Set(input.records.map(r => r.station_id))]
+  const stationsArr = await Promise.all(uniqueIds.map(id => stationClient.getStation(id)))
+  const stationMap = new Map(stationsArr.map(s => [s.id, s]))
+
+  for (const [, station] of stationMap) {
     if (!station.isActive) {
       throw Object.assign(
-        new Error(`Trạm ${row.station_code} đã bị vô hiệu hóa, không thể nhập nhiên liệu`),
+        new Error(`Trạm ${station.stationCode} đã bị vô hiệu hóa, không thể nhập nhiên liệu`),
         { status: 400 }
       )
     }
-    const currentState = await findCurrentState(row.station_id)
+  }
 
-    const expectedVersion = input.fuel_state_versions[row.station_id]
+  // Group records by stationId; sort by recordedDate ascending within each station
+  const byStation = new Map<string, ImportRecordRow[]>()
+  for (const r of input.records) {
+    if (!byStation.has(r.station_id)) byStation.set(r.station_id, [])
+    byStation.get(r.station_id)!.push(r)
+  }
+  for (const rows of byStation.values()) {
+    rows.sort((a, b) => new Date(a.recorded_date).getTime() - new Date(b.recorded_date).getTime())
+  }
 
-    // Optimistic concurrency check
-    if (currentState) {
-      const dbVersion = Number(currentState.snapshotVersion)
-      if (expectedVersion === null || dbVersion !== expectedVersion) {
-        throw Object.assign(
-          new Error(`Dữ liệu nhiên liệu của trạm ${row.station_code} đã thay đổi sau khi preview`),
-          { status: 409 }
-        )
-      }
-    } else {
-      if (expectedVersion !== null) {
-        throw Object.assign(
-          new Error(`Dữ liệu nhiên liệu của trạm ${row.station_code} đã thay đổi sau khi preview`),
-          { status: 409 }
-        )
-      }
-    }
-
-    const fuelBefore: number = currentState ? Number(currentState.currentFuel) : 0
-
-    const consumptionRate = Number(station.consumptionRate)
-    const maxCapacity = Number(station.maxCapacity)
-    const fuelConsumed = calc.calculateFuelConsumed(row.hours_run, consumptionRate)
-    const fuelCalculated = calc.calculateFuelResult(fuelBefore, row.fuel_added, fuelConsumed)
-    const fuelAfter = fuelCalculated
-    const fuelStatus = calc.determineFuelStatus(fuelAfter) as calc.FuelStatus
-
-    if (fuelAfter < 0) throw Object.assign(new Error(`Trạm ${row.station_code}: nhiên liệu sau không thể âm`), { status: 400 })
-    if (fuelAfter > maxCapacity) throw Object.assign(new Error(`Trạm ${row.station_code}: nhiên liệu sau vượt dung tích tối đa`), { status: 400 })
-
-    affectedStationIds.push(row.station_id)
-    return { row, fuelBefore, consumptionRate, maxCapacity, fuelConsumed, fuelCalculated, fuelAfter, fuelStatus, isNew: !currentState }
-  }))
+  const affectedStationIds: string[] = []
+  const totalRowsCommitted = input.records.length
 
   // All-or-nothing transaction
   await prisma.$transaction(async (tx) => {
-    for (const r of rows) {
-      const newRecord = await tx.fuelRecord.create({
-        data: {
-          stationId: r.row.station_id,
-          stationCode: r.row.station_code,
-          recordedDate: new Date(r.row.recorded_date),
-          fuelBefore: r.fuelBefore,
-          fuelAdded: r.row.fuel_added,
-          hoursRun: r.row.hours_run,
-          consumptionRate: r.consumptionRate,
-          maxCapacity: r.maxCapacity,
-          fuelConsumed: r.fuelConsumed,
-          fuelCalculated: r.fuelCalculated,
-          actualFuel: null,
-          fuelAfter: r.fuelAfter,
-          fuelDifference: null,
-          fuelStatus: r.fuelStatus,
-          notes: r.row.notes,
-          recordedBy: input.committed_by,
-          source: input.source || 'import',
-          importJobId: input.import_job_id,
-        },
-      })
+    for (const [stationId, rows] of byStation) {
+      const station = stationMap.get(stationId)!
+      const consumptionRate = Number(station.consumptionRate)
+      const maxCapacity = Number(station.maxCapacity)
+      const expectedVersion = input.fuel_state_versions[stationId]
 
-      if (r.isNew) {
-        await tx.currentFuelState.create({
-          data: {
-            stationId: r.row.station_id,
-            stationCode: r.row.station_code,
-            currentFuel: r.fuelAfter,
-            fuelStatus: r.fuelStatus,
-            lastUpdated: new Date(),
-            lastRecordId: newRecord.id,
-            snapshotVersion: 1,
-          },
-        })
+      // Fetch current state INSIDE tx (serializable read — locks the row)
+      const currentState = await tx.currentFuelState.findUnique({ where: { stationId } })
+
+      // Version guard ONCE per station (not per row)
+      if (currentState) {
+        const dbVersion = Number(currentState.snapshotVersion)
+        if (expectedVersion === null || dbVersion !== expectedVersion) {
+          throw Object.assign(
+            new Error(`Dữ liệu nhiên liệu trạm ${rows[0].station_code} đã thay đổi sau preview, vui lòng preview lại`),
+            { status: 409 }
+          )
+        }
       } else {
-        await tx.currentFuelState.update({
-          where: { stationId: r.row.station_id },
+        if (expectedVersion !== null) {
+          throw Object.assign(
+            new Error(`Dữ liệu nhiên liệu trạm ${rows[0].station_code} đã thay đổi sau preview, vui lòng preview lại`),
+            { status: 409 }
+          )
+        }
+      }
+
+      // Chain rows: fuelBefore[n] = fuelAfter[n-1]
+      let runningFuel = currentState ? Number(currentState.currentFuel) : 0
+      let lastRecordId: string | null = null
+
+      for (const row of rows) {
+        const fuelBefore = runningFuel
+        const fuelConsumed = calc.calculateFuelConsumed(row.hours_run, consumptionRate)
+        const fuelAfter = calc.calculateFuelResult(fuelBefore, row.fuel_added, fuelConsumed)
+        const fuelStatus = calc.determineFuelStatus(fuelAfter) as calc.FuelStatus
+
+        // Validate INSIDE tx — any failure rolls back entire batch
+        if (fuelAfter < 0) {
+          throw Object.assign(
+            new Error(`Trạm ${row.station_code}: nhiên liệu sau không thể âm`),
+            { status: 400 }
+          )
+        }
+        if (fuelAfter > maxCapacity) {
+          throw Object.assign(
+            new Error(`Trạm ${row.station_code}: nhiên liệu sau vượt dung tích tối đa`),
+            { status: 400 }
+          )
+        }
+
+        const newRecord = await tx.fuelRecord.create({
           data: {
-            currentFuel: r.fuelAfter,
-            fuelStatus: r.fuelStatus,
-            lastUpdated: new Date(),
-            lastRecordId: newRecord.id,
-            snapshotVersion: { increment: 1 },
+            stationId,
+            stationCode: row.station_code,
+            recordedDate: new Date(row.recorded_date),
+            fuelBefore,
+            fuelAdded: row.fuel_added,
+            hoursRun: row.hours_run,
+            consumptionRate,
+            maxCapacity,
+            fuelConsumed,
+            fuelCalculated: fuelAfter,
+            actualFuel: null,
+            fuelAfter,
+            fuelDifference: null,
+            fuelStatus,
+            notes: row.notes,
+            recordedBy: input.committed_by,
+            source: input.source || 'import',
+            importJobId: input.import_job_id,
           },
         })
+        lastRecordId = newRecord.id
+        runningFuel = fuelAfter
       }
+
+      const finalFuelStatus = calc.determineFuelStatus(runningFuel) as calc.FuelStatus
+
+      // Update/create currentFuelState ONCE per station after all rows chain completes
+      if (currentState) {
+        const updated = await tx.currentFuelState.updateMany({
+          where: { stationId, snapshotVersion: expectedVersion! },
+          data: {
+            currentFuel: runningFuel,
+            fuelStatus: finalFuelStatus,
+            lastUpdated: new Date(),
+            lastRecordId: lastRecordId!,
+            snapshotVersion: { increment: rows.length },
+          },
+        })
+        if (updated.count === 0) {
+          throw Object.assign(
+            new Error(`Dữ liệu nhiên liệu trạm ${rows[0].station_code} đã thay đổi sau preview, vui lòng preview lại`),
+            { status: 409 }
+          )
+        }
+      } else {
+        try {
+          await tx.currentFuelState.create({
+            data: {
+              stationId,
+              stationCode: rows[0].station_code,
+              currentFuel: runningFuel,
+              fuelStatus: finalFuelStatus,
+              lastUpdated: new Date(),
+              lastRecordId: lastRecordId!,
+              snapshotVersion: rows.length,
+            },
+          })
+        } catch (e: unknown) {
+          // P2002 = unique constraint — two concurrent first-time imports racing
+          if ((e as { code?: string }).code === 'P2002') {
+            throw Object.assign(
+              new Error(`Dữ liệu nhiên liệu trạm ${rows[0].station_code} đã thay đổi sau preview, vui lòng preview lại`),
+              { status: 409 }
+            )
+          }
+          throw e
+        }
+      }
+
+      affectedStationIds.push(stationId)
     }
+
+    // fuelImportCommit.create INSIDE tx — atomic with fuel records + state updates
+    // Prevents duplicate FuelRecords on retry if crash occurs between tx commit and post-tx record creation
+    await tx.fuelImportCommit.create({
+      data: {
+        importJobId: input.import_job_id,
+        idempotencyKey: input.idempotency_key,
+        status: 'committed',
+        committedAt: new Date(),
+        rowsCommitted: totalRowsCommitted,
+        result: { rows_committed: totalRowsCommitted, affected_station_ids: affectedStationIds },
+      },
+    })
   })
 
-  const result = { rows_committed: rows.length, affected_station_ids: affectedStationIds }
+  const result = { rows_committed: totalRowsCommitted, affected_station_ids: affectedStationIds }
 
-  await prisma.fuelImportCommit.create({
-    data: {
-      importJobId: input.import_job_id,
-      idempotencyKey: input.idempotency_key,
-      status: 'committed',
-      committedAt: new Date(),
-      rowsCommitted: rows.length,
-      result,
-    },
+  auditLog({
+    action: 'import_confirm',
+    jobId: input.import_job_id,
+    committedBy: input.committed_by,
+    rowsCommitted: totalRowsCommitted,
+    affectedStations: affectedStationIds.length,
+    result: 'success',
   })
 
-  await mq.publish('fuel.records.committed', { importJobId: input.import_job_id, affectedStationIds })
+  try {
+    await mq.publish('fuel.records.committed', { importJobId: input.import_job_id, affectedStationIds })
+  } catch (e) {
+    console.warn('[import-commit] RabbitMQ publish failed (non-fatal):', e)
+  }
+
   return result
 }

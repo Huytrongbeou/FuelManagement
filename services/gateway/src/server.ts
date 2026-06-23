@@ -3,6 +3,15 @@ import app, { wsProxy } from './app'
 
 const PORT = parseInt(process.env.PORT || '3000', 10)
 
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] gateway: Unhandled rejection:', reason)
+  process.exit(1)
+})
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] gateway: Uncaught exception:', err)
+  process.exit(1)
+})
+
 const server = http.createServer(app)
 
 server.on('upgrade', (req, socket, head) => {
