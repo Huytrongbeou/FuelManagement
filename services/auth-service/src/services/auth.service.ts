@@ -3,7 +3,16 @@ import jwt from 'jsonwebtoken'
 import * as userRepo from '../repositories/auth.repository'
 import type { LoginDto, LoginResponse, UserPayload, UserRole } from '../models/auth.types'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'change_me_in_production'
+function loadJwtSecret(): string {
+  const s = process.env.JWT_SECRET ?? process.env.AUTH_JWT_SECRET ?? ''
+  if (!s || s.length < 32 || s.toLowerCase().includes('change_me')) {
+    console.error('FATAL: JWT_SECRET missing, too short, or using placeholder value. Exiting.')
+    process.exit(1)
+  }
+  return s
+}
+
+const JWT_SECRET = loadJwtSecret()
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h'
 
 export async function login(dto: LoginDto): Promise<LoginResponse> {

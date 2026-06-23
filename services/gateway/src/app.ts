@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import { createProxyMiddleware } from 'http-proxy-middleware'
 import { requireAuth } from './middleware/auth.middleware'
@@ -18,6 +19,9 @@ const REALTIME_URL = process.env.REALTIME_SERVICE_URL || 'http://localhost:3005'
 const stripApi = { pathRewrite: { '^/api': '' } }
 
 const app = express()
+
+app.set('trust proxy', 1)  // nginx terminates TLS; rate-limit and HSTS read correct client IP/proto
+app.use(helmet({ hsts: { maxAge: 31536000, includeSubDomains: true } }))
 
 const corsOrigins = CORS_ORIGIN.split(',').map(o => o.trim())
 app.use(cors({ origin: corsOrigins, credentials: true }))

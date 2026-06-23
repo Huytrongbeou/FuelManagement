@@ -1,0 +1,6 @@
+# Thư mục này chứa TLS certificates.
+# DEV: sinh self-signed bằng:
+#   openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
+#     -keyout server.key -out server.crt -subj "/CN=localhost"
+# PRODUCTION: thay bằng cert thật (Let's Encrypt, VNPT CA, v.v.)
+# KHÔNG commit file .key và .crt vào git.
