@@ -2,7 +2,7 @@ import type { Request, Response } from 'express'
 import { previewImport, confirmImport } from '../services/import-orchestrator.service'
 import type { UserContext } from '../clients/fuel.client'
 import { v4 as uuidv4 } from 'uuid'
-import path from 'path'
+import fs from 'fs'
 import { prisma } from '../lib/prisma'
 
 function extractUserCtx(req: Request): UserContext {
@@ -14,11 +14,11 @@ function extractUserCtx(req: Request): UserContext {
 }
 
 export async function upload(req: Request, res: Response): Promise<void> {
-  try {
-    const file = (req as Request & { file?: { path: string; originalname: string; size: number } }).file
-    if (!file) { res.status(400).json({ error: 'Vui lòng chọn file để upload.' }); return }
-    if (file.size === 0) { res.status(400).json({ error: 'File rỗng. Vui lòng kiểm tra lại.' }); return }
+  const file = (req as Request & { file?: { path: string; originalname: string; size: number } }).file
+  if (!file) { res.status(400).json({ error: 'Vui lòng chọn file để upload.' }); return }
+  if (file.size === 0) { res.status(400).json({ error: 'File rỗng. Vui lòng kiểm tra lại.' }); return }
 
+  try {
     const ctx = extractUserCtx(req)
     const job = await prisma.importJob.create({
       data: {
@@ -48,6 +48,8 @@ export async function upload(req: Request, res: Response): Promise<void> {
     res.status(201).json({ ...updated, signatureWarning: signatureWarning ?? null })
   } catch (err: unknown) {
     res.status((err as { status?: number }).status || 500).json({ error: (err as Error).message })
+  } finally {
+    fs.unlink(file.path, () => {})
   }
 }
 
@@ -95,7 +97,3 @@ export async function cancel(req: Request, res: Response): Promise<void> {
     res.status(500).json({ error: (err as Error).message })
   }
 }
-
-// suppress unused import warning
-void path.resolve
-void uuidv4
