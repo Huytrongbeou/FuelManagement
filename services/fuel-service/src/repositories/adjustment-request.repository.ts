@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '../lib/prisma'
 
 export async function findAdjustmentRequest(id: string) {
   return prisma.adjustmentRequest.findUnique({ where: { id } })

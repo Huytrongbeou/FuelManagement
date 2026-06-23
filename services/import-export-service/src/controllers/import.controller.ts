@@ -1,11 +1,9 @@
 import type { Request, Response } from 'express'
-import { PrismaClient } from '@prisma/client'
 import { previewImport, confirmImport } from '../services/import-orchestrator.service'
 import type { UserContext } from '../clients/fuel.client'
 import { v4 as uuidv4 } from 'uuid'
 import path from 'path'
-
-const prisma = new PrismaClient()
+import { prisma } from '../lib/prisma'
 
 function extractUserCtx(req: Request): UserContext {
   return {

@@ -1,9 +1,7 @@
-import { PrismaClient } from '@prisma/client'
 import type { BulkUpsertRow, BulkUpsertResult } from '../models/station.types'
 import * as brandRepo from '../repositories/generator-brand.repository'
 import * as modelRepo from '../repositories/generator-model.repository'
-
-const prisma = new PrismaClient()
+import { prisma } from '../lib/prisma'
 
 async function findOrCreateBrand(name: string): Promise<string> {
   const normalized = name.trim().toLowerCase()

@@ -1,4 +1,3 @@
-import { PrismaClient } from '@prisma/client'
 import { v4 as uuidv4 } from 'uuid'
 import crypto from 'crypto'
 import * as stationClient from '../clients/station.client'
@@ -9,8 +8,7 @@ import type { ParsedRow } from './excel-validator.service'
 import { formatBusinessDateVN } from '../utils/date-vn'
 import { normalizeDecimal2 } from '../utils/normalize'
 import { auditLog } from '../utils/audit-log'
-
-const prisma = new PrismaClient()
+import { prisma } from '../lib/prisma'
 
 // In-memory 60s duplicate guard for direct entry (single-instance dev; use Redis for multi-instance prod)
 const batchSubmitCache = new Map<string, number>()
