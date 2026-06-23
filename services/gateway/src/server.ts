@@ -21,3 +21,11 @@ server.on('upgrade', (req, socket, head) => {
 server.listen(PORT, () => {
   console.log(`gateway listening on port ${PORT}`)
 })
+
+function shutdown(signal: string) {
+  console.log(`[${signal}] Graceful shutdown gateway...`)
+  server.close(() => { process.exit(0) })
+  setTimeout(() => process.exit(1), 10_000)
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))

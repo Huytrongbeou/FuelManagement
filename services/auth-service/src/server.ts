@@ -1,4 +1,5 @@
 import app from './app'
+import { prisma } from './lib/prisma'
 
 const PORT = parseInt(process.env.PORT || '3001', 10)
 
@@ -11,6 +12,17 @@ process.on('uncaughtException', (err) => {
   process.exit(1)
 })
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`auth-service listening on port ${PORT}`)
 })
+
+function shutdown(signal: string) {
+  console.log(`[${signal}] Graceful shutdown auth-service...`)
+  server.close(async () => {
+    await prisma.$disconnect().catch(() => {})
+    process.exit(0)
+  })
+  setTimeout(() => process.exit(1), 10_000)
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))

@@ -62,4 +62,14 @@ async function start() {
 
 start()
 
+function shutdown(signal: string) {
+  console.log(`[${signal}] Graceful shutdown realtime-service...`)
+  io.close(() => {
+    server.close(() => { process.exit(0) })
+  })
+  setTimeout(() => process.exit(1), 10_000)
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
+
 export { io }
