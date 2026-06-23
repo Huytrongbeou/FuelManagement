@@ -24,26 +24,6 @@ export async function getJobs(): Promise<ImportSession[]> {
   return data.map(toSession);
 }
 
-export async function getJob(id: string): Promise<Record<string, unknown>> {
-  return api.get(`/import/jobs/${id}`);
-}
-
 export async function confirmJob(id: string, committedBy?: string): Promise<unknown> {
   return api.post(`/import/jobs/${id}/confirm`, { committed_by: committedBy });
-}
-
-export async function cancelJob(id: string): Promise<void> {
-  await api.post(`/import/jobs/${id}/cancel`);
-}
-
-export function getTemplateUrl(): string {
-  const base = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-  const token = localStorage.getItem('fuel_token');
-  return `${base}/export/template${token ? `?token=${token}` : ''}`;
-}
-
-export function getSnapshotUrl(): string {
-  const base = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-  const token = localStorage.getItem('fuel_token');
-  return `${base}/export/snapshot${token ? `?token=${token}` : ''}`;
 }

@@ -35,6 +35,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation }: Topb
       >
         {/* Mobile menu */}
         <button
+          type="button"
           className="lg:hidden p-2 rounded-lg transition-colors"
           style={{ color: '#475569' }}
           onClick={onMobileMenuOpen}
@@ -47,6 +48,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation }: Topb
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#94a3b8' }} />
           <input
             type="text"
+            aria-label="Tìm theo mã trạm / tên trạm"
             value={query}
             onChange={e => { setQuery(e.target.value); setShowResults(true); }}
             onBlur={() => setTimeout(() => setShowResults(false), 200)}
@@ -67,6 +69,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation }: Topb
             >
               {results.map(s => (
                 <button
+                  type="button"
                   key={s.id}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
                   style={{ fontSize: '0.85rem', color: '#374151' }}
@@ -105,6 +108,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation }: Topb
           <Tooltip.Root>
             <Tooltip.Trigger asChild>
               <button
+                type="button"
                 className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-all"
                 style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.85rem', background: 'white' }}
                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f8fafc'}
@@ -124,6 +128,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation }: Topb
 
           {/* Import */}
           <button
+            type="button"
             className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all"
             style={{ background: '#2563eb', color: 'white', fontSize: '0.85rem' }}
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#1d4ed8'}
@@ -135,6 +140,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation }: Topb
 
           {/* Notification */}
           <button
+            type="button"
             className="relative p-2 rounded-lg transition-colors"
             style={{ color: '#475569' }}
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f8fafc'}
@@ -149,6 +155,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation }: Topb
 
           {/* Avatar */}
           <button
+            type="button"
             className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 transition-opacity hover:opacity-80"
             style={{ background: '#2563eb', color: 'white', fontSize: '0.85rem', fontWeight: 700 }}
           >

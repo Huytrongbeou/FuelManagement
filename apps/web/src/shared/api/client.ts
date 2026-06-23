@@ -1,12 +1,7 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-function getToken(): string | null {
-  return localStorage.getItem('fuel_token');
-}
-
 export function clearAuth() {
-  localStorage.removeItem('fuel_token');
-  localStorage.removeItem('fuel_user');
+  localStorage.removeItem('fuel:v1:user');
 }
 
 async function request<T>(
@@ -15,16 +10,15 @@ async function request<T>(
   body?: unknown,
   headers?: Record<string, string>
 ): Promise<T> {
-  const token = getToken();
   const reqHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     ...headers,
   };
-  if (token) reqHeaders['Authorization'] = `Bearer ${token}`;
 
   const res = await fetch(`${API_URL}${path}`, {
     method,
     headers: reqHeaders,
+    credentials: 'include',
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
@@ -54,14 +48,13 @@ export const api = {
 
 export async function downloadWithAuth(path: string, filename: string): Promise<void> {
   const base = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-  const token = localStorage.getItem('fuel_token');
-  if (!token) throw new Error('Bạn chưa đăng nhập');
   const baseUrl = base.replace(/\/$/, '');
   const cleanPath = path.replace(/^\//, '');
   let url: string | null = null;
   let a: HTMLAnchorElement | null = null;
   try {
-    const res = await fetch(`${baseUrl}/${cleanPath}`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(`${baseUrl}/${cleanPath}`, { credentials: 'include' });
+    if (res.status === 401) { clearAuth(); window.location.reload(); throw new Error('Unauthorized'); }
     if (!res.ok) throw new Error(`Download thất bại (${res.status})`);
     const blob = await res.blob();
     url = URL.createObjectURL(blob);
@@ -77,12 +70,9 @@ export async function downloadWithAuth(path: string, filename: string): Promise<
 }
 
 export async function uploadFile<T>(path: string, file: File, fieldName = 'file'): Promise<T> {
-  const token = getToken();
   const form = new FormData();
   form.append(fieldName, file);
-  const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${API_URL}${path}`, { method: 'POST', headers, body: form });
+  const res = await fetch(`${API_URL}${path}`, { method: 'POST', credentials: 'include', body: form });
   if (res.status === 401) { clearAuth(); window.location.reload(); throw new Error('Unauthorized'); }
   if (!res.ok) {
     let msg = res.statusText;

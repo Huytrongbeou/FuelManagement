@@ -4,6 +4,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { toast } from 'sonner';
 import { Station, getFuelStatus, fuelStatusColor, fuelStatusLabel, fuelTypeLabel } from '@/shared/types';
 import { postFuelRecord } from '../api/fuelApi';
+import { InfoChip } from './InfoChip';
 
 interface Props {
   station: Station | null;
@@ -11,14 +12,16 @@ interface Props {
   onClose: () => void;
 }
 
-function InfoChip({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
-      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1e293b' }}>{value}</span>
-    </div>
-  );
-}
+const INPUT_STYLE = {
+  fontSize: '0.875rem',
+  borderColor: '#e2e8f0',
+  background: '#f8fafc',
+  borderRadius: '8px',
+  padding: '10px 12px',
+  outline: 'none',
+  border: '1px solid #e2e8f0',
+  width: '100%',
+} as const;
 
 export function FuelEntryModal({ station, open, onClose }: Props) {
   const [form, setForm] = useState({ added: '', hoursRun: '', date: new Date().toISOString().slice(0, 10), note: '' });
@@ -68,16 +71,6 @@ export function FuelEntryModal({ station, open, onClose }: Props) {
     }
   };
 
-  const inputStyle = {
-    fontSize: '0.875rem',
-    borderColor: '#e2e8f0',
-    background: '#f8fafc',
-    borderRadius: '8px',
-    padding: '10px 12px',
-    outline: 'none',
-    border: '1px solid #e2e8f0',
-    width: '100%',
-  };
 
   return (
     <Dialog.Root open={open} onOpenChange={open => !open && onClose()}>
@@ -91,14 +84,14 @@ export function FuelEntryModal({ station, open, onClose }: Props) {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: c.text, background: 'white', padding: '2px 8px', borderRadius: '5px', border: `1px solid ${c.border}` }}>{station.code}</span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'white', color: c.text, fontSize: '0.72rem', fontWeight: 600, border: `1px solid ${c.border}` }}>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'white', color: c.text, fontSize: '0.75rem', fontWeight: 600, border: `1px solid ${c.border}` }}>
                   <span className="w-1.5 h-1.5 rounded-full" style={{ background: c.dot }} />{fuelStatusLabel(status)}
                 </span>
               </div>
               <h3 style={{ color: '#0f172a' }}>Nhập nhiên liệu — {station.name}</h3>
               <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>{station.generatorName} · {station.address}</p>
             </div>
-            <button onClick={onClose} style={{ color: '#94a3b8', marginTop: '4px' }}><X size={20} /></button>
+            <button type="button" onClick={onClose} style={{ color: '#94a3b8', marginTop: '4px' }}><X size={20} /></button>
           </div>
 
           <div className="px-6 py-4 space-y-5">
@@ -120,27 +113,27 @@ export function FuelEntryModal({ station, open, onClose }: Props) {
             <form onSubmit={handleSave} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block mb-1.5" style={{ fontSize: '0.82rem', color: '#475569' }}>Ngày ghi nhận</label>
-                  <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={inputStyle}
+                  <label htmlFor="fuel-date" className="block mb-1.5" style={{ fontSize: '0.82rem', color: '#475569' }}>Ngày ghi nhận</label>
+                  <input id="fuel-date" type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={INPUT_STYLE}
                     onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
                     onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }} />
                 </div>
                 <div>
-                  <label className="block mb-1.5" style={{ fontSize: '0.82rem', color: '#475569' }}>Nhiên liệu bổ sung (L)</label>
-                  <input type="number" min={0} value={form.added} onChange={e => setForm(f => ({ ...f, added: e.target.value }))} placeholder="0 — ô trống = không bổ sung" style={inputStyle}
+                  <label htmlFor="fuel-added" className="block mb-1.5" style={{ fontSize: '0.82rem', color: '#475569' }}>Nhiên liệu bổ sung (L)</label>
+                  <input id="fuel-added" type="number" min={0} value={form.added} onChange={e => setForm(f => ({ ...f, added: e.target.value }))} placeholder="0 — ô trống = không bổ sung" style={INPUT_STYLE}
                     onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
                     onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }} />
                 </div>
                 <div>
-                  <label className="block mb-1.5" style={{ fontSize: '0.82rem', color: '#475569' }}>Số giờ chạy máy</label>
-                  <input type="number" min={0} value={form.hoursRun} onChange={e => setForm(f => ({ ...f, hoursRun: e.target.value }))} placeholder="0 — để tính tiêu hao" style={inputStyle}
+                  <label htmlFor="fuel-hours-run" className="block mb-1.5" style={{ fontSize: '0.82rem', color: '#475569' }}>Số giờ chạy máy</label>
+                  <input id="fuel-hours-run" type="number" min={0} value={form.hoursRun} onChange={e => setForm(f => ({ ...f, hoursRun: e.target.value }))} placeholder="0 — để tính tiêu hao" style={INPUT_STYLE}
                     onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
                     onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }} />
                 </div>
               </div>
               <div>
-                <label className="block mb-1.5" style={{ fontSize: '0.82rem', color: '#475569' }}>Ghi chú</label>
-                <textarea value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} rows={2} placeholder="Ghi chú (tùy chọn)..." style={{ ...inputStyle, resize: 'none' }}
+                <label htmlFor="fuel-note" className="block mb-1.5" style={{ fontSize: '0.82rem', color: '#475569' }}>Ghi chú</label>
+                <textarea id="fuel-note" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} rows={2} placeholder="Ghi chú (tùy chọn)..." style={{ ...INPUT_STYLE, resize: 'none' }}
                   onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
                   onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }} />
               </div>
@@ -158,7 +151,7 @@ export function FuelEntryModal({ station, open, onClose }: Props) {
                       { label: 'Tồn cuối cùng',      value: finalFuel !== null ? `${finalFuel.toFixed(1)} L` : '—', color: isError ? '#dc2626' : (newC ? newC.text : '#475569') },
                     ].map(item => (
                       <div key={item.label} className="flex flex-col gap-0.5">
-                        <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{item.label}</span>
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{item.label}</span>
                         <span style={{ fontSize: '0.875rem', fontWeight: 700, color: item.color }}>{item.value}</span>
                       </div>
                     ))}

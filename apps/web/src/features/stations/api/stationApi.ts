@@ -44,15 +44,3 @@ export async function createStation(dto: Record<string, unknown>): Promise<Stati
   return toStation(s);
 }
 
-export async function updateStation(id: string, dto: Record<string, unknown>): Promise<Station> {
-  const s = await api.put<Record<string, unknown>>(`/stations/${id}`, dto);
-  return toStation(s);
-}
-
-export async function deactivateStation(id: string, reason?: string): Promise<void> {
-  await api.patch(`/stations/${id}/deactivate`, { reason });
-}
-
-export async function reactivateStation(id: string): Promise<void> {
-  await api.patch(`/stations/${id}/reactivate`);
-}

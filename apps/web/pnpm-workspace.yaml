@@ -1,2 +1,5 @@
 packages:
   - '.'
+
+minimumReleaseAge: "72h"
+trustPolicy: "no-downgrade"

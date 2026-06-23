@@ -1,4 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useReducer } from 'react';
+import { api } from '@/shared/api/client';
+const _rawUser = localStorage.getItem('fuel:v1:user');
+const _hasUser = !!_rawUser;
+import { MotionConfig } from 'motion/react';
 import { Toaster } from 'sonner';
 import { toast } from 'sonner';
 import { Login } from '@/features/auth/pages/Login';
@@ -24,81 +28,127 @@ import type { ImportSession } from '@/shared/types';
 import { getMe } from '@/features/auth/api/authApi';
 import type { AuthUser } from '@/features/auth/api/authApi';
 
-export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('fuel_token'));
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [currentPage, setCurrentPage] = useState<Page>('dashboard');
-  const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
-  const [selectedStation, setSelectedStation] = useState<Station | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+// Auth
+type AuthState = { isLoggedIn: boolean; currentUser: AuthUser | null };
+type AuthAction =
+  | { type: 'login' }
+  | { type: 'set-user'; user: AuthUser }
+  | { type: 'logout' };
 
-  const [stations, setStations] = useState<Station[]>([]);
-  const [brands, setBrands] = useState<GeneratorBrand[]>([]);
-  const [models, setModels] = useState<GeneratorModel[]>([]);
-  const [importSessions, setImportSessions] = useState<ImportSession[]>([]);
-  const [loading, setLoading] = useState(false);
+function authReducer(state: AuthState, action: AuthAction): AuthState {
+  switch (action.type) {
+    case 'login':    return { ...state, isLoggedIn: true };
+    case 'set-user': return { ...state, currentUser: action.user };
+    case 'logout':   return { isLoggedIn: false, currentUser: null };
+    default:         return state;
+  }
+}
+
+const AUTH_INITIAL: AuthState = {
+  isLoggedIn: _hasUser,
+  currentUser: (() => {
+    try { return _rawUser ? JSON.parse(_rawUser) : null; }
+    catch { return null; }
+  })(),
+};
+
+// Data
+type DataState = { stations: Station[]; brands: GeneratorBrand[]; models: GeneratorModel[]; importSessions: ImportSession[]; loading: boolean };
+type DataAction =
+  | { type: 'loading-start' }
+  | { type: 'loaded'; stations: Station[]; brands: GeneratorBrand[]; models: GeneratorModel[] }
+  | { type: 'load-error' }
+  | { type: 'update-stations'; stations: Station[] }
+  | { type: 'update-brands'; brands: GeneratorBrand[] }
+  | { type: 'update-models'; models: GeneratorModel[] }
+  | { type: 'update-sessions'; sessions: ImportSession[] };
+
+function dataReducer(state: DataState, action: DataAction): DataState {
+  switch (action.type) {
+    case 'loading-start':   return { ...state, loading: true };
+    case 'loaded':          return { ...state, loading: false, stations: action.stations, brands: action.brands, models: action.models };
+    case 'load-error':      return { ...state, loading: false };
+    case 'update-stations': return { ...state, stations: action.stations };
+    case 'update-brands':   return { ...state, brands: action.brands };
+    case 'update-models':   return { ...state, models: action.models };
+    case 'update-sessions': return { ...state, importSessions: action.sessions };
+    default:                return state;
+  }
+}
+
+const DATA_INITIAL: DataState = { stations: [], brands: [], models: [], importSessions: [], loading: _hasUser };
+
+// Nav
+type NavState = { currentPage: Page; selectedStation: Station | null };
+type NavAction =
+  | { type: 'navigate'; page: Page }
+  | { type: 'view-station' }
+  | { type: 'set-station'; station: Station }
+  | { type: 'clear-station' };
+
+function navReducer(state: NavState, action: NavAction): NavState {
+  switch (action.type) {
+    case 'navigate':      return { currentPage: action.page, selectedStation: action.page === 'stations' ? state.selectedStation : null };
+    case 'view-station':  return { ...state, currentPage: 'stations' };
+    case 'set-station':   return { ...state, selectedStation: action.station };
+    case 'clear-station': return { ...state, selectedStation: null };
+    default:              return state;
+  }
+}
+
+export default function App() {
+  const [auth, dispatchAuth] = useReducer(authReducer, AUTH_INITIAL);
+  const [data, dispatchData] = useReducer(dataReducer, DATA_INITIAL);
+  const [nav, dispatchNav] = useReducer(navReducer, { currentPage: 'dashboard' as Page, selectedStation: null });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [addStationOpen, setAddStationOpen] = useState(false);
 
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    getMe().then(setCurrentUser).catch(() => {
-      // 401 is handled by api client (clears token + reloads)
-    });
-  }, [isLoggedIn]);
+  const { isLoggedIn, currentUser } = auth;
+  const { stations, brands, models, importSessions, loading } = data;
+  const { currentPage, selectedStation } = nav;
 
   const handleLogout = () => {
-    localStorage.removeItem('fuel_token');
-    localStorage.removeItem('fuel_user');
-    setIsLoggedIn(false);
-    setCurrentUser(null);
+    api.post('/auth/logout').catch(() => {}); // clears HttpOnly cookie server-side (fire-and-forget)
+    localStorage.removeItem('fuel:v1:user');
+    dispatchAuth({ type: 'logout' });
   };
 
   const fetchAll = useCallback(async () => {
-    if (!isLoggedIn) return;
-    setLoading(true);
+    dispatchData({ type: 'loading-start' });
     try {
       const [s, b, m] = await Promise.all([getStations(), getBrands(), getModels()]);
-      setStations(s);
-      setBrands(b);
-      setModels(m);
+      dispatchData({ type: 'loaded', stations: s, brands: b, models: m });
     } catch (err) {
       toast.error('Lỗi tải dữ liệu: ' + (err as Error).message);
-    } finally {
-      setLoading(false);
+      dispatchData({ type: 'load-error' });
     }
-  }, [isLoggedIn]);
+  }, []);
 
   const fetchImportSessions = useCallback(async () => {
-    if (!isLoggedIn) return;
     try {
       const sessions = await getJobs();
-      setImportSessions(sessions);
+      dispatchData({ type: 'update-sessions', sessions });
     } catch {}
-  }, [isLoggedIn]);
+  }, []);
 
   useEffect(() => {
+    if (!_hasUser) return;
+    getMe().then(user => dispatchAuth({ type: 'set-user', user })).catch(() => {});
     fetchAll();
   }, [fetchAll]);
 
-  useEffect(() => {
-    if (currentPage === 'history') fetchImportSessions();
-  }, [currentPage, fetchImportSessions]);
-
-  // Load full station detail when viewing a specific station
-  useEffect(() => {
-    if (!selectedStationId) { setSelectedStation(null); return; }
-    const cached = stations.find(s => s.id === selectedStationId);
-    if (cached) setSelectedStation(cached);
-    // Fetch full detail with latest fuel state
-    getStation(selectedStationId).then(setSelectedStation).catch(() => {});
-  }, [selectedStationId, stations]);
-
   if (!isLoggedIn) {
     return (
-      <>
-        <Login onLogin={() => setIsLoggedIn(true)} />
-        <Toaster position="top-right" richColors />
-      </>
+      <MotionConfig reducedMotion="user">
+        <>
+          <Login onLogin={() => {
+            dispatchAuth({ type: 'login' });
+            getMe().then(user => dispatchAuth({ type: 'set-user', user })).catch(() => {});
+            fetchAll();
+          }} />
+          <Toaster position="top-right" richColors />
+        </>
+      </MotionConfig>
     );
   }
 
@@ -111,17 +161,16 @@ export default function App() {
   }
 
   const handleViewStation = (id: string) => {
-    setSelectedStationId(id);
-    setCurrentPage('stations');
+    dispatchNav({ type: 'view-station' });
+    const cached = stations.find(s => s.id === id);
+    if (cached) dispatchNav({ type: 'set-station', station: cached });
+    getStation(id).then(station => dispatchNav({ type: 'set-station', station })).catch(() => {});
   };
 
   const handleNavigate = (page: Page) => {
-    setCurrentPage(page);
-    if (page !== 'stations') setSelectedStationId(null);
+    dispatchNav({ type: 'navigate', page });
+    if (page === 'history') fetchImportSessions();
   };
-
-  const isMapPage = currentPage === 'map';
-  const isDirectEntry = currentPage === 'directEntry';
 
   const renderContent = () => {
     const role = currentUser?.role;
@@ -148,7 +197,7 @@ export default function App() {
           station={selectedStation}
           records={[]}
           userRole={currentUser?.role}
-          onBack={() => setSelectedStationId(null)}
+          onBack={() => dispatchNav({ type: 'clear-station' })}
         />
       );
     }
@@ -180,7 +229,7 @@ export default function App() {
           <GeneratorBrands
             brands={brands}
             models={models}
-            onUpdate={(updated) => { setBrands(updated); }}
+            onUpdate={(updated) => { dispatchData({ type: 'update-brands', brands: updated }); }}
           />
         );
       case 'models':
@@ -189,7 +238,7 @@ export default function App() {
             brands={brands}
             models={models}
             stations={stations}
-            onUpdate={(updated) => { setModels(updated); }}
+            onUpdate={(updated) => { dispatchData({ type: 'update-models', models: updated }); }}
           />
         );
       case 'settings':
@@ -199,7 +248,12 @@ export default function App() {
     }
   };
 
+  const isMapPage = currentPage === 'map';
+  const isDirectEntry = currentPage === 'directEntry';
+  const pageContent = renderContent();
+
   return (
+    <MotionConfig reducedMotion="user">
     <>
       <div className="flex h-screen overflow-hidden" style={{ background: '#f1f5f9' }}>
         <Sidebar
@@ -227,7 +281,7 @@ export default function App() {
               flexDirection: 'column',
             }}
           >
-            {renderContent()}
+            {pageContent}
           </main>
         </div>
       </div>
@@ -240,5 +294,6 @@ export default function App() {
         onCreated={fetchAll}
       />
     </>
+    </MotionConfig>
   );
 }

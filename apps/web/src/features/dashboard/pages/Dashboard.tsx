@@ -1,14 +1,13 @@
-import { useState } from 'react';
-import {
-  PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-} from 'recharts';
+import { useState, lazy, Suspense } from 'react';
+const DashboardCharts = lazy(() => import('../components/DashboardCharts'));
 import {
   MapPin, AlertTriangle, CheckCircle, HelpCircle, TrendingUp,
   Clock, Activity, Fuel, Filter
 } from 'lucide-react';
-import { motion } from 'motion/react';
-import { Station, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/shared/types';
+import { LazyMotion, domAnimation } from 'motion/react';
+import { Station, getFuelStatus, fuelStatusColor } from '@/shared/types';
+import { FuelBadge } from '@/features/stations/components/FuelBadge';
+import { StatCard } from '../components/StatCard';
 
 interface DashboardProps {
   stations: Station[];
@@ -17,39 +16,12 @@ interface DashboardProps {
 
 const COLORS_PIE = ['#16a34a', '#ca8a04', '#dc2626', '#94a3b8'];
 
-function StatCard({ title, value, sub, icon: Icon, color, delay = 0 }: {
-  title: string; value: string | number; sub?: string;
-  icon: React.ComponentType<{ size?: number }>; color: string; delay?: number;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.4 }}
-      className="rounded-xl p-5 border"
-      style={{ background: 'white', borderColor: '#e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: color + '18' }}>
-          <Icon size={20} style={{ color }} />
-        </div>
-      </div>
-      <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1 }}>{value}</div>
-      <div style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '4px' }}>{title}</div>
-      {sub && <div style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '2px' }}>{sub}</div>}
-    </motion.div>
-  );
-}
-
-function FuelBadge({ status }: { status: ReturnType<typeof getFuelStatus> }) {
-  const c = fuelStatusColor(status);
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ background: c.bg, color: c.text, fontSize: '0.75rem', fontWeight: 600, border: `1px solid ${c.border}` }}>
-      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.dot }} />
-      {fuelStatusLabel(status)}
-    </span>
-  );
-}
+const TIME_FILTERS = [
+  { key: 'today', label: 'Hôm nay' },
+  { key: 'week',  label: 'Tuần' },
+  { key: 'month', label: 'Tháng' },
+  { key: 'year',  label: 'Năm' },
+];
 
 export function Dashboard({ stations, onViewStation }: DashboardProps) {
   const [timeFilter, setTimeFilter] = useState('today');
@@ -88,14 +60,9 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
     .sort((a, b) => (b.lastUpdated ?? '').localeCompare(a.lastUpdated ?? ''))
     .slice(0, 6);
 
-  const timeFilters = [
-    { key: 'today', label: 'Hôm nay' },
-    { key: 'week',  label: 'Tuần' },
-    { key: 'month', label: 'Tháng' },
-    { key: 'year',  label: 'Năm' },
-  ];
 
   return (
+    <LazyMotion features={domAnimation}>
     <div className="p-4 lg:p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -104,8 +71,9 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
           <p style={{ color: '#64748b', fontSize: '0.875rem' }}>Cập nhật: 12/06/2026 08:30</p>
         </div>
         <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: '#f1f5f9' }}>
-          {timeFilters.map(f => (
+          {TIME_FILTERS.map(f => (
             <button
+              type="button"
               key={f.key}
               onClick={() => setTimeFilter(f.key)}
               className="px-3 py-1.5 rounded-lg transition-all"
@@ -136,62 +104,9 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
       </div>
 
       {/* Charts + tables row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Pie chart */}
-        <div className="rounded-xl border p-5" style={{ background: 'white', borderColor: '#e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <h4 className="mb-4" style={{ color: '#0f172a' }}>Phân bổ trạng thái nhiên liệu</h4>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                cx="50%"
-                cy="50%"
-                innerRadius={55}
-                outerRadius={80}
-                paddingAngle={3}
-                dataKey="value"
-                isAnimationActive={false}
-              >
-                {pieData.map((entry, index) => (
-                  <Cell key={`pie-sector-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <RechartsTooltip
-                formatter={(value: number, name: string) => [`${value} trạm`, name]}
-                contentStyle={{ fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="mt-2 space-y-1.5">
-            {pieData.map(d => (
-              <div key={d.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: d.color }} />
-                  <span style={{ fontSize: '0.8rem', color: '#475569' }}>{d.name}</span>
-                </div>
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0f172a' }}>{d.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Bar chart */}
-        <div className="lg:col-span-2 rounded-xl border p-5" style={{ background: 'white', borderColor: '#e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <h4 className="mb-4" style={{ color: '#0f172a' }}>Tổng nhiên liệu tồn theo tháng (Lít)</h4>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={barData} barSize={32}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <RechartsTooltip
-                formatter={(v: number) => [`${v} L`]}
-                contentStyle={{ fontSize: '0.8rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-              />
-              <Bar dataKey="total" fill="#2563eb" radius={[6, 6, 0, 0]} name="Tổng NL tồn" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      <Suspense fallback={<div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>Đang tải biểu đồ…</div>}>
+        <DashboardCharts pieData={pieData} barData={barData} />
+      </Suspense>
 
       {/* Low fuel + recent updates */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -224,8 +139,9 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
                       <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{s.currentFuel}L / {s.maxCapacity}L</span>
                     </div>
                   </div>
-                  <FuelBadge status={status} />
+                  <FuelBadge fuel={s.currentFuel} />
                   <button
+                    type="button"
                     onClick={() => onViewStation(s.id)}
                     className="opacity-0 group-hover:opacity-100 px-2.5 py-1 rounded-lg transition-all"
                     style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.75rem' }}
@@ -246,14 +162,14 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
           </div>
           <div className="divide-y" style={{ divideColor: '#f8fafc' }}>
             {recentUpdates.map(s => {
-              const status = getFuelStatus(s.currentFuel);
+              const c = fuelStatusColor(getFuelStatus(s.currentFuel));
               return (
                 <div key={s.id} className="flex items-center gap-3 px-5 py-3 group">
                   <div
                     className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: fuelStatusColor(status).bg }}
+                    style={{ background: c.bg }}
                   >
-                    <MapPin size={14} style={{ color: fuelStatusColor(status).dot }} />
+                    <MapPin size={14} style={{ color: c.dot }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div style={{ fontSize: '0.875rem', fontWeight: 500, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -263,7 +179,7 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
                       {s.lastUpdated} · {s.currentFuel !== null ? `${s.currentFuel} L` : '—'}
                     </div>
                   </div>
-                  <FuelBadge status={status} />
+                  <FuelBadge fuel={s.currentFuel} />
                 </div>
               );
             })}
@@ -271,5 +187,6 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
         </div>
       </div>
     </div>
+    </LazyMotion>
   );
 }

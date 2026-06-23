@@ -1,40 +1,53 @@
-import { useState } from 'react';
-import { Zap, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { useState, useReducer } from 'react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { LazyMotion, m, domAnimation } from 'motion/react';
 import { login } from '../api/authApi';
 
 interface LoginProps {
   onLogin: () => void;
 }
 
+type FormState = { username: string; password: string; loading: boolean; error: string };
+type FormAction =
+  | { type: 'field'; name: 'username' | 'password'; value: string }
+  | { type: 'submit' }
+  | { type: 'success' }
+  | { type: 'error'; message: string };
+
+function formReducer(state: FormState, action: FormAction): FormState {
+  switch (action.type) {
+    case 'field':   return { ...state, [action.name]: action.value };
+    case 'submit':  return { ...state, loading: true, error: '' };
+    case 'success': return { ...state, loading: false };
+    case 'error':   return { ...state, loading: false, error: action.message };
+    default:        return state;
+  }
+}
+
 export function Login({ onLogin }: LoginProps) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [form, dispatch] = useReducer(formReducer, { username: '', password: '', loading: false, error: '' });
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { username, password, loading, error } = form;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) {
-      setError('Vui lòng nhập đầy đủ thông tin.');
+      dispatch({ type: 'error', message: 'Vui lòng nhập đầy đủ thông tin.' });
       return;
     }
-    setLoading(true);
-    setError('');
+    dispatch({ type: 'submit' });
     try {
       const result = await login(username, password);
-      localStorage.setItem('fuel_token', result.token);
-      localStorage.setItem('fuel_user', JSON.stringify(result.user));
-      setLoading(false);
+      localStorage.setItem('fuel:v1:user', JSON.stringify(result.user));
+      dispatch({ type: 'success' });
       onLogin();
     } catch (err) {
-      setLoading(false);
-      setError((err as Error).message || 'Đăng nhập thất bại');
+      dispatch({ type: 'error', message: (err as Error).message || 'Đăng nhập thất bại' });
     }
   };
 
   return (
+    <LazyMotion features={domAnimation}>
     <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #0c2340 0%, #1a4a7a 50%, #0e3560 100%)' }}>
       {/* Left panel - Illustration */}
       <div className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-12 relative overflow-hidden">
@@ -53,14 +66,14 @@ export function Login({ onLogin }: LoginProps) {
             />
           ))}
         </div>
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           className="relative z-10 text-center"
         >
-          <div className="flex items-center justify-center w-20 h-20 rounded-2xl mb-8 mx-auto" style={{ background: 'rgba(255,255,255,0.15)' }}>
-            <Zap size={40} className="text-white" />
+          <div className="flex items-center justify-center w-24 h-24 rounded-2xl mb-8 mx-auto overflow-hidden" style={{ background: 'white', padding: '6px' }}>
+            <img src="/vnpt-logo.jpg" alt="VNPT" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
           <h1 className="text-white mb-4" style={{ fontSize: '2rem', fontWeight: 700, lineHeight: 1.2 }}>
             Quản lý nhiên liệu<br />máy phát điện
@@ -80,20 +93,20 @@ export function Login({ onLogin }: LoginProps) {
               </div>
             ))}
           </div>
-        </motion.div>
+        </m.div>
       </div>
 
       {/* Right panel - Login form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
           className="w-full max-w-md"
         >
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl" style={{ background: '#0c2340' }}>
-              <Zap size={20} className="text-white" />
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl overflow-hidden" style={{ background: 'white', border: '1px solid #e2e8f0', padding: '2px' }}>
+              <img src="/vnpt-logo.jpg" alt="VNPT" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
             <span style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0c2340' }}>VNPT</span>
           </div>
@@ -105,13 +118,14 @@ export function Login({ onLogin }: LoginProps) {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block mb-2" style={{ color: '#374151', fontSize: '0.875rem' }}>
+              <label htmlFor="login-username" className="block mb-2" style={{ color: '#374151', fontSize: '0.875rem' }}>
                 Tên đăng nhập
               </label>
               <input
+                id="login-username"
                 type="text"
                 value={username}
-                onChange={e => setUsername(e.target.value)}
+                onChange={e => dispatch({ type: 'field', name: 'username', value: e.target.value })}
                 placeholder="Nhập tên đăng nhập"
                 className="w-full px-4 py-3 rounded-lg border outline-none transition-all"
                 style={{
@@ -126,14 +140,15 @@ export function Login({ onLogin }: LoginProps) {
             </div>
 
             <div>
-              <label className="block mb-2" style={{ color: '#374151', fontSize: '0.875rem' }}>
+              <label htmlFor="login-password" className="block mb-2" style={{ color: '#374151', fontSize: '0.875rem' }}>
                 Mật khẩu
               </label>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={e => dispatch({ type: 'field', name: 'password', value: e.target.value })}
                   placeholder="Nhập mật khẩu"
                   className="w-full px-4 py-3 pr-12 rounded-lg border outline-none transition-all"
                   style={{
@@ -192,8 +207,9 @@ export function Login({ onLogin }: LoginProps) {
               © 2026 VNPT — Hệ thống Quản lý Nhiên liệu Trạm
             </p>
           </div>
-        </motion.div>
+        </m.div>
       </div>
     </div>
+    </LazyMotion>
   );
 }

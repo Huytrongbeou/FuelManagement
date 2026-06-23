@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Map, Upload, History, Settings, Zap, ChevronRight, Cpu, Factory, X, ClipboardList, LogOut } from 'lucide-react';
+import { LayoutDashboard, MapPin, Map, Upload, History, Settings, ChevronRight, Cpu, Factory, X, ClipboardList, LogOut } from 'lucide-react';
 import { Page } from '@/shared/types';
 
 interface SidebarProps {
@@ -68,17 +68,17 @@ export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobi
     <div className="flex flex-col h-full" style={{ background: '#0c2340' }}>
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0" style={{ background: '#2563eb' }}>
-          <Zap size={18} className="text-white" />
+        <div className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 overflow-hidden" style={{ background: 'white', padding: '2px' }}>
+          <img src="/vnpt-logo.jpg" alt="VNPT" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         </div>
         {!collapsed && (
           <div>
             <div style={{ color: 'white', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.2 }}>VNPT</div>
-            <div style={{ color: '#7dd3fc', fontSize: '0.7rem' }}>Hệ thống quản lý NL</div>
+            <div style={{ color: '#7dd3fc', fontSize: '0.75rem' }}>Hệ thống quản lý NL</div>
           </div>
         )}
         {mobileOpen && (
-          <button onClick={onMobileClose} className="ml-auto" style={{ color: '#94a3b8' }}><X size={20} /></button>
+          <button type="button" onClick={onMobileClose} className="ml-auto" style={{ color: '#94a3b8' }}><X size={20} /></button>
         )}
       </div>
 
@@ -87,7 +87,7 @@ export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobi
         {visibleGroups.map(group => (
           <div key={group.label}>
             {!collapsed && (
-              <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#4b6cb7', textTransform: 'uppercase', letterSpacing: '0.1em', paddingLeft: '12px', marginBottom: '4px' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4b6cb7', textTransform: 'uppercase', letterSpacing: '0.1em', paddingLeft: '12px', marginBottom: '4px' }}>
                 {group.label}
               </div>
             )}
@@ -96,6 +96,7 @@ export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobi
                 const active = currentPage === page;
                 return (
                   <button
+                    type="button"
                     key={page}
                     onClick={() => handleNav(page)}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group relative"
@@ -129,10 +130,11 @@ export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobi
             <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#2563eb', color: 'white', fontSize: '0.85rem', fontWeight: 700 }}>{initial}</div>
             <div className="flex-1 min-w-0">
               <div style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
-              <div style={{ color: '#7dd3fc', fontSize: '0.7rem' }}>{roleLabel}</div>
+              <div style={{ color: '#7dd3fc', fontSize: '0.75rem' }}>{roleLabel}</div>
             </div>
             {onLogout && (
               <button
+                type="button"
                 onClick={onLogout}
                 title="Đăng xuất"
                 style={{ color: '#94a3b8', flexShrink: 0 }}
@@ -155,7 +157,7 @@ export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobi
       </div>
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={onMobileClose} />
+          <div aria-hidden="true" className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={onMobileClose} />
           <div className="relative flex flex-col w-64 h-full z-10">{sidebarContent}</div>
         </div>
       )}

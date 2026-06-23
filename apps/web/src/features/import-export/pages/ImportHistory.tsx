@@ -91,6 +91,7 @@ export function ImportHistory({ sessions }: ImportHistoryProps) {
                     </td>
                     <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}>
                       <button
+                        type="button"
                         onClick={() => setSelected(s)}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors"
                         style={{ background: '#eff6ff', color: '#2563eb', fontSize: '0.78rem', fontWeight: 500 }}
@@ -133,7 +134,7 @@ export function ImportHistory({ sessions }: ImportHistoryProps) {
                         {cfg.label}
                       </span>
                       <Dialog.Close asChild>
-                        <button style={{ color: '#94a3b8' }}><X size={20} /></button>
+                        <button type="button" style={{ color: '#94a3b8' }}><X size={20} /></button>
                       </Dialog.Close>
                     </div>
                   </div>
@@ -148,7 +149,7 @@ export function ImportHistory({ sessions }: ImportHistoryProps) {
                       ].map(s => (
                         <div key={s.label} className="rounded-xl p-3 text-center" style={{ background: s.bg }}>
                           <div style={{ fontSize: '1.5rem', fontWeight: 700, color: s.color }}>{s.value}</div>
-                          <div style={{ fontSize: '0.72rem', color: s.color + 'cc' }}>{s.label}</div>
+                          <div style={{ fontSize: '0.75rem', color: s.color + 'cc' }}>{s.label}</div>
                         </div>
                       ))}
                     </div>
@@ -160,8 +161,8 @@ export function ImportHistory({ sessions }: ImportHistoryProps) {
                           <XCircle size={16} /> Danh sách lỗi
                         </h4>
                         <div className="space-y-2">
-                          {mockErrors.map((e, i) => (
-                            <div key={i} className="rounded-lg px-4 py-3 flex items-start gap-3" style={{ background: '#fff5f5', border: '1px solid #fca5a5' }}>
+                          {mockErrors.map((e) => (
+                            <div key={e.row} className="rounded-lg px-4 py-3 flex items-start gap-3" style={{ background: '#fff5f5', border: '1px solid #fca5a5' }}>
                               <span style={{ color: '#dc2626', fontWeight: 600, fontSize: '0.78rem', whiteSpace: 'nowrap' }}>Dòng {e.row}</span>
                               <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#64748b', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>{e.code}</span>
                               <span style={{ fontSize: '0.8rem', color: '#b91c1c' }}>{e.message}</span>
@@ -178,8 +179,8 @@ export function ImportHistory({ sessions }: ImportHistoryProps) {
                           <AlertTriangle size={16} /> Cảnh báo
                         </h4>
                         <div className="space-y-2">
-                          {mockWarnings.map((w, i) => (
-                            <div key={i} className="rounded-lg px-4 py-3 flex items-start gap-3" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+                          {mockWarnings.map((w) => (
+                            <div key={w.row} className="rounded-lg px-4 py-3 flex items-start gap-3" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
                               <span style={{ color: '#ca8a04', fontWeight: 600, fontSize: '0.78rem', whiteSpace: 'nowrap' }}>Dòng {w.row}</span>
                               <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#64748b', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>{w.code}</span>
                               <span style={{ fontSize: '0.8rem', color: '#92400e' }}>{w.message}</span>

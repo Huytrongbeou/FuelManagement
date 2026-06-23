@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useReducer } from 'react';
 import { Plus, Edit, ToggleRight, ToggleLeft, Save, X, Search, Globe, AlertTriangle } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
@@ -14,13 +14,34 @@ interface Props {
 
 const emptyForm = { name: '', country: '', note: '', active: true };
 
+type DialogState = { open: boolean; editing: GeneratorBrand | null; form: typeof emptyForm; saving: boolean };
+type DialogAction =
+  | { type: 'open-add' }
+  | { type: 'open-edit'; brand: GeneratorBrand }
+  | { type: 'close' }
+  | { type: 'form-field'; name: string; value: string }
+  | { type: 'saving' }
+  | { type: 'saved' }
+  | { type: 'save-error' };
+
+function dialogReducer(state: DialogState, action: DialogAction): DialogState {
+  switch (action.type) {
+    case 'open-add':   return { open: true, editing: null, form: emptyForm, saving: false };
+    case 'open-edit':  return { open: true, editing: action.brand, form: { name: action.brand.name, country: action.brand.country, note: action.brand.note ?? '', active: action.brand.active }, saving: false };
+    case 'close':      return { ...state, open: false };
+    case 'form-field': return { ...state, form: { ...state.form, [action.name]: action.value } };
+    case 'saving':     return { ...state, saving: true };
+    case 'saved':      return { ...state, saving: false, open: false };
+    case 'save-error': return { ...state, saving: false };
+    default:           return state;
+  }
+}
+
 export function GeneratorBrands({ brands, models, onUpdate }: Props) {
   const [query, setQuery] = useState('');
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<GeneratorBrand | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
+  const [dialog, dispatchDialog] = useReducer(dialogReducer, { open: false, editing: null, form: emptyForm, saving: false });
   const [deactivateTarget, setDeactivateTarget] = useState<GeneratorBrand | null>(null);
+  const { open: dialogOpen, editing, form, saving } = dialog;
 
   const filtered = brands.filter(b =>
     !query || b.name.toLowerCase().includes(query.toLowerCase()) || b.country.toLowerCase().includes(query.toLowerCase())
@@ -28,13 +49,13 @@ export function GeneratorBrands({ brands, models, onUpdate }: Props) {
 
   const modelCount = (brandId: string) => models.filter(m => m.brandId === brandId && m.active).length;
 
-  const openAdd = () => { setEditing(null); setForm(emptyForm); setDialogOpen(true); };
-  const openEdit = (b: GeneratorBrand) => { setEditing(b); setForm({ name: b.name, country: b.country, note: b.note ?? '', active: b.active }); setDialogOpen(true); };
+  const openAdd = () => dispatchDialog({ type: 'open-add' });
+  const openEdit = (b: GeneratorBrand) => dispatchDialog({ type: 'open-edit', brand: b });
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) { toast.error('Vui lòng nhập tên hãng'); return; }
-    setSaving(true);
+    dispatchDialog({ type: 'saving' });
     try {
       if (editing) {
         const updated = await updateBrand(editing.id, { name: form.name, country: form.country || undefined, note: form.note || undefined });
@@ -45,11 +66,10 @@ export function GeneratorBrands({ brands, models, onUpdate }: Props) {
         onUpdate([...brands, created]);
         toast.success(`Đã thêm hãng ${form.name}`);
       }
-      setDialogOpen(false);
+      dispatchDialog({ type: 'saved' });
     } catch (err) {
       toast.error((err as Error).message || 'Lỗi lưu dữ liệu');
-    } finally {
-      setSaving(false);
+      dispatchDialog({ type: 'save-error' });
     }
   };
 
@@ -84,14 +104,14 @@ export function GeneratorBrands({ brands, models, onUpdate }: Props) {
           <h2 style={{ color: '#0f172a' }}>Hãng máy phát</h2>
           <p style={{ color: '#64748b', fontSize: '0.875rem' }}>{brands.filter(b => b.active).length} hãng đang sử dụng</p>
         </div>
-        <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
+        <button type="button" onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
           <Plus size={16} /> Thêm hãng
         </button>
       </div>
 
       <div className="relative max-w-sm">
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#94a3b8' }} />
-        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Tìm hãng..." className="w-full pl-9 pr-4 py-2 rounded-lg border outline-none" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0', background: 'white' }} />
+        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Tìm hãng..." aria-label="Tìm hãng" className="w-full pl-9 pr-4 py-2 rounded-lg border outline-none" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0', background: 'white' }} />
       </div>
 
       <div className="rounded-xl border overflow-hidden" style={{ background: 'white', borderColor: '#e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -134,10 +154,10 @@ export function GeneratorBrands({ brands, models, onUpdate }: Props) {
                 <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', color: '#64748b' }}>{b.note || '—'}</td>
                 <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9' }}>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => openEdit(b)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg" style={{ background: '#eff6ff', color: '#2563eb', fontSize: '0.78rem', fontWeight: 500 }}>
+                    <button type="button" onClick={() => openEdit(b)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg" style={{ background: '#eff6ff', color: '#2563eb', fontSize: '0.78rem', fontWeight: 500 }}>
                       <Edit size={13} /> Sửa
                     </button>
-                    <button onClick={() => toggleActive(b)} className="p-1.5 rounded-lg" title={b.active ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                    <button type="button" onClick={() => toggleActive(b)} className="p-1.5 rounded-lg" title={b.active ? 'Vô hiệu hóa' : 'Kích hoạt'}
                       onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f1f5f9'}
                       onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                       {b.active ? <ToggleRight size={18} style={{ color: '#16a34a' }} /> : <ToggleLeft size={18} style={{ color: '#94a3b8' }} />}
@@ -154,13 +174,13 @@ export function GeneratorBrands({ brands, models, onUpdate }: Props) {
       </div>
 
       {/* Add/Edit Dialog */}
-      <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog.Root open={dialogOpen} onOpenChange={open => !open && dispatchDialog({ type: 'close' })}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.5)' }} />
           <Dialog.Content aria-describedby={undefined} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl w-full max-w-md" style={{ background: 'white', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
             <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: '#f1f5f9' }}>
               <Dialog.Title asChild><h3 style={{ color: '#0f172a' }}>{editing ? 'Sửa hãng máy phát' : 'Thêm hãng máy phát'}</h3></Dialog.Title>
-              <Dialog.Close asChild><button style={{ color: '#94a3b8' }}><X size={20} /></button></Dialog.Close>
+              <Dialog.Close asChild><button type="button" style={{ color: '#94a3b8' }}><X size={20} /></button></Dialog.Close>
             </div>
             <form onSubmit={handleSave} className="p-6 space-y-4">
               {[
@@ -170,7 +190,8 @@ export function GeneratorBrands({ brands, models, onUpdate }: Props) {
               ].map(f => (
                 <div key={f.key}>
                   <label className="block mb-1.5" style={{ fontSize: '0.82rem', color: '#475569' }}>{f.label}</label>
-                  <input value={form[f.key as keyof typeof form] as string} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder}
+                  <input value={form[f.key as keyof typeof form] as string} onChange={e => dispatchDialog({ type: 'form-field', name: f.key, value: e.target.value })} placeholder={f.placeholder}
+                    aria-label={f.label}
                     className="w-full px-3 py-2.5 rounded-lg border outline-none" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0', background: '#f8fafc' }}
                     onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
                     onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }} />
@@ -202,8 +223,8 @@ export function GeneratorBrands({ brands, models, onUpdate }: Props) {
               </p>
             </AlertDialog.Description>
             <div className="flex gap-3">
-              <AlertDialog.Cancel asChild><button className="flex-1 py-2.5 rounded-lg border" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem' }}>Hủy</button></AlertDialog.Cancel>
-              <AlertDialog.Action asChild><button onClick={handleDeactivate} className="flex-1 py-2.5 rounded-lg" style={{ background: '#dc2626', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>Xác nhận</button></AlertDialog.Action>
+              <AlertDialog.Cancel asChild><button type="button" className="flex-1 py-2.5 rounded-lg border" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem' }}>Hủy</button></AlertDialog.Cancel>
+              <AlertDialog.Action asChild><button type="button" onClick={handleDeactivate} className="flex-1 py-2.5 rounded-lg" style={{ background: '#dc2626', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>Xác nhận</button></AlertDialog.Action>
             </div>
           </AlertDialog.Content>
         </AlertDialog.Portal>
