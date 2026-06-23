@@ -1,0 +1,19 @@
+services:
+  backup:
+    image: postgres:16-alpine
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-fuelapp}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-fuelapp_secret}
+      BACKUP_DIR: /backups
+    volumes:
+      - ./backup.sh:/backup.sh:ro
+      - ${BACKUP_HOST_DIR:-./backups}:/backups
+    command: sh /backup.sh
+    networks:
+      - fuel-net
+
+networks:
+  fuel-net:
+    external: true
+    name: fuel-management_fuel-net

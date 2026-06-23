@@ -52,6 +52,7 @@ services:
       context: ./services/auth-service
       dockerfile: Dockerfile
     container_name: fuel_auth
+    mem_limit: 256m
     environment:
       PORT: 3001
       DATABASE_URL: postgresql://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@postgres:5432/auth_db?connection_limit=5
@@ -69,6 +70,7 @@ services:
       context: ./services/station-service
       dockerfile: Dockerfile
     container_name: fuel_station
+    mem_limit: 256m
     environment:
       PORT: 3002
       DATABASE_URL: postgresql://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@postgres:5432/station_db?connection_limit=5
@@ -87,6 +89,7 @@ services:
       context: ./services/fuel-service
       dockerfile: Dockerfile
     container_name: fuel_fuel
+    mem_limit: 512m
     environment:
       PORT: 3003
       DATABASE_URL: postgresql://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@postgres:5432/fuel_db?connection_limit=5
@@ -108,6 +111,7 @@ services:
       context: ./services/import-export-service
       dockerfile: Dockerfile
     container_name: fuel_import
+    mem_limit: 512m
     environment:
       PORT: 3004
       DATABASE_URL: postgresql://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@postgres:5432/import_db?connection_limit=5
@@ -133,6 +137,7 @@ services:
       context: ./services/realtime-service
       dockerfile: Dockerfile
     container_name: fuel_realtime
+    mem_limit: 256m
     environment:
       PORT: 3005
       RABBITMQ_URL: amqp://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@rabbitmq:5672
@@ -165,6 +170,7 @@ services:
       context: ./services/gateway
       dockerfile: Dockerfile
     container_name: fuel_gateway
+    mem_limit: 256m
     # No ports: gateway only accessible via nginx on :443
     environment:
       PORT: 3000
