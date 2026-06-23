@@ -14,6 +14,11 @@ import { prisma } from '../lib/prisma'
 const batchSubmitCache = new Map<string, number>()
 const BATCH_DUPLICATE_WINDOW_MS = 60_000
 
+setInterval(() => {
+  const cutoff = Date.now() - BATCH_DUPLICATE_WINDOW_MS
+  for (const [k, t] of batchSubmitCache) if (t < cutoff) batchSubmitCache.delete(k)
+}, BATCH_DUPLICATE_WINDOW_MS).unref()
+
 type PreviewRowJson = { stationCode?: string; recordedDate?: string | null; fuelAdded?: number | null; hoursRun?: number | null; hasFuelActivity?: boolean }
 
 function computeBatchSignature(userId: string, rows: PreviewRowJson[]): string {
