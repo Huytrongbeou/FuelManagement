@@ -11,3 +11,5 @@ Thumbs.db
 /services/frontend/node_modules/
 /services/frontend/dist/
 prisma/migrations/*.sql.tmp
+infrastructure/nginx/certs/*.crt
+infrastructure/nginx/certs/*.key
