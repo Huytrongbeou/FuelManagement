@@ -9,6 +9,7 @@ import fs from 'fs/promises'
 import crypto from 'crypto'
 import { formatBusinessDateVN } from '../utils/date-vn'
 import { normalizeDecimal2 } from '../utils/normalize'
+import { auditLog } from '../utils/audit-log'
 
 const prisma = new PrismaClient()
 
@@ -368,8 +369,23 @@ export async function confirmImport(
     data: { status: 'committed', committedAt: new Date(), committedBy, commitResult: commitResult as object },
   })
 
+  auditLog({
+    action: 'import_confirm',
+    jobId,
+    committedBy,
+    source,
+    userId: userCtx?.userId,
+    userName: userCtx?.userName,
+    role: userCtx?.userRole,
+    result: 'success',
+  })
+
   // Step 6: Publish
-  await mq.publish('import.committed', { importJobId: jobId, committedBy })
+  try {
+    await mq.publish('import.committed', { importJobId: jobId, committedBy })
+  } catch (e) {
+    console.warn('[import-orchestrator] RabbitMQ publish failed (non-fatal):', e)
+  }
 
   return { success: true, result: commitResult }
 }

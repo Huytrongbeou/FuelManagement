@@ -19,11 +19,11 @@ export async function createRequest(body: {
   if (!body.reason?.trim()) {
     throw Object.assign(new Error('Lý do điều chỉnh là bắt buộc.'), { status: 422 })
   }
-  if (body.newFuelAdded < 0) {
-    throw Object.assign(new Error('Nhiên liệu bổ sung mới không thể âm.'), { status: 422 })
+  if (!Number.isFinite(body.newFuelAdded) || body.newFuelAdded < 0) {
+    throw Object.assign(new Error('Nhiên liệu bổ sung mới không hợp lệ.'), { status: 422 })
   }
-  if (body.newHoursRun < 0) {
-    throw Object.assign(new Error('Số giờ chạy mới không thể âm.'), { status: 422 })
+  if (!Number.isFinite(body.newHoursRun) || body.newHoursRun < 0) {
+    throw Object.assign(new Error('Số giờ chạy mới không hợp lệ.'), { status: 422 })
   }
 
   const original = await prisma.fuelRecord.findUnique({ where: { id: body.originalRecordId } })
