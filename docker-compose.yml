@@ -54,7 +54,7 @@ services:
     container_name: fuel_auth
     environment:
       PORT: 3001
-      DATABASE_URL: postgresql://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@postgres:5432/auth_db
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@postgres:5432/auth_db?connection_limit=5
       JWT_SECRET: ${AUTH_JWT_SECRET:-change_me_in_production}
       JWT_EXPIRES_IN: ${AUTH_JWT_EXPIRES_IN:-8h}
       NODE_ENV: production
@@ -71,7 +71,7 @@ services:
     container_name: fuel_station
     environment:
       PORT: 3002
-      DATABASE_URL: postgresql://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@postgres:5432/station_db
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@postgres:5432/station_db?connection_limit=5
       RABBITMQ_URL: amqp://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@rabbitmq:5672
       NODE_ENV: production
     depends_on:
@@ -89,7 +89,7 @@ services:
     container_name: fuel_fuel
     environment:
       PORT: 3003
-      DATABASE_URL: postgresql://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@postgres:5432/fuel_db
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@postgres:5432/fuel_db?connection_limit=5
       RABBITMQ_URL: amqp://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@rabbitmq:5672
       STATION_SERVICE_URL: http://station-service:3002
       NODE_ENV: production
@@ -110,7 +110,7 @@ services:
     container_name: fuel_import
     environment:
       PORT: 3004
-      DATABASE_URL: postgresql://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@postgres:5432/import_db
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@postgres:5432/import_db?connection_limit=5
       RABBITMQ_URL: amqp://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@rabbitmq:5672
       STATION_SERVICE_URL: http://station-service:3002
       FUEL_SERVICE_URL: http://fuel-service:3003

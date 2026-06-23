@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client'
 import { formatBusinessDateVN } from '../utils/date-vn'
 import { normalizeDecimal2 } from '../utils/normalize'
-
-const prisma = new PrismaClient()
+import { prisma } from '../lib/prisma'
 export { prisma }
 
 export async function findCurrentState(stationId: string) {

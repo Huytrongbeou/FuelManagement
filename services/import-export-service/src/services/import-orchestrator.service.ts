@@ -1,4 +1,3 @@
-import { PrismaClient } from '@prisma/client'
 import { parseAndValidate } from './excel-validator.service'
 import type { ParsedRow } from './excel-validator.service'
 import * as stationClient from '../clients/station.client'
@@ -10,8 +9,7 @@ import crypto from 'crypto'
 import { formatBusinessDateVN } from '../utils/date-vn'
 import { normalizeDecimal2 } from '../utils/normalize'
 import { auditLog } from '../utils/audit-log'
-
-const prisma = new PrismaClient()
+import { prisma } from '../lib/prisma'
 
 function computeImportSignature(rows: ParsedRow[]): string {
   const content = rows
