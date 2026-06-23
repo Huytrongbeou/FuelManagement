@@ -24,6 +24,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    restart: unless-stopped
     networks: [fuel-net]
 
   rabbitmq:
@@ -40,9 +41,10 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+    restart: unless-stopped
     networks: [fuel-net]
-    ports:
-      - "15672:15672"  # Management UI (dev convenience)
+    # ports:
+    #   - "15672:15672"  # Management UI — disabled in production; use SSH tunnel
 
   # ── Services ────────────────────────────────────────
   auth-service:
@@ -59,6 +61,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    restart: unless-stopped
     networks: [fuel-net]
 
   station-service:
@@ -76,6 +79,7 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    restart: unless-stopped
     networks: [fuel-net]
 
   fuel-service:
@@ -96,6 +100,7 @@ services:
         condition: service_healthy
       station-service:
         condition: service_started
+    restart: unless-stopped
     networks: [fuel-net]
 
   import-export-service:
@@ -120,6 +125,7 @@ services:
         condition: service_started
       fuel-service:
         condition: service_started
+    restart: unless-stopped
     networks: [fuel-net]
 
   realtime-service:
@@ -137,6 +143,21 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+    restart: unless-stopped
+    networks: [fuel-net]
+
+  nginx:
+    image: nginx:alpine
+    container_name: fuel_nginx
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - gateway
+    restart: unless-stopped
     networks: [fuel-net]
 
   gateway:
@@ -144,8 +165,7 @@ services:
       context: ./services/gateway
       dockerfile: Dockerfile
     container_name: fuel_gateway
-    ports:
-      - "3000:3000"
+    # No ports: gateway only accessible via nginx on :443
     environment:
       PORT: 3000
       JWT_SECRET: ${AUTH_JWT_SECRET:-change_me_in_production}
@@ -162,4 +182,5 @@ services:
       - fuel-service
       - import-export-service
       - realtime-service
+    restart: unless-stopped
     networks: [fuel-net]
