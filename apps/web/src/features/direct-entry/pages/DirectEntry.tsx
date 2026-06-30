@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Station, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/shared/types';
 import { previewEntry, confirmEntry } from '../api/manualEntryApi';
 import { downloadWithAuth } from '@/shared/api/client';
+import { MobileEntryCard } from '../components/MobileEntryCard';
 
 interface Props {
   stations: Station[];
@@ -13,7 +14,7 @@ interface Props {
 
 type RowStatus = 'unchanged' | 'valid' | 'warning' | 'error';
 
-interface EntryRow {
+export interface EntryRow {
   id: string;
   stationId: string | null;
   code: string;
@@ -54,7 +55,7 @@ function calcRow(row: EntryRow, station: Station | undefined): Partial<EntryRow>
   return { prevFuel: prev, consumed, systemCalc: sysCalc, finalFuel, status, errorMsg };
 }
 
-function fmt(n: number | null, suffix = 'L') {
+export function fmt(n: number | null, suffix = 'L') {
   return n !== null ? `${n.toFixed(1)} ${suffix}` : '—';
 }
 
@@ -118,7 +119,7 @@ function saveReducer(state: SaveState, action: SaveAction): SaveState {
   }
 }
 
-function rowBg(status: RowStatus, i: number) {
+export function rowBg(status: RowStatus, i: number) {
   if (status === 'error')   return '#fff5f5';
   if (status === 'warning') return '#fffbeb';
   if (status === 'valid')   return '#f0fdf4';
@@ -132,7 +133,7 @@ const STATUS_BADGE_CFG = {
   error:     { bg: '#fee2e2', text: '#dc2626', icon: XCircle,       label: 'Lỗi' },
 } as const;
 
-function statusBadge(status: RowStatus) {
+export function statusBadge(status: RowStatus) {
   const cfg = STATUS_BADGE_CFG[status];
   const Icon = cfg.icon;
   return (
@@ -284,10 +285,10 @@ function DirectEntryTable({ rows, onUpdateRow, onRemoveRow, onRevertRow, onLoadC
                 </td>
                 <td style={{ padding: '4px 6px' }}>
                   <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => onRevertRow(row.id)} title="Hoàn tác" className="p-1 rounded" style={{ color: '#94a3b8' }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f1f5f9'} onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                    <button type="button" onClick={() => onRevertRow(row.id)} title="Hoàn tác" className="p-2 sm:p-1 rounded" style={{ color: '#94a3b8' }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f1f5f9'} onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                       <RotateCcw size={12} />
                     </button>
-                    <button type="button" onClick={() => onRemoveRow(row.id)} title="Bỏ khỏi lần nhập" className="p-1 rounded" style={{ color: '#94a3b8' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fee2e2'; (e.currentTarget as HTMLElement).style.color = '#dc2626'; }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#94a3b8'; }}>
+                    <button type="button" onClick={() => onRemoveRow(row.id)} title="Bỏ khỏi lần nhập" className="p-2 sm:p-1 rounded" style={{ color: '#94a3b8' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fee2e2'; (e.currentTarget as HTMLElement).style.color = '#dc2626'; }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#94a3b8'; }}>
                       <Trash2 size={12} />
                     </button>
                   </div>
@@ -396,7 +397,7 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
   const hasErrors = rows.some(r => r.status === 'error');
 
   return (
-    <div className="flex flex-col h-full" style={{ height: 'calc(100vh - 60px)' }}>
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex-shrink-0 px-6 py-4 border-b" style={{ background: 'white', borderColor: '#e2e8f0' }}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
@@ -458,8 +459,8 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
         ))}
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto" style={{ background: '#f1f5f9' }}>
+      {/* Table — desktop (sm and up) */}
+      <div className="hidden sm:flex flex-1 overflow-auto" style={{ background: '#f1f5f9' }}>
         <DirectEntryTable
           rows={rows}
           onUpdateRow={updateRow}
@@ -467,6 +468,27 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
           onRevertRow={revertRow}
           onLoadCurrent={() => loadCurrent({ silent: false })}
         />
+      </div>
+
+      {/* Cards — mobile (below sm) */}
+      <div className="flex sm:hidden flex-1 flex-col overflow-y-auto p-3 gap-3" style={{ background: '#f1f5f9' }}>
+        {rows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center flex-1 gap-4" style={{ color: '#94a3b8' }}>
+            <RefreshCw size={40} style={{ opacity: 0.3 }} />
+            <div style={{ fontSize: '1rem', color: '#64748b' }}>Chưa có dữ liệu</div>
+            <button type="button" onClick={() => loadCurrent({ silent: false })} className="flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
+              <RefreshCw size={15} /> Tải dữ liệu hiện tại
+            </button>
+          </div>
+        ) : rows.map((row) => (
+          <MobileEntryCard
+            key={row.id}
+            row={row}
+            onUpdateRow={updateRow}
+            onRemoveRow={removeRow}
+            onRevertRow={revertRow}
+          />
+        ))}
       </div>
 
       {/* Double-submit confirm dialog */}

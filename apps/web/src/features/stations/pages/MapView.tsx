@@ -131,7 +131,7 @@ export function MapView({ stations, onViewStation }: Props) {
   const noCoords = stations.filter(s => s.lat === null || s.lng === null).length;
 
   return (
-    <div className="flex h-full" style={{ height: 'calc(100vh - 60px)' }}>
+    <div className="flex h-full">
       {/* Side panel */}
       <div className="flex flex-col w-72 flex-shrink-0 border-r overflow-y-auto" style={{ background: 'white', borderColor: '#e2e8f0' }}>
         <div className="px-4 py-4 border-b" style={{ borderColor: '#f1f5f9' }}>
