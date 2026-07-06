@@ -105,7 +105,7 @@ function ImportStep1Panel({ file, dragging, uploading, fileRef, setDragging, onD
         <button
           type="button"
           aria-label="Khu vực tải file — kéo thả hoặc nhấn để chọn file Excel"
-          className="w-full rounded-xl border-2 border-dashed p-10 text-center transition-all cursor-pointer"
+          className="w-full rounded-xl border-2 border-dashed p-6 sm:p-10 text-center transition-all cursor-pointer"
           style={{ borderColor: dragging ? '#2563eb' : '#e2e8f0', background: dragging ? '#eff6ff' : file ? '#f0fdf4' : 'white' }}
           onDragOver={e => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
@@ -238,9 +238,17 @@ function ImportStep2Panel({ previewRows, jobSummary, file, validRows, warningRow
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                {['Mã trạm', 'Tên trạm', 'NL bổ sung', 'Số giờ chạy', 'Tồn sau tính', 'Trạng thái', 'Ghi chú'].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left border-b" style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, borderColor: '#e2e8f0', whiteSpace: 'nowrap', background: '#f8fafc' }}>
-                    {h}
+                {([
+                  { label: 'Mã trạm' },
+                  { label: 'Tên trạm', hide: 'hidden sm:table-cell' },
+                  { label: 'NL bổ sung' },
+                  { label: 'Số giờ chạy', hide: 'hidden sm:table-cell' },
+                  { label: 'Tồn sau tính', hide: 'hidden md:table-cell' },
+                  { label: 'Trạng thái' },
+                  { label: 'Ghi chú' },
+                ] as Array<{ label: string; hide?: string }>).map(col => (
+                  <th key={col.label} className={`px-4 py-2.5 text-left border-b ${col.hide ?? ''}`} style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, borderColor: '#e2e8f0', whiteSpace: 'nowrap', background: '#f8fafc' }}>
+                    {col.label}
                   </th>
                 ))}
               </tr>
@@ -251,10 +259,10 @@ function ImportStep2Panel({ previewRows, jobSummary, file, validRows, warningRow
                 return (
                   <tr key={row.code} style={{ background: rowBg }}>
                     <td className="px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9', fontFamily: 'monospace', fontSize: '0.8rem', color: '#475569' }}>{row.code}</td>
-                    <td className="px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', color: '#1e293b', whiteSpace: 'nowrap' }}>{row.name}</td>
+                    <td className="hidden sm:table-cell px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', color: '#1e293b', whiteSpace: 'nowrap' }}>{row.name}</td>
                     <td className="px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', color: '#64748b' }}>{row.added !== '' ? `${row.added} L` : '—'}</td>
-                    <td className="px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', color: '#64748b' }}>{row.hoursRun !== '' ? `${row.hoursRun}h` : '—'}</td>
-                    <td className="px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', fontWeight: 500, color: '#475569' }}>{row.calculated !== '' ? `${row.calculated} L` : '—'}</td>
+                    <td className="hidden sm:table-cell px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', color: '#64748b' }}>{row.hoursRun !== '' ? `${row.hoursRun}h` : '—'}</td>
+                    <td className="hidden md:table-cell px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', fontWeight: 500, color: '#475569' }}>{row.calculated !== '' ? `${row.calculated} L` : '—'}</td>
                     <td className="px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9' }}>
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style={{
                         fontSize: '0.75rem', fontWeight: 600,
@@ -265,7 +273,7 @@ function ImportStep2Panel({ previewRows, jobSummary, file, validRows, warningRow
                         {row.status === 'valid' ? 'Hợp lệ' : row.status === 'warning' ? 'Cảnh báo' : 'Lỗi'}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.75rem', color: row.status === 'error' ? '#dc2626' : '#ca8a04', maxWidth: '180px' }}>
+                    <td className="px-4 py-2.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.75rem', color: row.status === 'error' ? '#dc2626' : '#ca8a04' }}>
                       {row.message ?? ''}
                     </td>
                   </tr>
@@ -377,6 +385,10 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
+    if (f && !f.name.toLowerCase().endsWith('.xlsx')) {
+      toast.error('Chỉ chấp nhận file .xlsx');
+      return;
+    }
     if (f) dispatch({ type: 'select-file', file: f });
   };
 
