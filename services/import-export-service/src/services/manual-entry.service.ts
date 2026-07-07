@@ -72,13 +72,7 @@ function toParsedRow(row: DirectEntryRow, stations: { stationCode: string }[], r
   const warnings: string[] = []
 
   if (!row.stationCode) errors.push('Mã trạm là bắt buộc')
-  if (isNewStation && !row.stationName) errors.push('Tên trạm là bắt buộc cho trạm mới')
-  if (isNewStation && (row.consumptionRate == null || row.consumptionRate <= 0)) {
-    errors.push('Trạm mới cần nhập định mức tiêu thụ')
-  }
-  if (isNewStation && (row.maxCapacity == null || row.maxCapacity <= 0)) {
-    errors.push('Trạm mới cần nhập dung tích tối đa')
-  }
+  if (isNewStation) errors.push('Mã trạm không tồn tại. Khởi tạo trạm trong Quản lý trạm trước khi nhập nhiên liệu.')
   const fa = row.fuelAdded != null ? Number(row.fuelAdded) : null
   const hr = row.hoursRun != null ? Number(row.hoursRun) : null
   if (fa != null && !Number.isFinite(fa)) errors.push('Nhiên liệu bổ sung không hợp lệ')
