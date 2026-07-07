@@ -21,12 +21,15 @@ interface JwtPayload {
   [key: string]: unknown
 }
 
-// In-memory isActive cache: userId → {active, exp}
+type ActiveResult = 'active' | 'inactive' | 'unknown'
+
+// In-memory isActive cache: userId → {active, exp}. 'unknown' results are never cached —
+// they represent a transient auth-service outage, not a fact about the user.
 const activeCache = new Map<string, { active: boolean; exp: number }>()
 
-async function checkActive(userId: string, token: string): Promise<boolean> {
+async function checkActive(userId: string, token: string): Promise<ActiveResult> {
   const cached = activeCache.get(userId)
-  if (cached && Date.now() < cached.exp) return cached.active
+  if (cached && Date.now() < cached.exp) return cached.active ? 'active' : 'inactive'
 
   type FetchResponse = { ok: boolean; status: number; json: () => Promise<{ isActive?: boolean }> }
   let resp: FetchResponse
@@ -36,28 +39,30 @@ async function checkActive(userId: string, token: string): Promise<boolean> {
       signal: AbortSignal.timeout(3000),
     }) as unknown as FetchResponse
   } catch {
-    // Network error / timeout → FAIL-OPEN: auth-service down must not block all users
-    console.warn('[auth-middleware] isActive check network error for', userId, '— fail open')
-    return true
+    // Network error / timeout — auth-service is unreachable, not a fact about this user
+    console.warn('[auth-middleware] isActive check network error for', userId, '— treated as unknown')
+    return 'unknown'
   }
 
   if (resp.status === 404) {
     // auth.service.me() throws 404 when user is inactive or not found
     activeCache.set(userId, { active: false, exp: Date.now() + 30_000 })
-    return false
+    return 'inactive'
   }
 
   if (!resp.ok) {
-    // 500/503 (DB auth down) or other error → FAIL-OPEN (deliberate tradeoff)
-    console.warn('[auth-middleware] isActive check failed', resp.status, 'for', userId, '— fail open')
-    return true
+    // 500/503 (DB auth down) or other error — auth-service couldn't answer
+    console.warn('[auth-middleware] isActive check failed', resp.status, 'for', userId, '— treated as unknown')
+    return 'unknown'
   }
 
   const data = await resp.json()
   const active = data.isActive === true
   activeCache.set(userId, { active, exp: Date.now() + 30_000 })
-  return active
+  return active ? 'active' : 'inactive'
 }
+
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 function extractToken(req: Request): string | undefined {
   // Prefer HttpOnly cookie; fall back to Authorization header for API clients
@@ -101,13 +106,9 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
 
   const userId = payload.id ?? ''
+  const isSafeMethod = SAFE_METHODS.has(req.method)
 
-  checkActive(userId, token).then(active => {
-    if (!active) {
-      console.log(JSON.stringify({ ts: new Date().toISOString(), service: 'gateway', action: 'auth_fail', status: 401, reason: 'user_inactive', userId, path: req.path }))
-      res.status(401).json({ error: 'Tài khoản đã bị vô hiệu hóa.' })
-      return
-    }
+  const proceed = () => {
     // Set user identity for downstream services (only gateway may write these)
     if (payload.id) req.headers['x-user-id'] = payload.id
     req.headers['x-user-role'] = payload.role!
@@ -115,12 +116,27 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     // Forward token so downstream services that verify it directly can still work
     req.headers['authorization'] = `Bearer ${token}`
     next()
-  }).catch(() => {
-    // Unexpected error in checkActive → fail open, proceed
-    if (payload.id) req.headers['x-user-id'] = payload.id
-    req.headers['x-user-role'] = payload.role!
-    if (payload.username) req.headers['x-user-name'] = payload.username
-    req.headers['authorization'] = `Bearer ${token}`
-    next()
-  })
+  }
+
+  const handleResult = (result: ActiveResult) => {
+    if (result === 'inactive') {
+      console.log(JSON.stringify({ ts: new Date().toISOString(), service: 'gateway', action: 'auth_fail', status: 401, reason: 'user_inactive', userId, path: req.path }))
+      res.status(401).json({ error: 'Tài khoản đã bị vô hiệu hóa.' })
+      return
+    }
+    if (result === 'unknown' && !isSafeMethod) {
+      // Fail-closed for writes: cannot verify the account isn't disabled, so refuse rather
+      // than risk a disabled account performing a write. Reads stay fail-open — a monitoring
+      // dashboard going blind because auth-service hiccuped is worse than the residual risk.
+      console.warn(JSON.stringify({ ts: new Date().toISOString(), service: 'gateway', action: 'auth_fail', status: 503, reason: 'active_check_unknown_write', userId, path: req.path, method: req.method }))
+      res.status(503).json({ error: 'Không thể xác thực trạng thái tài khoản. Vui lòng thử lại sau.' })
+      return
+    }
+    if (result === 'unknown') {
+      console.warn(JSON.stringify({ ts: new Date().toISOString(), service: 'gateway', action: 'auth_degraded', reason: 'active_check_unknown_read', userId, path: req.path, method: req.method }))
+    }
+    proceed()
+  }
+
+  checkActive(userId, token).then(handleResult).catch(() => handleResult('unknown'))
 }
