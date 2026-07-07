@@ -1,6 +1,8 @@
 import type { BulkUpsertRow, BulkUpsertResult } from '../models/station.types'
 import * as brandRepo from '../repositories/generator-brand.repository'
 import * as modelRepo from '../repositories/generator-model.repository'
+import * as fuelClient from '../clients/fuel.client'
+import type { UserContext } from '../clients/fuel.client'
 import { prisma } from '../lib/prisma'
 
 async function findOrCreateBrand(name: string): Promise<string> {
@@ -43,7 +45,7 @@ async function findOrCreateModel(
   return { id: created.id, warning }
 }
 
-export async function bulkUpsert(rows: BulkUpsertRow[]): Promise<{
+export async function bulkUpsert(rows: BulkUpsertRow[], userCtx?: UserContext): Promise<{
   success: boolean
   results: BulkUpsertResult[]
   has_errors: boolean
@@ -57,6 +59,7 @@ export async function bulkUpsert(rows: BulkUpsertRow[]): Promise<{
     resolvedModelId: string | null
     resolvedConsumptionRate: number
     resolvedMaxCapacity: number
+    normalizedInitialFuel: number | null
     warning: string | null
     existingStationId: string | null
   }
@@ -116,13 +119,31 @@ export async function bulkUpsert(rows: BulkUpsertRow[]): Promise<{
 
     const fallbackRate = existingStation ? Number((existingStation as any).consumptionRate) : (row.consumption_rate ?? 0)
     const fallbackCap = existingStation ? Number((existingStation as any).maxCapacity) : (row.max_capacity ?? 0)
+    const resolvedConsumptionRate = row.consumption_rate ?? fallbackRate
+    const resolvedMaxCapacity = row.max_capacity ?? fallbackCap
+
+    let normalizedInitialFuel: number | null = null
+    if (row.initial_fuel != null) {
+      normalizedInitialFuel = Number(row.initial_fuel)
+      if (!isNew) {
+        const initialFuelWarning = `${row.station_code}: initial_fuel chỉ áp dụng khi tạo trạm mới, bị bỏ qua vì trạm đã tồn tại`
+        warning = warning ? `${warning}; ${initialFuelWarning}` : initialFuelWarning
+      } else if (!Number.isFinite(normalizedInitialFuel) || normalizedInitialFuel < 0) {
+        errors.push(`${row.station_code}: initial_fuel không hợp lệ`)
+        continue
+      } else if (normalizedInitialFuel > resolvedMaxCapacity) {
+        errors.push(`${row.station_code}: initial_fuel vượt quá dung tích tối đa`)
+        continue
+      }
+    }
 
     resolved.push({
       ...row,
       resolvedBrandId,
       resolvedModelId,
-      resolvedConsumptionRate: row.consumption_rate ?? fallbackRate,
-      resolvedMaxCapacity: row.max_capacity ?? fallbackCap,
+      resolvedConsumptionRate,
+      resolvedMaxCapacity,
+      normalizedInitialFuel,
       warning,
       existingStationId: existingStation?.id ?? null,
     })
@@ -174,12 +195,41 @@ export async function bulkUpsert(rows: BulkUpsertRow[]): Promise<{
               maxCapacity: row.resolvedMaxCapacity,
             },
           })
-          results.push({ station_code: row.station_code, station_id: created.id, action: 'created', warning: row.warning })
+          results.push({
+            station_code: row.station_code,
+            station_id: created.id,
+            action: 'created',
+            warning: row.warning,
+            resolvedConsumptionRate: row.resolvedConsumptionRate,
+            resolvedMaxCapacity: row.resolvedMaxCapacity,
+            initialFuel: row.normalizedInitialFuel ?? 0,
+          })
         }
       }
     })
   } catch (err: unknown) {
     return { success: false, results: [], has_errors: true, errors: [(err as Error).message] }
+  }
+
+  // Init CurrentFuelState for newly created stations — must read from `results`, not the
+  // `resolved` rows, since those are out of scope once the transaction callback has returned.
+  for (const r of results) {
+    if (r.action !== 'created') continue
+    const initResult = await fuelClient.initCurrentState({
+      stationId: r.station_id,
+      stationCode: r.station_code,
+      consumptionRate: r.resolvedConsumptionRate!,
+      maxCapacity: r.resolvedMaxCapacity!,
+      initialFuel: r.initialFuel ?? 0,
+    }, userCtx)
+
+    if (!initResult.ok) {
+      r.currentFuelStateInitialized = false
+      const initFailWarning = 'Trạm đã tạo nhưng chưa khởi tạo tồn nhiên liệu ban đầu — vui lòng thử lại hoặc liên hệ Admin.'
+      r.warning = r.warning ? `${r.warning}; ${initFailWarning}` : initFailWarning
+    } else {
+      r.currentFuelStateInitialized = true
+    }
   }
 
   return { success: true, results, has_errors: false }

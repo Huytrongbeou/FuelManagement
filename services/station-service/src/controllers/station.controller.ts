@@ -115,7 +115,12 @@ export async function bulkUpsertHandler(req: Request, res: Response): Promise<vo
       res.status(400).json({ error: 'stations array is required and must not be empty' })
       return
     }
-    const result = await bulkUpsert(stations)
+    const userCtx = {
+      userId: req.headers['x-user-id'] as string | undefined,
+      userRole: req.headers['x-user-role'] as string | undefined,
+      userName: req.headers['x-user-name'] as string | undefined,
+    }
+    const result = await bulkUpsert(stations, userCtx)
     res.status(result.has_errors ? 422 : 200).json(result)
   } catch (err) { handleError(res, err) }
 }

@@ -14,6 +14,7 @@ export interface BulkUpsertRow {
   fuel_type?: string | null
   consumption_rate?: number | null
   max_capacity?: number | null
+  initial_fuel?: number | null
 }
 
 export interface BulkUpsertResult {
@@ -21,4 +22,8 @@ export interface BulkUpsertResult {
   station_id: string
   action: 'created' | 'updated'
   warning: string | null
+  resolvedConsumptionRate?: number
+  resolvedMaxCapacity?: number
+  initialFuel?: number
+  currentFuelStateInitialized?: boolean
 }
