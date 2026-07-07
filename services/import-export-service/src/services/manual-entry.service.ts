@@ -79,7 +79,14 @@ function toParsedRow(row: DirectEntryRow, stations: { stationCode: string }[], r
   if (isNewStation && (row.maxCapacity == null || row.maxCapacity <= 0)) {
     errors.push('Trạm mới cần nhập dung tích tối đa')
   }
-  const hasFuelActivity = (row.fuelAdded ?? 0) > 0 || (row.hoursRun ?? 0) > 0
+  const fa = row.fuelAdded != null ? Number(row.fuelAdded) : null
+  const hr = row.hoursRun != null ? Number(row.hoursRun) : null
+  if (fa != null && !Number.isFinite(fa)) errors.push('Nhiên liệu bổ sung không hợp lệ')
+  else if (fa != null && fa < 0) errors.push('Nhiên liệu bổ sung không thể âm')
+  if (hr != null && !Number.isFinite(hr)) errors.push('Số giờ chạy không hợp lệ')
+  else if (hr != null && hr < 0) errors.push('Số giờ chạy không thể âm')
+
+  const hasFuelActivity = (fa ?? 0) > 0 || (hr ?? 0) > 0
 
   const recordedDate = row.recordedDate ? new Date(row.recordedDate) : (hasFuelActivity ? new Date() : null)
 
@@ -100,8 +107,8 @@ function toParsedRow(row: DirectEntryRow, stations: { stationCode: string }[], r
     fuelType: row.fuelType ?? null,
     consumptionRate: row.consumptionRate ?? null,
     maxCapacity: row.maxCapacity ?? null,
-    fuelAdded: row.fuelAdded ?? null,
-    hoursRun: row.hoursRun ?? null,
+    fuelAdded: fa,
+    hoursRun: hr,
     recordedDate,
     notes: row.notes || '',
     isNewStation,
@@ -148,6 +155,16 @@ export async function preview(rows: DirectEntryRow[], createdBy?: string, userCt
     if (existing) {
       const fuelState = fuelStateMap.get(existing.id)
       versions[existing.id] = fuelState ? Number(fuelState.snapshotVersion) : null
+    }
+  }
+
+  // Direct-entry never initializes CurrentFuelState — active stations missing it are a red error
+  for (const row of parsedRows) {
+    if (!row.hasFuelActivity) continue
+    const station = stationCodeMap.get(row.stationCode)
+    if (!station) continue // unknown station already errors elsewhere
+    if (!fuelStateMap.has(station.id)) {
+      row.errors.push(`Trạm "${station.stationName}" chưa có tồn nhiên liệu ban đầu. Khởi tạo tồn ban đầu trong Quản lý trạm trước khi nhập.`)
     }
   }
 

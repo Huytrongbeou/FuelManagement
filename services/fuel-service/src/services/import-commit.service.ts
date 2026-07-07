@@ -75,26 +75,28 @@ export async function commitImport(input: ImportCommitInput) {
       // Fetch current state INSIDE tx (serializable read — locks the row)
       const currentState = await tx.currentFuelState.findUnique({ where: { stationId } })
 
+      // Missing CurrentFuelState is a hard stop — Fuel Import never initializes fuel state
+      // from scratch. Initial state is created when the station itself is created
+      // (station-service calls fuel-service's init endpoint) or via the one-shot backfill
+      // script for stations that predate that wiring.
+      if (!currentState) {
+        throw Object.assign(
+          new Error(`Trạm ${rows[0].station_code} chưa có tồn nhiên liệu ban đầu. Khởi tạo tồn ban đầu trong Quản lý trạm trước khi nhập.`),
+          { status: 400 }
+        )
+      }
+
       // Version guard ONCE per station (not per row)
-      if (currentState) {
-        const dbVersion = Number(currentState.snapshotVersion)
-        if (expectedVersion === null || dbVersion !== expectedVersion) {
-          throw Object.assign(
-            new Error(`Dữ liệu nhiên liệu trạm ${rows[0].station_code} đã thay đổi sau preview, vui lòng preview lại`),
-            { status: 409 }
-          )
-        }
-      } else {
-        if (expectedVersion !== null) {
-          throw Object.assign(
-            new Error(`Dữ liệu nhiên liệu trạm ${rows[0].station_code} đã thay đổi sau preview, vui lòng preview lại`),
-            { status: 409 }
-          )
-        }
+      const dbVersion = Number(currentState.snapshotVersion)
+      if (expectedVersion === null || dbVersion !== expectedVersion) {
+        throw Object.assign(
+          new Error(`Dữ liệu nhiên liệu trạm ${rows[0].station_code} đã thay đổi sau preview, vui lòng preview lại`),
+          { status: 409 }
+        )
       }
 
       // Chain rows: fuelBefore[n] = fuelAfter[n-1]
-      let runningFuel = currentState ? Number(currentState.currentFuel) : 0
+      let runningFuel = Number(currentState.currentFuel)
       let lastRecordId: string | null = null
 
       for (const row of rows) {
@@ -145,47 +147,24 @@ export async function commitImport(input: ImportCommitInput) {
 
       const finalFuelStatus = calc.determineFuelStatus(runningFuel) as calc.FuelStatus
 
-      // Update/create currentFuelState ONCE per station after all rows chain completes
-      if (currentState) {
-        const updated = await tx.currentFuelState.updateMany({
-          where: { stationId, snapshotVersion: expectedVersion! },
-          data: {
-            currentFuel: runningFuel,
-            fuelStatus: finalFuelStatus,
-            lastUpdated: new Date(),
-            lastRecordId: lastRecordId!,
-            snapshotVersion: { increment: rows.length },
-          },
-        })
-        if (updated.count === 0) {
-          throw Object.assign(
-            new Error(`Dữ liệu nhiên liệu trạm ${rows[0].station_code} đã thay đổi sau preview, vui lòng preview lại`),
-            { status: 409 }
-          )
-        }
-      } else {
-        try {
-          await tx.currentFuelState.create({
-            data: {
-              stationId,
-              stationCode: rows[0].station_code,
-              currentFuel: runningFuel,
-              fuelStatus: finalFuelStatus,
-              lastUpdated: new Date(),
-              lastRecordId: lastRecordId!,
-              snapshotVersion: rows.length,
-            },
-          })
-        } catch (e: unknown) {
-          // P2002 = unique constraint — two concurrent first-time imports racing
-          if ((e as { code?: string }).code === 'P2002') {
-            throw Object.assign(
-              new Error(`Dữ liệu nhiên liệu trạm ${rows[0].station_code} đã thay đổi sau preview, vui lòng preview lại`),
-              { status: 409 }
-            )
-          }
-          throw e
-        }
+      // Update currentFuelState ONCE per station after all rows chain completes.
+      // CurrentFuelState is guaranteed to exist at this point (checked above) —
+      // Fuel Import never creates it.
+      const updated = await tx.currentFuelState.updateMany({
+        where: { stationId, snapshotVersion: expectedVersion! },
+        data: {
+          currentFuel: runningFuel,
+          fuelStatus: finalFuelStatus,
+          lastUpdated: new Date(),
+          lastRecordId: lastRecordId!,
+          snapshotVersion: { increment: rows.length },
+        },
+      })
+      if (updated.count === 0) {
+        throw Object.assign(
+          new Error(`Dữ liệu nhiên liệu trạm ${rows[0].station_code} đã thay đổi sau preview, vui lòng preview lại`),
+          { status: 409 }
+        )
       }
 
       affectedStationIds.push(stationId)

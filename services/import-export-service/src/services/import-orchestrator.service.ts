@@ -75,6 +75,16 @@ export async function previewImport(
   const fuelStateMap = new Map(fuelStates.map(s => [s.stationId, s]))
   const stationCodeMap = new Map(stations.map(s => [s.stationCode, s]))
 
+  // Fuel Import never initializes CurrentFuelState — active stations missing it are a red error
+  for (const row of rows) {
+    if (!row.hasFuelActivity) continue
+    const station = stationCodeMap.get(row.stationCode)
+    if (!station) continue // unknown station already errors elsewhere
+    if (!fuelStateMap.has(station.id)) {
+      row.errors.push(`Trạm "${station.stationName}" chưa có tồn nhiên liệu ban đầu. Khởi tạo tồn ban đầu trong Quản lý trạm trước khi nhập.`)
+    }
+  }
+
   // Exact duplicate check: applies to both admin and manager for rows with fuel activity
   const dupCheckItems = rows
     .filter(r => r.errors.length === 0 && r.hasFuelActivity && r.recordedDate)
