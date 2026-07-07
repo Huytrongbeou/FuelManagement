@@ -231,15 +231,6 @@ export async function confirmImport(
     throw Object.assign(new Error(`Không thể xác nhận job ở trạng thái "${job.status}"`), { status: 400 })
   }
 
-  // Atomic claim — prevents two concurrent confirm calls from both proceeding past this point.
-  const claimed = await prisma.importJob.updateMany({
-    where: { id: jobId, status: { in: ['previewing', 'failed'] } },
-    data: { status: 'committing' },
-  })
-  if (claimed.count === 0) {
-    throw Object.assign(new Error('Job đang được xử lý hoặc đã xác nhận'), { status: 409 })
-  }
-
   const previewRows = (job.previewData as unknown as Array<{
     stationCode: string
     stationName: string
@@ -267,6 +258,10 @@ export async function confirmImport(
 
   const hasRowError = previewRows.some(r => r.errors && r.errors.length > 0)
   if (hasRowError) {
+    await prisma.importJob.update({
+      where: { id: jobId },
+      data: { status: 'failed', failureStage: 'validation', retryable: false, errorMessage: 'File import có dòng lỗi, không thể xác nhận.' },
+    })
     throw Object.assign(
       new Error('File import có dòng lỗi, không thể xác nhận. Vui lòng sửa toàn bộ lỗi và preview lại.'),
       { status: 422 }
@@ -275,8 +270,31 @@ export async function confirmImport(
 
   const validRows = previewRows
   if (validRows.length === 0) {
+    await prisma.importJob.update({
+      where: { id: jobId },
+      data: { status: 'failed', failureStage: 'validation', retryable: false, errorMessage: 'Không có dòng hợp lệ để xác nhận.' },
+    })
     throw Object.assign(new Error('Không có dòng hợp lệ để xác nhận. Vui lòng kiểm tra lại dữ liệu.'), { status: 422 })
   }
+
+  // Atomic claim — prevents two concurrent confirm calls from both proceeding past this point.
+  // Only claims jobs that passed the row-error check above: previewing, or failed-but-retryable
+  // (e.g. transient station-service/fuel-service errors). A job failed due to row validation is
+  // retryable:false and must never be reclaimed into 'committing' again.
+  const claimed = await prisma.importJob.updateMany({
+    where: {
+      id: jobId,
+      OR: [
+        { status: 'previewing' },
+        { status: 'failed', retryable: true, committedAt: null },
+      ],
+    },
+    data: { status: 'committing' },
+  })
+  if (claimed.count === 0) {
+    throw Object.assign(new Error('Job đang được xử lý hoặc đã xác nhận'), { status: 409 })
+  }
+
   // Fuel-only: no station creation or master-data update for any role — just verify
   // stations still exist and are active at confirm time (revalidation against stale preview).
   if (!job.failureStage || ['backup', 'station_upsert'].includes(job.failureStage || '')) {
