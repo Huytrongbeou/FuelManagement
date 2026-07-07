@@ -1,17 +1,21 @@
 import { useState, useReducer } from 'react';
-import { Search, ChevronUp, ChevronDown, Eye, Edit, MoreVertical, Droplets, XCircle, AlertTriangle, Plus } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, Eye, Edit, MoreVertical, Droplets, XCircle, AlertTriangle, Plus, Loader2 } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import { toast } from 'sonner';
 import { Station, getFuelStatus, fuelStatusColor } from '@/shared/types';
-import { FuelEntryModal } from '@/features/fuel/components/FuelEntryModal';
+import { deactivateStation } from '../api/stationApi';
 import { FuelBadge } from '@/features/stations/components/FuelBadge';
 import { SortIcon } from '@/features/stations/components/SortIcon';
+import { canManageStations, canEnterFuel } from '@/shared/auth/permissions';
 
 interface Props {
   stations: Station[];
+  userRole?: string;
   onViewStation: (id: string) => void;
   onAddStation?: () => void;
+  onGoToDirectEntry: () => void;
+  onStationsChanged: () => void;
 }
 
 type SortField = 'code' | 'name' | 'currentFuel' | 'lastUpdated';
@@ -43,10 +47,10 @@ function listReducer(state: ListState, action: ListAction): ListState {
   }
 }
 
-export function StationList({ stations, onViewStation, onAddStation }: Props) {
+export function StationList({ stations, userRole, onViewStation, onAddStation, onGoToDirectEntry, onStationsChanged }: Props) {
   const [listState, dispatch] = useReducer(listReducer, LIST_INITIAL);
-  const [fuelModalStation, setFuelModalStation] = useState<Station | null>(null);
   const [deactivateDialog, setDeactivateDialog] = useState<{ target: Station | null; reason: string; confirmed: boolean }>({ target: null, reason: '', confirmed: false });
+  const [deactivating, setDeactivating] = useState(false);
   const perPage = 10;
   const { query, statusFilter, brandFilter, zoneFilter, sortField, sortAsc, page } = listState;
 
@@ -72,9 +76,20 @@ export function StationList({ stations, onViewStation, onAddStation }: Props) {
   const totalPages = Math.ceil(filtered.length / perPage);
   const paged = filtered.slice((page - 1) * perPage, page * perPage);
 
-  const handleDeactivate = () => {
-    toast.success(`Đã vô hiệu hóa trạm ${deactivateDialog.target?.code}`);
-    setDeactivateDialog({ target: null, reason: '', confirmed: false });
+  const handleDeactivate = async () => {
+    const target = deactivateDialog.target;
+    if (!target) return;
+    setDeactivating(true);
+    try {
+      await deactivateStation(target.id, deactivateDialog.reason || undefined);
+      toast.success(`Đã vô hiệu hóa trạm ${target.code}`);
+      setDeactivateDialog({ target: null, reason: '', confirmed: false });
+      onStationsChanged();
+    } catch (err) {
+      toast.error((err as Error).message || 'Lỗi vô hiệu hóa trạm');
+    } finally {
+      setDeactivating(false);
+    }
   };
 
   return (
@@ -191,48 +206,52 @@ export function StationList({ stations, onViewStation, onAddStation }: Props) {
                     </td>
                     <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}>
                       <div className="flex items-center gap-2">
-                        {/* Primary: Nhập nhiên liệu */}
-                        <button type="button" onClick={() => setFuelModalStation(s)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors" style={{ background: '#2563eb', color: 'white', fontSize: '0.78rem', fontWeight: 600 }}
-                          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#1d4ed8'}
-                          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#2563eb'}>
-                          <Droplets size={12} /> Nhập NL
-                        </button>
+                        {/* Nhập nhiên liệu — navigates to DirectEntry (preview/confirm flow), no quick-update bypass */}
+                        {canEnterFuel(userRole) && (
+                          <button type="button" onClick={onGoToDirectEntry} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors" style={{ background: '#2563eb', color: 'white', fontSize: '0.78rem', fontWeight: 600 }}
+                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#1d4ed8'}
+                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#2563eb'}>
+                            <Droplets size={12} /> Nhập NL
+                          </button>
+                        )}
                         {/* Xem chi tiết */}
                         <button type="button" onClick={() => onViewStation(s.id)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg" style={{ background: '#eff6ff', color: '#2563eb', fontSize: '0.78rem', fontWeight: 500 }}
                           onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#dbeafe'}
                           onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#eff6ff'}>
                           <Eye size={12} />
                         </button>
-                        {/* More actions */}
-                        <DropdownMenu.Root>
-                          <DropdownMenu.Trigger asChild>
-                            <button type="button" className="p-2 sm:p-1.5 rounded-lg" style={{ color: '#94a3b8' }}
-                              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f1f5f9'}
-                              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-                              <MoreVertical size={14} />
-                            </button>
-                          </DropdownMenu.Trigger>
-                          <DropdownMenu.Portal>
-                            <DropdownMenu.Content className="rounded-xl border shadow-xl py-1 z-50" style={{ background: 'white', borderColor: '#e2e8f0', minWidth: '160px', boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }} sideOffset={5}>
-                              <DropdownMenu.Item asChild>
-                                <button type="button" className="flex items-center gap-2 w-full px-4 py-2.5 text-left focus-visible:outline-2 focus-visible:outline-blue-500 focus-visible:rounded-sm" style={{ fontSize: '0.85rem', color: '#374151' }}
-                                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f8fafc'}
-                                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-                                  <Edit size={13} style={{ color: '#64748b' }} /> Chỉnh sửa trạm
-                                </button>
-                              </DropdownMenu.Item>
-                              <DropdownMenu.Separator style={{ height: '1px', background: '#f1f5f9', margin: '4px 0' }} />
-                              <DropdownMenu.Item asChild>
-                                <button type="button" className="flex items-center gap-2 w-full px-4 py-2.5 text-left focus-visible:outline-2 focus-visible:outline-red-500 focus-visible:rounded-sm" style={{ fontSize: '0.85rem', color: '#dc2626' }}
-                                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#fff5f5'}
-                                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
-                                  onClick={() => setDeactivateDialog({ target: s, reason: '', confirmed: false })}>
-                                  <XCircle size={13} /> Vô hiệu hóa
-                                </button>
-                              </DropdownMenu.Item>
-                            </DropdownMenu.Content>
-                          </DropdownMenu.Portal>
-                        </DropdownMenu.Root>
+                        {/* More actions — station CRUD is admin-only */}
+                        {canManageStations(userRole) && (
+                          <DropdownMenu.Root>
+                            <DropdownMenu.Trigger asChild>
+                              <button type="button" className="p-2 sm:p-1.5 rounded-lg" style={{ color: '#94a3b8' }}
+                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f1f5f9'}
+                                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                                <MoreVertical size={14} />
+                              </button>
+                            </DropdownMenu.Trigger>
+                            <DropdownMenu.Portal>
+                              <DropdownMenu.Content className="rounded-xl border shadow-xl py-1 z-50" style={{ background: 'white', borderColor: '#e2e8f0', minWidth: '160px', boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }} sideOffset={5}>
+                                <DropdownMenu.Item asChild>
+                                  <button type="button" className="flex items-center gap-2 w-full px-4 py-2.5 text-left focus-visible:outline-2 focus-visible:outline-blue-500 focus-visible:rounded-sm" style={{ fontSize: '0.85rem', color: '#374151' }}
+                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f8fafc'}
+                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                                    <Edit size={13} style={{ color: '#64748b' }} /> Chỉnh sửa trạm
+                                  </button>
+                                </DropdownMenu.Item>
+                                <DropdownMenu.Separator style={{ height: '1px', background: '#f1f5f9', margin: '4px 0' }} />
+                                <DropdownMenu.Item asChild>
+                                  <button type="button" className="flex items-center gap-2 w-full px-4 py-2.5 text-left focus-visible:outline-2 focus-visible:outline-red-500 focus-visible:rounded-sm" style={{ fontSize: '0.85rem', color: '#dc2626' }}
+                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#fff5f5'}
+                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                                    onClick={() => setDeactivateDialog({ target: s, reason: '', confirmed: false })}>
+                                    <XCircle size={13} /> Vô hiệu hóa
+                                  </button>
+                                </DropdownMenu.Item>
+                              </DropdownMenu.Content>
+                            </DropdownMenu.Portal>
+                          </DropdownMenu.Root>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -257,9 +276,6 @@ export function StationList({ stations, onViewStation, onAddStation }: Props) {
           </div>
         )}
       </div>
-
-      {/* Fuel Entry Modal */}
-      <FuelEntryModal station={fuelModalStation} open={!!fuelModalStation} onClose={() => setFuelModalStation(null)} />
 
       {/* Deactivate Dialog */}
       <AlertDialog.Root open={!!deactivateDialog.target} onOpenChange={open => !open && setDeactivateDialog({ target: null, reason: '', confirmed: false })}>
@@ -310,11 +326,10 @@ export function StationList({ stations, onViewStation, onAddStation }: Props) {
                     <AlertDialog.Cancel asChild>
                       <button type="button" className="flex-1 py-2.5 rounded-lg border" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem' }}>Hủy</button>
                     </AlertDialog.Cancel>
-                    <AlertDialog.Action asChild>
-                      <button type="button" onClick={handleDeactivate} disabled={!deactivateDialog.confirmed} className="flex-1 py-2.5 rounded-lg transition-all" style={{ background: deactivateDialog.confirmed ? '#dc2626' : '#e2e8f0', color: deactivateDialog.confirmed ? 'white' : '#94a3b8', fontSize: '0.875rem', fontWeight: 600, cursor: deactivateDialog.confirmed ? 'pointer' : 'not-allowed' }}>
-                        Xác nhận vô hiệu hóa
-                      </button>
-                    </AlertDialog.Action>
+                    <button type="button" onClick={handleDeactivate} disabled={!deactivateDialog.confirmed || deactivating} className="flex-1 py-2.5 rounded-lg transition-all flex items-center justify-center gap-2" style={{ background: deactivateDialog.confirmed ? '#dc2626' : '#e2e8f0', color: deactivateDialog.confirmed ? 'white' : '#94a3b8', fontSize: '0.875rem', fontWeight: 600, cursor: deactivateDialog.confirmed && !deactivating ? 'pointer' : 'not-allowed' }}>
+                      {deactivating && <Loader2 size={14} className="animate-spin" />}
+                      {deactivating ? 'Đang xử lý...' : 'Xác nhận vô hiệu hóa'}
+                    </button>
                   </div>
                 </div>
               </>

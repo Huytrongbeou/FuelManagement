@@ -26,16 +26,3 @@ export async function getFuelHistory(stationId: string, opts?: { limit?: number;
   const data = await api.get<Record<string, unknown>[]>(`/fuel/records/${stationId}${qs}`);
   return data.map(toRecord);
 }
-
-export async function postFuelRecord(dto: {
-  stationId: string;
-  stationCode: string;
-  recordedDate: string;
-  fuelAdded?: number;
-  hoursRun?: number;
-  notes?: string;
-  recordedBy?: string;
-}): Promise<FuelRecord> {
-  const r = await api.post<Record<string, unknown>>('/fuel/records', dto);
-  return toRecord(r);
-}

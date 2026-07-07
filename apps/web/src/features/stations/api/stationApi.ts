@@ -48,3 +48,7 @@ export async function createStation(dto: Record<string, unknown>): Promise<{ sta
   };
 }
 
+export async function deactivateStation(id: string, reason?: string): Promise<void> {
+  await api.patch(`/stations/${id}/deactivate`, reason ? { reason } : undefined);
+}
+

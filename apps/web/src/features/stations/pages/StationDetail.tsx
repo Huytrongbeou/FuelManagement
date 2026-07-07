@@ -1,16 +1,18 @@
 import { useState, useEffect, useMemo, useReducer } from 'react';
-import { ArrowLeft, MapPin, Zap, Droplets, Calendar, Clock, Edit, Save, X, TrendingDown, TrendingUp, Minus } from 'lucide-react';
+import { ArrowLeft, MapPin, Zap, Droplets, Calendar, Clock, X, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { toast } from 'sonner';
 import { Station, FuelRecord, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/shared/types';
-import { getFuelHistory, postFuelRecord } from '@/features/fuel/api/fuelApi';
+import { getFuelHistory } from '@/features/fuel/api/fuelApi';
 import { createAdjustmentRequest } from '../api/adjustmentApi';
+import { canEnterFuel } from '@/shared/auth/permissions';
 
 interface StationDetailProps {
   station: Station;
   records: FuelRecord[];
   userRole?: string;
   onBack: () => void;
+  onGoToDirectEntry: () => void;
 }
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -22,12 +24,6 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-const FUEL_FORM_FIELDS = [
-  { label: 'Ngày ghi nhận',          type: 'date',   key: 'date',     placeholder: undefined as string | undefined },
-  { label: 'Nhiên liệu bổ sung (L)', type: 'number', key: 'added',    placeholder: '0' as string | undefined },
-  { label: 'Số giờ chạy máy',        type: 'number', key: 'hoursRun', placeholder: '0' as string | undefined },
-];
-
 const HISTORY_TABLE_HEADERS = [
   { label: 'Ngày' },
   { label: 'Tồn trước', hide: 'hidden sm:table-cell' },
@@ -38,24 +34,6 @@ const HISTORY_TABLE_HEADERS = [
   { label: 'Nguồn', hide: 'hidden sm:table-cell' },
   { label: '' },
 ] as Array<{ label: string; hide?: string }>;
-
-// Quick-update form reducer
-type FuelFormState = { added: string; hoursRun: string; date: string; note: string; saving: boolean };
-type FuelFormAction =
-  | { type: 'field'; key: string; value: string }
-  | { type: 'reset' }
-  | { type: 'saving-start' }
-  | { type: 'saving-done' };
-
-function fuelFormReducer(state: FuelFormState, action: FuelFormAction): FuelFormState {
-  switch (action.type) {
-    case 'field':        return { ...state, [action.key]: action.value };
-    case 'reset':        return { added: '', hoursRun: '', date: new Date().toISOString().slice(0, 10), note: '', saving: false };
-    case 'saving-start': return { ...state, saving: true };
-    case 'saving-done':  return { ...state, saving: false };
-    default:             return state;
-  }
-}
 
 // Adjustment modal reducer
 const ADJ_EMPTY_FORM = { newFuelAdded: '', newHoursRun: '', newNotes: '', reason: '' };
@@ -79,81 +57,6 @@ function adjModalReducer(state: AdjState, action: AdjAction): AdjState {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-
-interface FuelUpdateFormProps {
-  fuelForm: FuelFormState;
-  dispatchForm: React.Dispatch<FuelFormAction>;
-  estimatedConsumed: number;
-  estimatedEnd: number | null;
-  onSave: (e: React.FormEvent) => void;
-}
-
-function FuelUpdateForm({ fuelForm, dispatchForm, estimatedConsumed, estimatedEnd, onSave }: FuelUpdateFormProps) {
-  return (
-    <div className="rounded-xl border p-5" style={{ background: 'white', borderColor: '#e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-      <div className="flex items-center gap-2 mb-5">
-        <Edit size={16} style={{ color: '#2563eb' }} />
-        <h4 style={{ color: '#0f172a' }}>Cập nhật nhiên liệu</h4>
-      </div>
-      <form onSubmit={onSave} className="space-y-4">
-        {FUEL_FORM_FIELDS.map(field => (
-          <div key={field.key}>
-            <label htmlFor={`fuel-field-${field.key}`} className="block mb-1.5" style={{ fontSize: '0.8rem', color: '#475569' }}>{field.label}</label>
-            <input
-              id={`fuel-field-${field.key}`}
-              aria-label={field.label}
-              type={field.type}
-              value={fuelForm[field.key as keyof typeof fuelForm] as string}
-              onChange={e => dispatchForm({ type: 'field', key: field.key, value: e.target.value })}
-              placeholder={field.placeholder}
-              min={field.type === 'number' ? 0 : undefined}
-              className="w-full px-3 py-2.5 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 transition-all"
-              style={{ fontSize: '0.875rem', borderColor: '#e2e8f0', background: '#f8fafc' }}
-              onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
-              onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
-            />
-          </div>
-        ))}
-        <div>
-          <label htmlFor="fuel-field-note" className="block mb-1.5" style={{ fontSize: '0.8rem', color: '#475569' }}>Ghi chú</label>
-          <textarea
-            id="fuel-field-note"
-            value={fuelForm.note}
-            onChange={e => dispatchForm({ type: 'field', key: 'note', value: e.target.value })}
-            placeholder="Ghi chú thêm (tùy chọn)..."
-            rows={2}
-            className="w-full px-3 py-2.5 rounded-lg border outline-none transition-all resize-none"
-            style={{ fontSize: '0.875rem', borderColor: '#e2e8f0', background: '#f8fafc' }}
-            onFocus={e => { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
-            onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
-          />
-        </div>
-        {(fuelForm.hoursRun || fuelForm.added) && (
-          <div className="rounded-lg p-3 space-y-1.5" style={{ background: '#f0f7ff', border: '1px solid #dbeafe' }}>
-            <div style={{ fontSize: '0.75rem', color: '#2563eb', fontWeight: 600, marginBottom: '4px' }}>Dự tính tự động</div>
-            <div className="flex justify-between" style={{ fontSize: '0.78rem', color: '#475569' }}>
-              <span>Tiêu hao ước tính</span>
-              <span style={{ fontWeight: 600, color: '#dc2626' }}>{estimatedConsumed.toFixed(1)} L</span>
-            </div>
-            {estimatedEnd !== null && (
-              <div className="flex justify-between" style={{ fontSize: '0.78rem', color: '#475569' }}>
-                <span>Tồn cuối ước tính</span>
-                <span style={{ fontWeight: 600, color: estimatedEnd > 20 ? '#16a34a' : estimatedEnd >= 10 ? '#ca8a04' : '#dc2626' }}>
-                  {estimatedEnd.toFixed(1)} L
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-        <button type="submit" disabled={fuelForm.saving} className="w-full py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all"
-          style={{ background: fuelForm.saving ? '#93c5fd' : '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
-          <Save size={15} />
-          {fuelForm.saving ? 'Đang lưu...' : 'Cập nhật'}
-        </button>
-      </form>
-    </div>
-  );
-}
 
 interface FuelHistoryTableProps {
   records: FuelRecord[];
@@ -313,8 +216,7 @@ function AdjustmentModal({ adj, dispatchAdj, onSubmit }: AdjustmentModalProps) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function StationDetail({ station, records, userRole, onBack }: StationDetailProps) {
-  const [fuelForm, dispatchForm] = useReducer(fuelFormReducer, { added: '', hoursRun: '', date: new Date().toISOString().slice(0, 10), note: '', saving: false });
+export function StationDetail({ station, records, userRole, onBack, onGoToDirectEntry }: StationDetailProps) {
   const [localRecords, setLocalRecords] = useState<FuelRecord[]>([]);
   const [adj, dispatchAdj] = useReducer(adjModalReducer, { open: false, target: null, form: ADJ_EMPTY_FORM, saving: false });
 
@@ -325,34 +227,6 @@ export function StationDetail({ station, records, userRole, onBack }: StationDet
   const status = getFuelStatus(station.currentFuel);
   const c = fuelStatusColor(status);
   const pct = station.currentFuel !== null ? Math.round((station.currentFuel / station.maxCapacity) * 100) : 0;
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    dispatchForm({ type: 'saving-start' });
-    try {
-      await postFuelRecord({
-        stationId: station.id,
-        stationCode: station.code,
-        recordedDate: fuelForm.date,
-        fuelAdded: fuelForm.added !== '' ? parseFloat(fuelForm.added) : 0,
-        hoursRun: fuelForm.hoursRun !== '' ? parseFloat(fuelForm.hoursRun) : 0,
-        notes: fuelForm.note || undefined,
-      });
-      toast.success('Đã cập nhật nhiên liệu thành công!', { description: `Trạm ${station.code} — ${station.name}` });
-      dispatchForm({ type: 'reset' });
-      const updated = await getFuelHistory(station.id);
-      setLocalRecords(updated);
-    } catch (err) {
-      toast.error((err as Error).message || 'Lỗi lưu dữ liệu');
-    } finally {
-      dispatchForm({ type: 'saving-done' });
-    }
-  };
-
-  const estimatedConsumed = fuelForm.hoursRun ? parseFloat(fuelForm.hoursRun) * station.fuelRate : 0;
-  const estimatedEnd = station.currentFuel !== null && fuelForm.added
-    ? station.currentFuel + parseFloat(fuelForm.added || '0') - estimatedConsumed
-    : null;
 
   const adjustedIds = useMemo(
     () => new Set(localRecords.flatMap(r => (r.source === 'adjustment' && r.adjustmentForId) ? [r.adjustmentForId!] : [])),
@@ -461,14 +335,19 @@ export function StationDetail({ station, records, userRole, onBack }: StationDet
           </div>
         </div>
 
-        {/* Middle: Quick update form */}
-        <FuelUpdateForm
-          fuelForm={fuelForm}
-          dispatchForm={dispatchForm}
-          estimatedConsumed={estimatedConsumed}
-          estimatedEnd={estimatedEnd}
-          onSave={handleSave}
-        />
+        {/* Middle: entry point to DirectEntry — no direct-write bypass of preview/confirm */}
+        {canEnterFuel(userRole) && (
+          <div className="rounded-xl border p-5 flex flex-col items-center justify-center text-center" style={{ background: 'white', borderColor: '#e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <Droplets size={28} style={{ color: '#2563eb', marginBottom: '12px' }} />
+            <h4 style={{ color: '#0f172a', marginBottom: '6px' }}>Cập nhật nhiên liệu</h4>
+            <p style={{ color: '#64748b', fontSize: '0.82rem', marginBottom: '16px' }}>
+              Nhập nhiên liệu cho trạm này qua màn hình Nhập dữ liệu trực tiếp (có kiểm tra và xác nhận trước khi lưu).
+            </p>
+            <button type="button" onClick={onGoToDirectEntry} className="flex items-center gap-2 px-5 py-2.5 rounded-lg transition-all" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
+              <Droplets size={15} /> Nhập nhiên liệu
+            </button>
+          </div>
+        )}
 
         {/* Right: History table */}
         <FuelHistoryTable

@@ -27,6 +27,7 @@ import { getJobs } from '@/features/import-export/api/importApi';
 import type { ImportSession } from '@/shared/types';
 import { getMe } from '@/features/auth/api/authApi';
 import type { AuthUser } from '@/features/auth/api/authApi';
+import { canManageStations } from '@/shared/auth/permissions';
 
 // Auth
 type AuthState = { isLoggedIn: boolean; currentUser: AuthUser | null };
@@ -198,6 +199,7 @@ export default function App() {
           records={[]}
           userRole={currentUser?.role}
           onBack={() => dispatchNav({ type: 'clear-station' })}
+          onGoToDirectEntry={() => handleNavigate('directEntry')}
         />
       );
     }
@@ -205,7 +207,16 @@ export default function App() {
       case 'dashboard':
         return <Dashboard stations={stations} onViewStation={handleViewStation} />;
       case 'stations':
-        return <StationList stations={stations} onViewStation={handleViewStation} onAddStation={() => setAddStationOpen(true)} />;
+        return (
+          <StationList
+            stations={stations}
+            userRole={currentUser?.role}
+            onViewStation={handleViewStation}
+            onAddStation={canManageStations(currentUser?.role) ? () => setAddStationOpen(true) : undefined}
+            onGoToDirectEntry={() => handleNavigate('directEntry')}
+            onStationsChanged={fetchAll}
+          />
+        );
       case 'map':
         return <MapView stations={stations} onViewStation={handleViewStation} />;
       case 'directEntry':
