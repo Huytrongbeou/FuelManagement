@@ -1,5 +1,4 @@
 import type { Request, Response } from 'express'
-import { createManualRecord } from '../services/fuel-record.service'
 import { commitImport } from '../services/import-commit.service'
 import { initCurrentState } from '../services/current-state-init.service'
 import { findAllCurrentStates, findCurrentState, findRecordsByStation, checkExactDuplicates, previewValidate } from '../repositories/fuel-record.repository'
@@ -33,32 +32,6 @@ function toCurrentStateDto(s: Record<string, unknown>) {
     fuelStatus: s.fuelStatus,
     lastUpdated: s.lastUpdated,
     snapshotVersion: s.snapshotVersion != null ? Number(s.snapshotVersion) : null,
-  }
-}
-
-function requireFiniteNonNeg(val: unknown, name: string): number {
-  const n = Number(val)
-  if (!Number.isFinite(n) || n < 0)
-    throw Object.assign(new Error(`Giá trị ${name} không hợp lệ.`), { status: 400 })
-  return n
-}
-
-export async function postRecord(req: Request, res: Response): Promise<void> {
-  try {
-    const { stationId, stationCode, recordedDate, fuelAdded, hoursRun, notes, recordedBy } = req.body
-    if (!stationId || !stationCode || !recordedDate) {
-      res.status(400).json({ error: 'stationId, stationCode, recordedDate are required' })
-      return
-    }
-    const record = await createManualRecord({
-      stationId, stationCode, recordedDate,
-      fuelAdded: requireFiniteNonNeg(fuelAdded ?? 0, 'lượng nhiên liệu'),
-      hoursRun: requireFiniteNonNeg(hoursRun ?? 0, 'số giờ chạy'),
-      notes, recordedBy,
-    })
-    res.status(201).json(toFuelRecordDto(record as unknown as Record<string, unknown>))
-  } catch (err: unknown) {
-    res.status((err as { status?: number }).status || 500).json({ error: (err as Error).message })
   }
 }
 
