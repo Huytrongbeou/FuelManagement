@@ -215,7 +215,7 @@ export function StationList({ stations, userRole, onViewStation, onAddStation, o
                           </button>
                         )}
                         {/* Xem chi tiết */}
-                        <button type="button" onClick={() => onViewStation(s.id)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg" style={{ background: '#eff6ff', color: '#2563eb', fontSize: '0.78rem', fontWeight: 500 }}
+                        <button type="button" aria-label="Xem chi tiết" onClick={() => onViewStation(s.id)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg" style={{ background: '#eff6ff', color: '#2563eb', fontSize: '0.78rem', fontWeight: 500 }}
                           onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#dbeafe'}
                           onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#eff6ff'}>
                           <Eye size={12} />
