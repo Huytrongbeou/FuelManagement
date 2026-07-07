@@ -24,6 +24,6 @@ export async function getJobs(): Promise<ImportSession[]> {
   return data.map(toSession);
 }
 
-export async function confirmJob(id: string, committedBy?: string): Promise<unknown> {
-  return api.post(`/import/jobs/${id}/confirm`, { committed_by: committedBy });
+export async function confirmJob(id: string, opts?: { committedBy?: string; acknowledgeWarnings?: boolean }): Promise<unknown> {
+  return api.post(`/import/jobs/${id}/confirm`, { committed_by: opts?.committedBy, acknowledgeWarnings: opts?.acknowledgeWarnings });
 }

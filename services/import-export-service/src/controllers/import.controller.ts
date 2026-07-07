@@ -79,6 +79,7 @@ export async function confirm(req: Request, res: Response): Promise<void> {
       committedBy: ctx.userName,
       source: 'import',
       userCtx: ctx,
+      acknowledgeWarnings: req.body?.acknowledgeWarnings === true,
     })
     res.json(result)
   } catch (err: unknown) {

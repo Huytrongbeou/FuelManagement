@@ -210,7 +210,7 @@ export async function preview(rows: DirectEntryRow[], createdBy?: string, userCt
   return { jobId: job.id, totalRows, validRows, invalidRows, warningRows, rows: parsedRows }
 }
 
-export async function confirm(jobId: string, committedBy?: string, userCtx?: UserContext) {
+export async function confirm(jobId: string, committedBy?: string, userCtx?: UserContext, acknowledgeWarnings?: boolean) {
   const job = await prisma.importJob.findUnique({ where: { id: jobId }, select: { previewData: true } })
   if (!job) throw Object.assign(new Error('Job not found'), { status: 404 })
 
@@ -268,7 +268,7 @@ export async function confirm(jobId: string, committedBy?: string, userCtx?: Use
     }
   }
 
-  const result = await confirmImport(jobId, { committedBy, source: 'direct', userCtx })
+  const result = await confirmImport(jobId, { committedBy, source: 'direct', userCtx, acknowledgeWarnings })
   batchSubmitCache.set(batchSignature, Date.now())
 
   auditLog({

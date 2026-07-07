@@ -188,9 +188,9 @@ export async function previewImport(
 
 export async function confirmImport(
   jobId: string,
-  opts: { committedBy?: string; source?: string; userCtx?: UserContext } = {}
+  opts: { committedBy?: string; source?: string; userCtx?: UserContext; acknowledgeWarnings?: boolean } = {}
 ) {
-  const { committedBy, source = 'import', userCtx } = opts
+  const { committedBy, source = 'import', userCtx, acknowledgeWarnings } = opts
   const job = await prisma.importJob.findUnique({ where: { id: jobId } })
   if (!job) throw Object.assign(new Error('Import job not found'), { status: 404 })
 
@@ -200,6 +200,13 @@ export async function confirmImport(
 
   if (job.status === 'committing') {
     throw Object.assign(new Error('Job đang được xử lý, vui lòng đợi.'), { status: 409 })
+  }
+
+  if ((job.warningRows ?? 0) > 0 && acknowledgeWarnings !== true) {
+    throw Object.assign(
+      new Error('File có dòng cảnh báo — cần xác nhận đã kiểm tra cảnh báo (acknowledgeWarnings).'),
+      { status: 422 }
+    )
   }
 
   if (job.status === 'failed') {

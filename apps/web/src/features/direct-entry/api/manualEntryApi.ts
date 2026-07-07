@@ -26,6 +26,6 @@ export async function previewEntry(rows: DirectEntryRow[], createdBy?: string): 
   return api.post<PreviewResult>('/manual-entry/preview', { rows, createdBy });
 }
 
-export async function confirmEntry(jobId: string, committedBy?: string): Promise<unknown> {
-  return api.post('/manual-entry/confirm', { jobId, committedBy });
+export async function confirmEntry(jobId: string, committedBy?: string, acknowledgeWarnings?: boolean): Promise<unknown> {
+  return api.post('/manual-entry/confirm', { jobId, committedBy, acknowledgeWarnings });
 }

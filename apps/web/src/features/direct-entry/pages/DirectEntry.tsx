@@ -75,22 +75,26 @@ const TABLE_COL_TH_STYLES = TABLE_COLS.map(col => ({
   borderRight: '1px solid rgba(255,255,255,0.1)',
 }));
 
-type SaveState = { saving: boolean; successOpen: boolean; doubleSubmitOpen: boolean };
+type SaveState = { saving: boolean; successOpen: boolean; doubleSubmitOpen: boolean; warningAckOpen: boolean };
 type SaveAction =
   | { type: 'save-start' }
   | { type: 'save-success' }
   | { type: 'save-error' }
   | { type: 'double-submit-open' }
   | { type: 'double-submit-close' }
+  | { type: 'warning-ack-open' }
+  | { type: 'warning-ack-close' }
   | { type: 'close-success' };
 
 function saveReducer(state: SaveState, action: SaveAction): SaveState {
   switch (action.type) {
     case 'save-start':          return { ...state, saving: true };
-    case 'save-success':        return { saving: false, successOpen: true, doubleSubmitOpen: false };
+    case 'save-success':        return { ...state, saving: false, successOpen: true, doubleSubmitOpen: false };
     case 'save-error':          return { ...state, saving: false };
     case 'double-submit-open':  return { ...state, doubleSubmitOpen: true };
     case 'double-submit-close': return { ...state, doubleSubmitOpen: false };
+    case 'warning-ack-open':    return { ...state, warningAckOpen: true };
+    case 'warning-ack-close':   return { ...state, warningAckOpen: false };
     case 'close-success':       return { ...state, successOpen: false };
     default:                    return state;
   }
@@ -260,7 +264,7 @@ function DirectEntryTable({ rows, onUpdateRow, onRemoveRow, onRevertRow, onLoadC
 export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [checked, setChecked] = useState(false);
-  const [save, dispatchSave] = useReducer(saveReducer, { saving: false, successOpen: false, doubleSubmitOpen: false });
+  const [save, dispatchSave] = useReducer(saveReducer, { saving: false, successOpen: false, doubleSubmitOpen: false, warningAckOpen: false });
   const lastSubmitRef = useRef<{ signature: string; time: number } | null>(null);
   const pendingSubmitRef = useRef<(() => Promise<void>) | null>(null);
   const hasAutoLoadedRef = useRef(false);
@@ -306,7 +310,7 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
     setChecked(true);
   };
 
-  const doSave = async (changedRows: typeof rows, signature: string) => {
+  const doSave = async (changedRows: typeof rows, signature: string, acknowledgeWarnings: boolean) => {
     lastSubmitRef.current = { signature, time: Date.now() };
     dispatchSave({ type: 'save-start' });
     try {
@@ -318,7 +322,7 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
         notes: r.note || null,
       }));
       const preview = await previewEntry(payload);
-      await confirmEntry(preview.jobId);
+      await confirmEntry(preview.jobId, undefined, acknowledgeWarnings);
       dispatchSave({ type: 'save-success' });
     } catch (err) {
       toast.error((err as Error).message || 'Lỗi lưu dữ liệu');
@@ -332,15 +336,22 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
     const changedRows = rows.filter(r => r.status !== 'unchanged');
     if (changedRows.length === 0) { toast.warning('Không có dòng nào thay đổi'); return; }
 
+    const hasWarnings = changedRows.some(r => r.status === 'warning');
     const signature = changedRows.map(r => `${r.stationId}|${r.added}|${r.hoursRun}|${r.date}`).sort().join(',');
     const last = lastSubmitRef.current;
     if (last?.signature === signature && Date.now() - last.time < 60_000) {
-      pendingSubmitRef.current = () => doSave(changedRows, signature);
+      pendingSubmitRef.current = () => doSave(changedRows, signature, hasWarnings);
       dispatchSave({ type: 'double-submit-open' });
       return;
     }
 
-    await doSave(changedRows, signature);
+    if (hasWarnings) {
+      pendingSubmitRef.current = () => doSave(changedRows, signature, true);
+      dispatchSave({ type: 'warning-ack-open' });
+      return;
+    }
+
+    await doSave(changedRows, signature, false);
   };
 
   const validRows   = rows.filter(r => r.status === 'valid').length;
@@ -459,6 +470,27 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
               </button>
               <button type="button" onClick={() => { dispatchSave({ type: 'double-submit-close' }); pendingSubmitRef.current?.(); }} className="flex-1 py-2.5 rounded-lg" style={{ background: '#dc2626', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
                 Vẫn gửi
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* Warning acknowledgement dialog */}
+      <Dialog.Root open={save.warningAckOpen} onOpenChange={open => !open && dispatchSave({ type: 'warning-ack-close' })}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.5)' }} />
+          <Dialog.Content aria-describedby={undefined} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl p-6 w-full max-w-sm" style={{ background: 'white', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <Dialog.Title style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>Có dòng cảnh báo</Dialog.Title>
+            <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '20px' }}>
+              Có dòng dữ liệu đang ở trạng thái cảnh báo. Bạn đã kiểm tra và muốn tiếp tục lưu?
+            </p>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => dispatchSave({ type: 'warning-ack-close' })} className="flex-1 py-2.5 rounded-lg border" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem' }}>
+                Hủy
+              </button>
+              <button type="button" onClick={() => { dispatchSave({ type: 'warning-ack-close' }); pendingSubmitRef.current?.(); }} className="flex-1 py-2.5 rounded-lg" style={{ background: '#ca8a04', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
+                Tiếp tục lưu
               </button>
             </div>
           </Dialog.Content>

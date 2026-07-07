@@ -27,13 +27,13 @@ export async function previewHandler(req: Request, res: Response): Promise<void>
 
 export async function confirmHandler(req: Request, res: Response): Promise<void> {
   try {
-    const { jobId } = req.body
+    const { jobId, acknowledgeWarnings } = req.body
     if (!jobId) {
       res.status(400).json({ error: 'jobId is required' })
       return
     }
     const ctx = extractUserCtx(req)
-    const result = await confirm(jobId, ctx.userName, ctx)
+    const result = await confirm(jobId, ctx.userName, ctx, acknowledgeWarnings === true)
     res.json(result)
   } catch (err: unknown) {
     res.status((err as { status?: number }).status || 500).json({ error: (err as Error).message })

@@ -438,7 +438,7 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
     if (!jobIdRef.current) return;
     dispatch({ type: 'confirm-start' });
     try {
-      await confirmJob(jobIdRef.current);
+      await confirmJob(jobIdRef.current, { acknowledgeWarnings: s.warningAcknowledged });
       dispatch({ type: 'confirm-success' });
     } catch (err) {
       toast.error((err as Error).message || 'Lỗi xác nhận import');
