@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Search, Download, Upload, Bell, Menu, CheckCircle2, RefreshCw } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
+import { toast } from 'sonner';
 import { Station } from '@/shared/types';
+import { downloadWithAuth } from '@/shared/api/client';
 
 interface TopbarProps {
   stations: Station[];
@@ -109,6 +111,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation }: Topb
             <Tooltip.Trigger asChild>
               <button
                 type="button"
+                onClick={() => downloadWithAuth('export/snapshot', 'fuel-snapshot.xlsx').catch(e => toast.error((e as Error).message))}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-all"
                 style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.85rem', background: 'white' }}
                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f8fafc'}
