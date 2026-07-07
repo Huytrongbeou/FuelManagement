@@ -122,6 +122,23 @@ export async function preview(rows: DirectEntryRow[], createdBy?: string, userCt
   ])
 
   const parsedRows = rows.map((r, i) => toParsedRow(r, stations, i + 2))
+
+  // Same station with multiple fuel-activity rows in one batch is rejected — see
+  // excel-validator.service.ts for the equivalent Excel-import rule and rationale.
+  const activityRowsByStation = new Map<string, ParsedRow[]>()
+  for (const row of parsedRows) {
+    if (!row.hasFuelActivity) continue
+    const key = row.stationCode.trim().toUpperCase()
+    if (!activityRowsByStation.has(key)) activityRowsByStation.set(key, [])
+    activityRowsByStation.get(key)!.push(row)
+  }
+  for (const dupRows of activityRowsByStation.values()) {
+    if (dupRows.length < 2) continue
+    for (const row of dupRows) {
+      row.errors.push('Trạm xuất hiện nhiều dòng có số liệu trong cùng lần nhập — mỗi trạm chỉ một dòng.')
+    }
+  }
+
   const fuelStateMap = new Map(fuelStates.map(s => [s.stationId, s]))
 
   const versions: Record<string, number | null> = {}

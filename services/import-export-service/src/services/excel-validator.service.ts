@@ -258,5 +258,23 @@ export async function parseAndValidate(
     })
   })
 
+  // Same station with multiple fuel-activity rows in one file is rejected rather than
+  // silently chained — preview validates each row independently against the same
+  // CurrentFuelState, so per-row previews would be inconsistent with the sequential
+  // running-balance chain used at commit time.
+  const activityRowsByStation = new Map<string, ParsedRow[]>()
+  for (const row of rows) {
+    if (!row.hasFuelActivity) continue
+    const key = row.stationCode.trim().toUpperCase()
+    if (!activityRowsByStation.has(key)) activityRowsByStation.set(key, [])
+    activityRowsByStation.get(key)!.push(row)
+  }
+  for (const dupRows of activityRowsByStation.values()) {
+    if (dupRows.length < 2) continue
+    for (const row of dupRows) {
+      row.errors.push('Trạm xuất hiện nhiều dòng có số liệu trong cùng file — mỗi file chỉ một dòng mỗi trạm.')
+    }
+  }
+
   return rows
 }
