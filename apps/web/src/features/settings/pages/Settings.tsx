@@ -242,6 +242,7 @@ function ThresholdsTabContent({ thresholds, setThresholds }: { thresholds: Thres
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function Settings({ userRole, stations = EMPTY_STATIONS }: SettingsProps) {
+  const [activeTab, setActiveTab] = useState('profile');
   const [profile, setProfile] = useState(() => ({
     name: 'Nguyễn Văn A',
     email: 'nguyenvana@company.vn',
@@ -316,7 +317,7 @@ export function Settings({ userRole, stations = EMPTY_STATIONS }: SettingsProps)
         <p style={{ color: '#64748b', fontSize: '0.875rem' }}>Quản lý thông tin cá nhân và cài đặt hệ thống</p>
       </div>
 
-      <Tabs.Root defaultValue="profile">
+      <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
         <Tabs.List className="flex gap-1 p-1 rounded-xl mb-6" style={{ background: '#f1f5f9', width: 'fit-content' }}>
           {[
             { value: 'profile',       label: 'Tài khoản',     icon: User },
@@ -327,12 +328,10 @@ export function Settings({ userRole, stations = EMPTY_STATIONS }: SettingsProps)
           ].map(tab => (
             <Tabs.Trigger key={tab.value} value={tab.value} asChild>
               <button type="button">
-                {({ isSelected }: any) => (
-                  <span className="flex items-center gap-1.5" style={tabTriggerStyle(isSelected)}>
-                    <tab.icon size={14} />
-                    {tab.label}
-                  </span>
-                )}
+                <span className="flex items-center gap-1.5" style={tabTriggerStyle(activeTab === tab.value)}>
+                  <tab.icon size={14} />
+                  {tab.label}
+                </span>
               </button>
             </Tabs.Trigger>
           ))}
