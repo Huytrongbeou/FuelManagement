@@ -229,7 +229,15 @@ export async function confirmImport(
     errors: string[]
   }>) || []
 
-  const validRows = previewRows.filter(r => r.errors.length === 0)
+  const hasRowError = previewRows.some(r => r.errors && r.errors.length > 0)
+  if (hasRowError) {
+    throw Object.assign(
+      new Error('File import có dòng lỗi, không thể xác nhận. Vui lòng sửa toàn bộ lỗi và preview lại.'),
+      { status: 422 }
+    )
+  }
+
+  const validRows = previewRows
   if (validRows.length === 0) {
     throw Object.assign(new Error('Không có dòng hợp lệ để xác nhận. Vui lòng kiểm tra lại dữ liệu.'), { status: 422 })
   }
@@ -334,6 +342,14 @@ export async function confirmImport(
       notes: r.notes,
     }))
     .filter(r => r.station_id)
+
+  if (fuelRecords.length === 0) {
+    await prisma.importJob.update({
+      where: { id: jobId },
+      data: { status: 'failed', failureStage: 'no_activity', retryable: false, errorMessage: 'Không có dòng dữ liệu nhiên liệu hợp lệ để xác nhận.' },
+    })
+    throw Object.assign(new Error('Không có dòng dữ liệu nhiên liệu hợp lệ để xác nhận.'), { status: 422 })
+  }
 
   let commitResult: unknown
   try {
