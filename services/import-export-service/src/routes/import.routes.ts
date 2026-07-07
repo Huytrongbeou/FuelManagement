@@ -39,8 +39,8 @@ router.post('/upload', requireRole('admin', 'manager'), (req, res, next) => {
   })
 }, upload)
 
-router.get('/jobs', listJobs)
-router.get('/jobs/:job_id', getJob)
+router.get('/jobs', requireRole('admin', 'manager'), listJobs)
+router.get('/jobs/:job_id', requireRole('admin', 'manager'), getJob)
 router.post('/jobs/:job_id/confirm', requireRole('admin', 'manager'), confirm)
 router.post('/jobs/:job_id/cancel', requireRole('admin', 'manager'), cancel)
 
