@@ -40,9 +40,20 @@ export function ImportHistory({ sessions }: ImportHistoryProps) {
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
-                {['Mã lần import', 'Tên file', 'Người import', 'Thời gian', 'Tổng', 'Hợp lệ', 'Cảnh báo', 'Lỗi', 'Trạng thái', 'Hành động'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left border-b" style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, borderColor: '#e2e8f0', whiteSpace: 'nowrap' }}>
-                    {h}
+                {([
+                  { label: 'Mã lần import', hide: 'hidden md:table-cell' },
+                  { label: 'Tên file' },
+                  { label: 'Người import', hide: 'hidden sm:table-cell' },
+                  { label: 'Thời gian' },
+                  { label: 'Tổng', hide: 'hidden sm:table-cell' },
+                  { label: 'Hợp lệ', hide: 'hidden sm:table-cell' },
+                  { label: 'Cảnh báo', hide: 'hidden md:table-cell' },
+                  { label: 'Lỗi', hide: 'hidden md:table-cell' },
+                  { label: 'Trạng thái' },
+                  { label: 'Hành động' },
+                ] as Array<{ label: string; hide?: string }>).map(col => (
+                  <th key={col.label} className={`px-4 py-3 text-left border-b ${col.hide ?? ''}`} style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, borderColor: '#e2e8f0', whiteSpace: 'nowrap' }}>
+                    {col.label}
                   </th>
                 ))}
               </tr>
@@ -56,7 +67,7 @@ export function ImportHistory({ sessions }: ImportHistoryProps) {
                     onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f0f7ff'}
                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = i % 2 === 0 ? 'white' : '#fafafa'}
                   >
-                    <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontFamily: 'monospace', fontSize: '0.8rem', color: '#64748b' }}>
+                    <td className="hidden md:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontFamily: 'monospace', fontSize: '0.8rem', color: '#64748b' }}>
                       {s.id}
                     </td>
                     <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}>
@@ -65,22 +76,22 @@ export function ImportHistory({ sessions }: ImportHistoryProps) {
                         <span style={{ fontSize: '0.8rem', color: '#1e293b', whiteSpace: 'nowrap' }}>{s.filename}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', color: '#475569', whiteSpace: 'nowrap' }}>
+                    <td className="hidden sm:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', color: '#475569', whiteSpace: 'nowrap' }}>
                       {s.importedBy}
                     </td>
                     <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>
                       {s.importedAt}
                     </td>
-                    <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.875rem', fontWeight: 600, color: '#1e293b' }}>
+                    <td className="hidden sm:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.875rem', fontWeight: 600, color: '#1e293b' }}>
                       {s.totalRows}
                     </td>
-                    <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.875rem', fontWeight: 600, color: '#16a34a' }}>
+                    <td className="hidden sm:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.875rem', fontWeight: 600, color: '#16a34a' }}>
                       {s.validRows}
                     </td>
-                    <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.875rem', fontWeight: 600, color: '#ca8a04' }}>
+                    <td className="hidden md:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.875rem', fontWeight: 600, color: '#ca8a04' }}>
                       {s.warningRows}
                     </td>
-                    <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.875rem', fontWeight: 600, color: '#dc2626' }}>
+                    <td className="hidden md:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.875rem', fontWeight: 600, color: '#dc2626' }}>
                       {s.errorRows}
                     </td>
                     <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}>
@@ -113,7 +124,7 @@ export function ImportHistory({ sessions }: ImportHistoryProps) {
       <Dialog.Root open={!!selected} onOpenChange={open => !open && setSelected(null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.5)' }} />
-          <Dialog.Content aria-describedby={undefined} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto" style={{ background: 'white', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+          <Dialog.Content aria-describedby={undefined} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl w-[calc(100vw-2rem)] max-w-2xl max-h-[85vh] overflow-y-auto" style={{ background: 'white', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
             {selected && (() => {
               const cfg = statusConfig[selected.status];
               return (

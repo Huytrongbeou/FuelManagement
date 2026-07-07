@@ -143,7 +143,7 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
                   <button
                     type="button"
                     onClick={() => onViewStation(s.id)}
-                    className="opacity-0 group-hover:opacity-100 px-2.5 py-1 rounded-lg transition-all"
+                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 px-2.5 py-1 rounded-lg transition-all"
                     style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.75rem' }}
                   >
                     Xem

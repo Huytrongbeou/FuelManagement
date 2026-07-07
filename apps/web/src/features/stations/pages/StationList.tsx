@@ -95,7 +95,7 @@ export function StationList({ stations, onViewStation, onAddStation }: Props) {
       <div className="flex flex-wrap gap-3">
         <div className="relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#94a3b8' }} />
-          <input value={query} onChange={e => dispatch({ type: 'query', value: e.target.value })} placeholder="Mã / tên / địa chỉ trạm..." aria-label="Tìm trạm theo mã, tên hoặc địa chỉ" className="pl-9 pr-4 py-2 rounded-lg border outline-none" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0', background: 'white', width: '220px' }} />
+          <input value={query} onChange={e => dispatch({ type: 'query', value: e.target.value })} placeholder="Mã / tên / địa chỉ trạm..." aria-label="Tìm trạm theo mã, tên hoặc địa chỉ" className="w-full sm:w-56 pl-9 pr-4 py-2 rounded-lg border outline-none" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0', background: 'white' }} />
         </div>
         <select value={statusFilter} onChange={e => dispatch({ type: 'status', value: e.target.value })} className="px-3 py-2 rounded-lg border outline-none" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0', background: 'white', color: '#374151' }}>
           <option value="all">Tất cả trạng thái</option>
@@ -126,19 +126,19 @@ export function StationList({ stations, onViewStation, onAddStation }: Props) {
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
-                {[
+                {([
                   { label: 'Mã trạm',       field: 'code'        as SortField | null },
                   { label: 'Tên trạm',       field: 'name'        as SortField | null },
-                  { label: 'Tên máy phát',   field: null },
-                  { label: 'Hãng / Model',   field: null },
-                  { label: 'Công suất',      field: null },
+                  { label: 'Tên máy phát',   field: null,                              hide: 'hidden md:table-cell' },
+                  { label: 'Hãng / Model',   field: null,                              hide: 'hidden md:table-cell' },
+                  { label: 'Công suất',      field: null,                              hide: 'hidden lg:table-cell' },
                   { label: 'NL tồn',         field: 'currentFuel' as SortField | null },
-                  { label: 'Trạng thái',     field: null },
-                  { label: 'Khu vực QT',     field: null },
-                  { label: 'Cập nhật',       field: 'lastUpdated' as SortField | null },
+                  { label: 'Trạng thái',     field: null,                              hide: 'hidden sm:table-cell' },
+                  { label: 'Khu vực QT',     field: null,                              hide: 'hidden lg:table-cell' },
+                  { label: 'Cập nhật',       field: 'lastUpdated' as SortField | null, hide: 'hidden sm:table-cell' },
                   { label: 'Hành động',      field: null },
-                ].map(col => (
-                  <th key={col.label} className="text-left px-4 py-3 border-b" style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, borderColor: '#e2e8f0', whiteSpace: 'nowrap', cursor: col.field ? 'pointer' : 'default' }}
+                ] as Array<{ label: string; field: SortField | null; hide?: string }>).map(col => (
+                  <th key={col.label} className={`text-left px-4 py-3 border-b ${col.hide ?? ''}`} style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, borderColor: '#e2e8f0', whiteSpace: 'nowrap', cursor: col.field ? 'pointer' : 'default' }}
                     onClick={() => col.field && toggleSort(col.field)}>
                     {col.label}{col.field && <SortIcon field={col.field} sortField={sortField} sortAsc={sortAsc} />}
                   </th>
@@ -164,12 +164,12 @@ export function StationList({ stations, onViewStation, onAddStation }: Props) {
                       <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#1e293b' }}>{s.name}</div>
                       <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '1px' }}>{s.adminUnit}</div>
                     </td>
-                    <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.82rem', color: '#475569', whiteSpace: 'nowrap' }}>{s.generatorName}</td>
-                    <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}>
+                    <td className="hidden md:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.82rem', color: '#475569', whiteSpace: 'nowrap' }}>{s.generatorName}</td>
+                    <td className="hidden md:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}>
                       <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{s.brandName}</div>
                       <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{s.modelName}</div>
                     </td>
-                    <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}>
+                    <td className="hidden lg:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}>
                       <span style={{ fontFamily: 'monospace', fontSize: '0.82rem', fontWeight: 700, color: '#7c3aed' }}>{s.powerKva} kVA</span>
                     </td>
                     <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}>
@@ -183,9 +183,9 @@ export function StationList({ stations, onViewStation, onAddStation }: Props) {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}><FuelBadge fuel={s.currentFuel} /></td>
-                    <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.78rem', color: '#64748b', whiteSpace: 'nowrap' }}>{s.managementZone}</td>
-                    <td className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.78rem', color: s.updatedToday ? '#16a34a' : '#94a3b8', whiteSpace: 'nowrap' }}>
+                    <td className="hidden sm:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}><FuelBadge fuel={s.currentFuel} /></td>
+                    <td className="hidden lg:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.78rem', color: '#64748b', whiteSpace: 'nowrap' }}>{s.managementZone}</td>
+                    <td className="hidden sm:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.78rem', color: s.updatedToday ? '#16a34a' : '#94a3b8', whiteSpace: 'nowrap' }}>
                       {s.lastUpdated ?? 'Chưa có'}
                       {s.updatedToday && <span className="ml-1 px-1.5 py-0.5 rounded" style={{ background: '#dcfce7', color: '#16a34a', fontSize: '0.75rem' }}>Hôm nay</span>}
                     </td>
@@ -206,7 +206,7 @@ export function StationList({ stations, onViewStation, onAddStation }: Props) {
                         {/* More actions */}
                         <DropdownMenu.Root>
                           <DropdownMenu.Trigger asChild>
-                            <button type="button" className="p-1.5 rounded-lg" style={{ color: '#94a3b8' }}
+                            <button type="button" className="p-2 sm:p-1.5 rounded-lg" style={{ color: '#94a3b8' }}
                               onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f1f5f9'}
                               onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                               <MoreVertical size={14} />

@@ -75,7 +75,7 @@ function BasicInfoFields({ form, set }: BasicInfoFieldsProps) {
       <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
         Thông tin cơ bản
       </h4>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label htmlFor="station-code" style={LABEL_STYLE}>Mã trạm *</label>
           <input id="station-code" style={INPUT_STYLE} placeholder="VD: CL-013" value={form.stationCode} onChange={e => set('stationCode', e.target.value)} required />
@@ -124,7 +124,7 @@ function GeneratorFields({ form, brands, filteredModels, onBrandChange, onModelC
       <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
         Thông số máy phát
       </h4>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label htmlFor="generator-brand" style={LABEL_STYLE}>Hãng máy</label>
           <select id="generator-brand" style={INPUT_STYLE} value={form.brandId} onChange={e => onBrandChange(e.target.value)}>
@@ -319,7 +319,7 @@ export function StationFormModal({ open, onClose, brands, models, onCreated }: P
                 <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
                   Vị trí trên bản đồ
                 </h4>
-                <div className="grid grid-cols-2 gap-4 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
                   <div>
                     <label htmlFor="station-lat" style={LABEL_STYLE}>Vĩ độ (Latitude)</label>
                     <input

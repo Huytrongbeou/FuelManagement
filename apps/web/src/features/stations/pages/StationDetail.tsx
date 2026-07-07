@@ -16,7 +16,7 @@ interface StationDetailProps {
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between py-2.5 border-b" style={{ borderColor: '#f1f5f9' }}>
-      <span style={{ fontSize: '0.82rem', color: '#64748b', flex: '0 0 140px' }}>{label}</span>
+      <span style={{ fontSize: '0.82rem', color: '#64748b', flexBasis: 'clamp(100px, 35%, 140px)', flexShrink: 0 }}>{label}</span>
       <span style={{ fontSize: '0.875rem', color: '#1e293b', fontWeight: 500, textAlign: 'right' }}>{value}</span>
     </div>
   );
@@ -28,7 +28,16 @@ const FUEL_FORM_FIELDS = [
   { label: 'Số giờ chạy máy',        type: 'number', key: 'hoursRun', placeholder: '0' as string | undefined },
 ];
 
-const HISTORY_TABLE_HEADERS = ['Ngày', 'Tồn trước', 'Bổ sung', 'Giờ chạy', 'Tiêu hao', 'Tồn cuối', 'Nguồn', ''];
+const HISTORY_TABLE_HEADERS = [
+  { label: 'Ngày' },
+  { label: 'Tồn trước', hide: 'hidden sm:table-cell' },
+  { label: 'Bổ sung' },
+  { label: 'Giờ chạy', hide: 'hidden sm:table-cell' },
+  { label: 'Tiêu hao', hide: 'hidden md:table-cell' },
+  { label: 'Tồn cuối' },
+  { label: 'Nguồn', hide: 'hidden sm:table-cell' },
+  { label: '' },
+] as Array<{ label: string; hide?: string }>;
 
 // Quick-update form reducer
 type FuelFormState = { added: string; hoursRun: string; date: string; note: string; saving: boolean };
@@ -164,12 +173,12 @@ function FuelHistoryTable({ records, adjustedIds, canRequestAdjustment, onReques
         {records.length === 0 ? (
           <div className="py-10 text-center" style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Chưa có lịch sử</div>
         ) : (
-          <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: '600px' }}>
+          <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
-                {HISTORY_TABLE_HEADERS.map((h) => (
-                  <th key={h} className="px-3 py-2.5 text-left border-b" style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, borderColor: '#e2e8f0' }}>
-                    {h}
+                {HISTORY_TABLE_HEADERS.map((col) => (
+                  <th key={col.label} className={`px-3 py-2.5 text-left border-b ${col.hide ?? ''}`} style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, borderColor: '#e2e8f0' }}>
+                    {col.label}
                   </th>
                 ))}
               </tr>
@@ -188,7 +197,7 @@ function FuelHistoryTable({ records, adjustedIds, canRequestAdjustment, onReques
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5" style={{ fontSize: '0.8rem', color: '#64748b' }}>{r.previousFuel} L</td>
+                    <td className="hidden sm:table-cell px-3 py-2.5" style={{ fontSize: '0.8rem', color: '#64748b' }}>{r.previousFuel} L</td>
                     <td className="px-3 py-2.5" style={{ fontSize: '0.8rem', color: r.added > 0 ? '#16a34a' : '#94a3b8', fontWeight: r.added > 0 ? 600 : 400 }}>
                       {isAdjustment && r.adjustmentAmount != null
                         ? <span style={{ color: (r.adjustmentAmount ?? 0) >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
@@ -196,12 +205,12 @@ function FuelHistoryTable({ records, adjustedIds, canRequestAdjustment, onReques
                           </span>
                         : r.added > 0 ? `+${r.added} L` : '—'}
                     </td>
-                    <td className="px-3 py-2.5" style={{ fontSize: '0.8rem', color: '#64748b' }}>{isAdjustment ? '—' : `${r.hoursRun}h`}</td>
-                    <td className="px-3 py-2.5" style={{ fontSize: '0.8rem', color: '#dc2626' }}>{isAdjustment ? '—' : `${r.consumed} L`}</td>
+                    <td className="hidden sm:table-cell px-3 py-2.5" style={{ fontSize: '0.8rem', color: '#64748b' }}>{isAdjustment ? '—' : `${r.hoursRun}h`}</td>
+                    <td className="hidden md:table-cell px-3 py-2.5" style={{ fontSize: '0.8rem', color: '#dc2626' }}>{isAdjustment ? '—' : `${r.consumed} L`}</td>
                     <td className="px-3 py-2.5" style={{ fontSize: '0.8rem', fontWeight: 600, color: r.endFuel > 20 ? '#16a34a' : r.endFuel >= 10 ? '#ca8a04' : '#dc2626' }}>
                       {r.endFuel} L
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="hidden sm:table-cell px-3 py-2.5">
                       <span className="px-2 py-0.5 rounded" style={{
                         fontSize: '0.75rem', fontWeight: 500,
                         background: isAdjustment ? '#ede9fe' : r.source === 'import' ? '#eff6ff' : '#f0fdf4',
@@ -215,7 +224,7 @@ function FuelHistoryTable({ records, adjustedIds, canRequestAdjustment, onReques
                         <button
                           type="button"
                           onClick={() => onRequestAdjustment(r)}
-                          className="px-2 py-1 rounded text-xs border transition-colors"
+                          className="px-2 py-1.5 rounded text-xs border transition-colors"
                           style={{ fontSize: '0.75rem', color: '#7c3aed', borderColor: '#ede9fe', background: 'white', whiteSpace: 'nowrap' }}
                           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#ede9fe'; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'white'; }}

@@ -115,11 +115,19 @@ export function GeneratorBrands({ brands, models, onUpdate }: Props) {
       </div>
 
       <div className="rounded-xl border overflow-hidden" style={{ background: 'white', borderColor: '#e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <div className="overflow-x-auto">
         <table className="w-full" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#f8fafc' }}>
-              {['Tên hãng', 'Quốc gia', 'Số model', 'Trạng thái', 'Ghi chú', 'Hành động'].map(h => (
-                <th key={h} className="px-4 py-3 text-left border-b" style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, borderColor: '#e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
+              {([
+                { label: 'Tên hãng' },
+                { label: 'Quốc gia', hide: 'hidden sm:table-cell' },
+                { label: 'Số model' },
+                { label: 'Trạng thái' },
+                { label: 'Ghi chú', hide: 'hidden md:table-cell' },
+                { label: 'Hành động' },
+              ] as Array<{ label: string; hide?: string }>).map(col => (
+                <th key={col.label} className={`px-4 py-3 text-left border-b ${col.hide ?? ''}`} style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, borderColor: '#e2e8f0', whiteSpace: 'nowrap' }}>{col.label}</th>
               ))}
             </tr>
           </thead>
@@ -137,7 +145,7 @@ export function GeneratorBrands({ brands, models, onUpdate }: Props) {
                     <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#1e293b' }}>{b.name}</span>
                   </div>
                 </td>
-                <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9' }}>
+                <td className="hidden sm:table-cell px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9' }}>
                   <div className="flex items-center gap-1.5" style={{ fontSize: '0.85rem', color: '#475569' }}>
                     <Globe size={13} style={{ color: '#94a3b8' }} />{b.country}
                   </div>
@@ -151,13 +159,13 @@ export function GeneratorBrands({ brands, models, onUpdate }: Props) {
                     {b.active ? 'Đang sử dụng' : 'Vô hiệu'}
                   </span>
                 </td>
-                <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', color: '#64748b' }}>{b.note || '—'}</td>
+                <td className="hidden md:table-cell px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.8rem', color: '#64748b' }}>{b.note || '—'}</td>
                 <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9' }}>
                   <div className="flex items-center gap-2">
                     <button type="button" onClick={() => openEdit(b)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg" style={{ background: '#eff6ff', color: '#2563eb', fontSize: '0.78rem', fontWeight: 500 }}>
                       <Edit size={13} /> Sửa
                     </button>
-                    <button type="button" onClick={() => toggleActive(b)} className="p-1.5 rounded-lg" title={b.active ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                    <button type="button" onClick={() => toggleActive(b)} className="p-2 sm:p-1.5 rounded-lg" title={b.active ? 'Vô hiệu hóa' : 'Kích hoạt'}
                       onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f1f5f9'}
                       onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                       {b.active ? <ToggleRight size={18} style={{ color: '#16a34a' }} /> : <ToggleLeft size={18} style={{ color: '#94a3b8' }} />}
@@ -171,6 +179,7 @@ export function GeneratorBrands({ brands, models, onUpdate }: Props) {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Add/Edit Dialog */}

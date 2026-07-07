@@ -137,7 +137,7 @@ export function GeneratorModels({ brands, models, stations, onUpdate }: Props) {
       <div className="flex flex-wrap gap-3">
         <div className="relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#94a3b8' }} />
-          <input value={query} onChange={e => dispatchFilter({ type: 'query', value: e.target.value })} placeholder="Tìm model..." aria-label="Tìm model" className="pl-9 pr-4 py-2 rounded-lg border outline-none" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0', background: 'white', width: '200px' }} />
+          <input value={query} onChange={e => dispatchFilter({ type: 'query', value: e.target.value })} placeholder="Tìm model..." aria-label="Tìm model" className="w-full sm:w-48 pl-9 pr-4 py-2 rounded-lg border outline-none" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0', background: 'white' }} />
         </div>
         <select value={brandFilter} onChange={e => dispatchFilter({ type: 'brand', value: e.target.value })} className="px-3 py-2 rounded-lg border outline-none" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0', background: 'white', color: '#374151' }}>
           <option value="all">Tất cả hãng</option>
@@ -155,8 +155,18 @@ export function GeneratorModels({ brands, models, stations, onUpdate }: Props) {
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
-                {['Hãng', 'Model', 'Công suất', 'Loại NL', 'Định mức gợi ý', 'Dung tích gợi ý', 'Số trạm dùng', 'Trạng thái', 'Hành động'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left border-b" style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, borderColor: '#e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
+                {([
+                  { label: 'Hãng' },
+                  { label: 'Model' },
+                  { label: 'Công suất', hide: 'hidden sm:table-cell' },
+                  { label: 'Loại NL', hide: 'hidden md:table-cell' },
+                  { label: 'Định mức gợi ý', hide: 'hidden md:table-cell' },
+                  { label: 'Dung tích gợi ý', hide: 'hidden lg:table-cell' },
+                  { label: 'Số trạm dùng', hide: 'hidden sm:table-cell' },
+                  { label: 'Trạng thái' },
+                  { label: 'Hành động' },
+                ] as Array<{ label: string; hide?: string }>).map(col => (
+                  <th key={col.label} className={`px-4 py-3 text-left border-b ${col.hide ?? ''}`} style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, borderColor: '#e2e8f0', whiteSpace: 'nowrap' }}>{col.label}</th>
                 ))}
               </tr>
             </thead>
@@ -170,13 +180,13 @@ export function GeneratorModels({ brands, models, stations, onUpdate }: Props) {
                     <span className="px-2.5 py-1 rounded-lg" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.82rem', fontWeight: 600 }}>{m.brandName}</span>
                   </td>
                   <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.875rem', fontWeight: 600, color: '#1e293b' }}>{m.modelName}</td>
-                  <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9' }}>
+                  <td className="hidden sm:table-cell px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9' }}>
                     <span style={{ fontFamily: 'monospace', fontSize: '0.875rem', fontWeight: 700, color: '#7c3aed' }}>{m.powerKva} kVA</span>
                   </td>
-                  <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.82rem', color: '#475569' }}>{fuelTypeLabel(m.fuelType)}</td>
-                  <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.82rem', color: '#475569' }}>{m.suggestedRate} L/h</td>
-                  <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.82rem', color: '#475569' }}>{m.suggestedCapacity} L</td>
-                  <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9' }}>
+                  <td className="hidden md:table-cell px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.82rem', color: '#475569' }}>{fuelTypeLabel(m.fuelType)}</td>
+                  <td className="hidden md:table-cell px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.82rem', color: '#475569' }}>{m.suggestedRate} L/h</td>
+                  <td className="hidden lg:table-cell px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.82rem', color: '#475569' }}>{m.suggestedCapacity} L</td>
+                  <td className="hidden sm:table-cell px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9' }}>
                     <button type="button" onClick={() => setPopupModel(m)} className="px-2 py-0.5 rounded-full" style={{ background: '#eff6ff', color: '#2563eb', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>
                       {stationCount(m.id)} trạm
                     </button>
@@ -192,7 +202,7 @@ export function GeneratorModels({ brands, models, stations, onUpdate }: Props) {
                       <button type="button" onClick={() => openEdit(m)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg" style={{ background: '#eff6ff', color: '#2563eb', fontSize: '0.78rem', fontWeight: 500 }}>
                         <Edit size={13} /> Sửa
                       </button>
-                      <button type="button" onClick={() => toggleActive(m)} className="p-1.5 rounded-lg" onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f1f5f9'} onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                      <button type="button" onClick={() => toggleActive(m)} className="p-2 sm:p-1.5 rounded-lg" onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f1f5f9'} onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                         {m.active ? <ToggleRight size={18} style={{ color: '#16a34a' }} /> : <ToggleLeft size={18} style={{ color: '#94a3b8' }} />}
                       </button>
                     </div>
