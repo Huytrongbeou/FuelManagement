@@ -198,12 +198,29 @@ export async function confirmImport(
     return { already_committed: true, result: job.commitResult }
   }
 
+  if (job.status === 'committing') {
+    throw Object.assign(new Error('Job đang được xử lý, vui lòng đợi.'), { status: 409 })
+  }
+
   if (job.status === 'failed') {
-    if (!job.retryable) {
+    // Retry only when unambiguously safe: retryable, and this job never actually committed
+    // (committedAt null). fuel-service's commitImport is idempotency-keyed, so even a retry
+    // after a crash between fuel commit and job-status update cannot double-create records —
+    // it will just return the already-committed result for that key.
+    if (!job.retryable || job.committedAt !== null) {
       throw Object.assign(new Error('Cần preview lại trước khi thử xác nhận'), { status: 409 })
     }
   } else if (job.status !== 'previewing') {
     throw Object.assign(new Error(`Không thể xác nhận job ở trạng thái "${job.status}"`), { status: 400 })
+  }
+
+  // Atomic claim — prevents two concurrent confirm calls from both proceeding past this point.
+  const claimed = await prisma.importJob.updateMany({
+    where: { id: jobId, status: { in: ['previewing', 'failed'] } },
+    data: { status: 'committing' },
+  })
+  if (claimed.count === 0) {
+    throw Object.assign(new Error('Job đang được xử lý hoặc đã xác nhận'), { status: 409 })
   }
 
   const previewRows = (job.previewData as unknown as Array<{
