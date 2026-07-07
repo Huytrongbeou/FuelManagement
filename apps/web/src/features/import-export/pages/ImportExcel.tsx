@@ -6,6 +6,10 @@ import { LazyMotion, m, AnimatePresence, domAnimation } from 'motion/react';
 import { uploadExcel, confirmJob } from '../api/importApi';
 import { downloadWithAuth } from '@/shared/api/client';
 
+// FUEL IMPORT ONLY — this flow never creates or updates station master data.
+// Initial station setup: Admin station management UI/API (POST /stations, POST /stations/bulk-upsert).
+// Station Master Import is a separate future module (own endpoints /api/station-import/*).
+
 type RowStatus = 'valid' | 'warning' | 'error';
 
 interface PreviewRow {

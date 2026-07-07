@@ -57,6 +57,7 @@ export interface ParsedRow {
 export async function parseAndValidate(
   buffer: Buffer,
   existingStations: Station[],
+  // 'full' mode: not used by Fuel Import — reserved for future Station Master Import
   mode: 'full' | 'fuel-only' = 'full'
 ): Promise<ParsedRow[]> {
   const wb = new ExcelJS.Workbook()

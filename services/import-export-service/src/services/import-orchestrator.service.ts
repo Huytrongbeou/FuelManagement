@@ -11,6 +11,10 @@ import { normalizeDecimal2 } from '../utils/normalize'
 import { auditLog } from '../utils/audit-log'
 import { prisma } from '../lib/prisma'
 
+// FUEL IMPORT ONLY — this flow never creates or updates station master data.
+// Initial station setup: Admin station management UI/API (POST /stations, POST /stations/bulk-upsert).
+// Station Master Import is a separate future module (own endpoints /api/station-import/*).
+
 function computeImportSignature(rows: ParsedRow[]): string {
   const content = rows
     .filter(r => r.hasFuelActivity)
@@ -38,15 +42,13 @@ export async function previewImport(
   createdBy?: string,
   userCtx?: UserContext
 ) {
-  const isFuelOnly = userCtx?.userRole === 'manager'
-
   const [stations, fuelStates] = await Promise.all([
     stationClient.getAllStations({ active: 'all' }),
     fuelClient.getAllCurrentStates(),
   ])
 
   const buffer = await fs.readFile(filePath)
-  const rows = await parseAndValidate(buffer, stations, isFuelOnly ? 'fuel-only' : 'full')
+  const rows = await parseAndValidate(buffer, stations, 'fuel-only')
 
   // Compute importSignature and check for duplicates in last 24h
   const importSignature = computeImportSignature(rows)
@@ -241,88 +243,31 @@ export async function confirmImport(
   if (validRows.length === 0) {
     throw Object.assign(new Error('Không có dòng hợp lệ để xác nhận. Vui lòng kiểm tra lại dữ liệu.'), { status: 422 })
   }
-  const isFuelOnly = userCtx?.userRole === 'manager'
-
-  if (isFuelOnly) {
-    // Manager fuel-only: skip backup and upsert; just verify stations still exist and are active
-    if (!job.failureStage || ['backup', 'station_upsert'].includes(job.failureStage || '')) {
-      let stations: Awaited<ReturnType<typeof stationClient.getAllStations>>
-      try {
-        stations = await stationClient.getAllStations({ active: 'all' })
-      } catch {
-        await prisma.importJob.update({ where: { id: jobId }, data: { status: 'failed', failureStage: 'station_upsert', retryable: true, errorMessage: 'Lỗi kết nối station-service' } })
-        throw Object.assign(new Error('Lỗi kết nối station-service, vui lòng thử lại'), { status: 500 })
-      }
-      const stationByCode = new Map(stations.map(s => [s.stationCode, s]))
-      const invalid = validRows.filter(r => {
-        const s = stationByCode.get(r.stationCode)
-        return !s || !s.isActive
-      })
-      if (invalid.length > 0) {
-        const msg = invalid.map(r => r.stationCode).join(', ')
-        await prisma.importJob.update({ where: { id: jobId }, data: { status: 'failed', failureStage: 'station_upsert', retryable: false, errorMessage: `Trạm không hợp lệ tại thời điểm xác nhận: ${msg}` } })
-        throw Object.assign(new Error(`Trạm không hợp lệ tại thời điểm xác nhận: ${msg}`), { status: 422 })
-      }
-      const lookupResults = validRows.map(r => {
-        const s = stationByCode.get(r.stationCode)!
-        return { station_code: r.stationCode, station_id: s.id, action: 'lookup', warning: null }
-      })
-      await prisma.importJob.update({ where: { id: jobId }, data: { stationUpsertResults: { results: lookupResults, has_errors: false } as unknown as object } })
+  // Fuel-only: no station creation or master-data update for any role — just verify
+  // stations still exist and are active at confirm time (revalidation against stale preview).
+  if (!job.failureStage || ['backup', 'station_upsert'].includes(job.failureStage || '')) {
+    let stations: Awaited<ReturnType<typeof stationClient.getAllStations>>
+    try {
+      stations = await stationClient.getAllStations({ active: 'all' })
+    } catch {
+      await prisma.importJob.update({ where: { id: jobId }, data: { status: 'failed', failureStage: 'station_upsert', retryable: true, errorMessage: 'Lỗi kết nối station-service' } })
+      throw Object.assign(new Error('Lỗi kết nối station-service, vui lòng thử lại'), { status: 500 })
     }
-  } else {
-    // Admin full import: backup then upsert stations
-
-    // Step 2: BACKUP
-    if (!job.failureStage || job.failureStage === 'backup') {
-      try {
-        const [backupStations, backupFuelStates] = await Promise.all([
-          stationClient.getAllStations({ active: 'all' }),
-          fuelClient.getAllCurrentStates(),
-        ])
-        await prisma.importJob.update({
-          where: { id: jobId },
-          data: {
-            backupStations: backupStations as unknown as object,
-            backupFuelStates: backupFuelStates as unknown as object,
-          },
-        })
-      } catch {
-        await prisma.importJob.update({
-          where: { id: jobId },
-          data: { status: 'failed', failureStage: 'backup', retryable: true, errorMessage: 'Backup thất bại' },
-        })
-        throw Object.assign(new Error('Backup thất bại, vui lòng thử lại'), { status: 500 })
-      }
+    const stationByCode = new Map(stations.map(s => [s.stationCode, s]))
+    const invalid = validRows.filter(r => {
+      const s = stationByCode.get(r.stationCode)
+      return !s || !s.isActive
+    })
+    if (invalid.length > 0) {
+      const msg = invalid.map(r => r.stationCode).join(', ')
+      await prisma.importJob.update({ where: { id: jobId }, data: { status: 'failed', failureStage: 'station_upsert', retryable: false, errorMessage: `Trạm không hợp lệ tại thời điểm xác nhận: ${msg}` } })
+      throw Object.assign(new Error(`Trạm không hợp lệ tại thời điểm xác nhận: ${msg}`), { status: 422 })
     }
-
-    // Step 3: VERIFY STATIONS (fuel-only import: no station creation or master data update)
-    if (!job.failureStage || job.failureStage === 'backup' || job.failureStage === 'station_upsert') {
-      let freshStations: Awaited<ReturnType<typeof stationClient.getAllStations>>
-      try {
-        freshStations = await stationClient.getAllStations({ active: 'all' })
-      } catch {
-        await prisma.importJob.update({
-          where: { id: jobId },
-          data: { status: 'failed', failureStage: 'station_upsert', retryable: true, errorMessage: 'Lỗi kết nối station-service' },
-        })
-        throw Object.assign(new Error('Lỗi kết nối station-service, vui lòng thử lại'), { status: 500 })
-      }
-      const stationByCode = new Map(freshStations.map(s => [s.stationCode, s]))
-      const invalid = validRows.filter(r => {
-        const s = stationByCode.get(r.stationCode)
-        return !s || !s.isActive
-      })
-      if (invalid.length > 0) {
-        const msg = invalid.map(r => r.stationCode).join(', ')
-        await prisma.importJob.update({ where: { id: jobId }, data: { status: 'failed', failureStage: 'station_upsert', retryable: false, errorMessage: `Trạm không hợp lệ tại thời điểm xác nhận: ${msg}` } })
-        throw Object.assign(new Error(`Trạm không hợp lệ tại thời điểm xác nhận: ${msg}`), { status: 422 })
-      }
-      const lookupResults = validRows.map(r => {
-        const s = stationByCode.get(r.stationCode)!
-        return { station_code: r.stationCode, station_id: s.id, action: 'lookup', warning: null }
-      })
-      await prisma.importJob.update({ where: { id: jobId }, data: { stationUpsertResults: { results: lookupResults, has_errors: false } as unknown as object } })
-    }
+    const lookupResults = validRows.map(r => {
+      const s = stationByCode.get(r.stationCode)!
+      return { station_code: r.stationCode, station_id: s.id, action: 'lookup', warning: null }
+    })
+    await prisma.importJob.update({ where: { id: jobId }, data: { stationUpsertResults: { results: lookupResults, has_errors: false } as unknown as object } })
   }
 
   // Step 4: COMMIT FUEL
