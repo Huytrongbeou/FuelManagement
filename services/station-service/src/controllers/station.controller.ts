@@ -33,13 +33,18 @@ export async function create(req: Request, res: Response): Promise<void> {
       stationCode, stationName, generatorName, address, latitude, longitude,
       currentAdminUnitName, legacyAreaName, operationAreaName,
       brandId, modelId, powerKva, fuelType,
-      consumptionRate, maxCapacity, notes,
+      consumptionRate, maxCapacity, notes, initialFuel,
     } = req.body
     if (!stationCode) { res.status(400).json({ error: 'stationCode is required' }); return }
     if (!stationName) { res.status(400).json({ error: 'stationName is required' }); return }
     if (consumptionRate == null) { res.status(400).json({ error: 'consumptionRate is required' }); return }
     if (maxCapacity == null) { res.status(400).json({ error: 'maxCapacity is required' }); return }
-    res.status(201).json(await service.create({
+    const userCtx = {
+      userId: req.headers['x-user-id'] as string | undefined,
+      userRole: req.headers['x-user-role'] as string | undefined,
+      userName: req.headers['x-user-name'] as string | undefined,
+    }
+    const result = await service.create({
       stationCode,
       stationName,
       generatorName: generatorName ?? null,
@@ -56,7 +61,9 @@ export async function create(req: Request, res: Response): Promise<void> {
       consumptionRate: Number(consumptionRate),
       maxCapacity: Number(maxCapacity),
       notes: notes ?? null,
-    }))
+      initialFuel: initialFuel != null ? Number(initialFuel) : undefined,
+    }, userCtx)
+    res.status(201).json({ ...result.station, currentFuelStateInitialized: result.currentFuelStateInitialized, warning: 'warning' in result ? result.warning : undefined })
   } catch (err) { handleError(res, err) }
 }
 

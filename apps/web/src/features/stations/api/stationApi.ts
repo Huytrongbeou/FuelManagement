@@ -39,8 +39,12 @@ export async function getStation(id: string): Promise<Station> {
   return toStation(s);
 }
 
-export async function createStation(dto: Record<string, unknown>): Promise<Station> {
+export async function createStation(dto: Record<string, unknown>): Promise<{ station: Station; currentFuelStateInitialized: boolean; warning?: string }> {
   const s = await api.post<Record<string, unknown>>('/stations', dto);
-  return toStation(s);
+  return {
+    station: toStation(s),
+    currentFuelStateInitialized: (s.currentFuelStateInitialized as boolean) ?? true,
+    warning: s.warning as string | undefined,
+  };
 }
 

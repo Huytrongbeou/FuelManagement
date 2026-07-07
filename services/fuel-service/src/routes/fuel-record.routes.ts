@@ -1,11 +1,12 @@
 import { Router } from 'express'
-import { postRecord, getRecords, getAllCurrentStates, getCurrentState, postImportCommit, postCheckExactDuplicates, postPreviewValidate } from '../controllers/fuel-record.controller'
+import { postRecord, getRecords, getAllCurrentStates, getCurrentState, postImportCommit, postCheckExactDuplicates, postPreviewValidate, postInitCurrentState } from '../controllers/fuel-record.controller'
 import { requireRole } from '../middleware/require-role'
 
 const router = Router()
 
 router.get('/current', getAllCurrentStates)
 router.get('/current/:station_id', getCurrentState)
+router.post('/current/init', requireRole('admin'), postInitCurrentState)
 router.get('/records/:station_id', getRecords)
 router.post('/records', requireRole('admin', 'manager'), postRecord)
 router.post('/records/preview-validate', requireRole('admin', 'manager'), postPreviewValidate)

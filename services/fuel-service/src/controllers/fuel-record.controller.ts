@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express'
 import { createManualRecord } from '../services/fuel-record.service'
 import { commitImport } from '../services/import-commit.service'
+import { initCurrentState } from '../services/current-state-init.service'
 import { findAllCurrentStates, findCurrentState, findRecordsByStation, checkExactDuplicates, previewValidate } from '../repositories/fuel-record.repository'
 
 function toFuelRecordDto(r: Record<string, unknown>) {
@@ -138,6 +139,26 @@ export async function postCheckExactDuplicates(req: Request, res: Response): Pro
     res.json(result)
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message })
+  }
+}
+
+export async function postInitCurrentState(req: Request, res: Response): Promise<void> {
+  try {
+    const { stationId, stationCode, consumptionRate, maxCapacity, initialFuel } = req.body
+    if (!stationId || !stationCode || consumptionRate == null || maxCapacity == null) {
+      res.status(400).json({ error: 'stationId, stationCode, consumptionRate, maxCapacity are required' })
+      return
+    }
+    const result = await initCurrentState({
+      stationId,
+      stationCode,
+      consumptionRate: Number(consumptionRate),
+      maxCapacity: Number(maxCapacity),
+      initialFuel: initialFuel != null ? Number(initialFuel) : 0,
+    })
+    res.status(201).json(toCurrentStateDto(result.currentState as unknown as Record<string, unknown>))
+  } catch (err: unknown) {
+    res.status((err as { status?: number }).status || 500).json({ error: (err as Error).message })
   }
 }
 

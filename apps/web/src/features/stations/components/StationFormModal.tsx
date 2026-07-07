@@ -51,6 +51,7 @@ interface FormState {
   consumptionRate: string;
   maxCapacity: string;
   notes: string;
+  initialFuel: string;
 }
 
 const EMPTY: FormState = {
@@ -59,7 +60,7 @@ const EMPTY: FormState = {
   latitude: '', longitude: '',
   brandId: '', modelId: '',
   powerKva: '', fuelType: 'diesel', consumptionRate: '', maxCapacity: '',
-  notes: '',
+  notes: '', initialFuel: '',
 };
 
 // ── Form section sub-components ───────────────────────────────────────────────
@@ -158,6 +159,13 @@ function GeneratorFields({ form, brands, filteredModels, onBrandChange, onModelC
         <div>
           <label htmlFor="max-capacity" style={LABEL_STYLE}>Dung tích bình tối đa (L) *</label>
           <input id="max-capacity" style={INPUT_STYLE} type="number" step="any" min="0" placeholder="VD: 200" value={form.maxCapacity} onChange={e => set('maxCapacity', e.target.value)} required />
+        </div>
+        <div>
+          <label htmlFor="initial-fuel" style={LABEL_STYLE}>Tồn nhiên liệu ban đầu (L)</label>
+          <input id="initial-fuel" style={INPUT_STYLE} type="number" step="any" min="0" placeholder="Để trống = 0 L" value={form.initialFuel} onChange={e => set('initialFuel', e.target.value)} />
+          <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
+            {form.initialFuel ? `Tồn ban đầu = ${form.initialFuel} L` : 'Để trống → tồn ban đầu = 0 L'}
+          </p>
         </div>
         <div className="col-span-2">
           <label htmlFor="station-notes" style={LABEL_STYLE}>Ghi chú</label>
@@ -265,7 +273,7 @@ export function StationFormModal({ open, onClose, brands, models, onCreated }: P
     }
     setSaving(true);
     try {
-      await createStation({
+      const result = await createStation({
         stationCode: form.stationCode.trim().toUpperCase(),
         stationName: form.stationName.trim(),
         generatorName: form.generatorName.trim() || null,
@@ -282,8 +290,13 @@ export function StationFormModal({ open, onClose, brands, models, onCreated }: P
         consumptionRate: parseFloat(form.consumptionRate),
         maxCapacity: parseFloat(form.maxCapacity),
         notes: form.notes.trim() || null,
+        initialFuel: form.initialFuel ? parseFloat(form.initialFuel) : 0,
       });
-      toast.success(`Đã tạo trạm ${form.stationCode.toUpperCase()}`);
+      if (result.currentFuelStateInitialized) {
+        toast.success(`Đã tạo trạm ${form.stationCode.toUpperCase()}`);
+      } else {
+        toast.warning(result.warning || `Trạm ${form.stationCode.toUpperCase()} đã tạo nhưng chưa khởi tạo tồn nhiên liệu.`);
+      }
       onCreated();
       onClose();
     } catch (err) {
