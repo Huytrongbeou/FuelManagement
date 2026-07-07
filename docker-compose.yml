@@ -75,6 +75,7 @@ services:
       PORT: 3002
       DATABASE_URL: postgresql://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@postgres:5432/station_db?connection_limit=5
       RABBITMQ_URL: amqp://${POSTGRES_USER:-fuelapp}:${POSTGRES_PASSWORD:-fuelapp_secret}@rabbitmq:5672
+      FUEL_SERVICE_URL: http://fuel-service:3003
       NODE_ENV: production
     depends_on:
       postgres:
