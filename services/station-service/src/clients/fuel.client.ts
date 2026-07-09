@@ -14,6 +14,21 @@ function userHeaders(ctx?: UserContext): Record<string, string> {
   return h
 }
 
+export async function getCurrentState(
+  stationId: string,
+  ctx?: UserContext
+): Promise<{ currentFuel: number } | null> {
+  const res = await fetch(`${FUEL_URL}/fuel/current/${stationId}`, {
+    headers: userHeaders(ctx),
+    signal: AbortSignal.timeout(5000),
+  })
+  if (res.status === 404) return null
+  if (!res.ok) {
+    throw Object.assign(new Error('Không thể lấy tồn nhiên liệu hiện tại từ fuel-service'), { status: 503 })
+  }
+  return (await res.json()) as { currentFuel: number }
+}
+
 export async function initCurrentState(
   input: { stationId: string; stationCode: string; consumptionRate: number; maxCapacity: number; initialFuel?: number },
   ctx?: UserContext

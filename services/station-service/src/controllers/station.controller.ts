@@ -91,7 +91,12 @@ export async function update(req: Request, res: Response): Promise<void> {
     if (consumptionRate !== undefined) data.consumptionRate = Number(consumptionRate)
     if (maxCapacity !== undefined) data.maxCapacity = Number(maxCapacity)
     if (notes !== undefined) data.notes = notes
-    res.json(await service.update(req.params.id, data))
+    const userCtx = {
+      userId: req.headers['x-user-id'] as string | undefined,
+      userRole: req.headers['x-user-role'] as string | undefined,
+      userName: req.headers['x-user-name'] as string | undefined,
+    }
+    res.json(await service.update(req.params.id, data, userCtx))
   } catch (err) { handleError(res, err) }
 }
 

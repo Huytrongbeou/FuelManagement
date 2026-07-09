@@ -99,7 +99,7 @@ export async function update(id: string, data: {
   consumptionRate?: number
   maxCapacity?: number
   notes?: string | null
-}) {
+}, userCtx?: UserContext) {
   const existing = await stationRepo.findById(id)
   if (!existing) throw Object.assign(new Error('Station not found'), { status: 404 })
   if (!existing.isActive) throw Object.assign(new Error('Cannot update inactive station'), { status: 400 })
@@ -108,6 +108,15 @@ export async function update(id: string, data: {
   }
   if (data.maxCapacity !== undefined && data.maxCapacity <= 0) {
     throw Object.assign(new Error('maxCapacity must be > 0'), { status: 400 })
+  }
+  if (data.maxCapacity !== undefined) {
+    const state = await fuelClient.getCurrentState(id, userCtx)
+    if (state && data.maxCapacity < Number(state.currentFuel)) {
+      throw Object.assign(
+        new Error(`maxCapacity không thể nhỏ hơn tồn nhiên liệu hiện tại (${state.currentFuel} lít)`),
+        { status: 422 }
+      )
+    }
   }
   return stationRepo.update(id, data)
 }
