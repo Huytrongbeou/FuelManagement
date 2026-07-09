@@ -102,9 +102,15 @@ export async function approveRequest(requestId: string, approvedById: string, ap
       throw Object.assign(new Error('Yêu cầu đã được xử lý bởi Admin khác.'), { status: 409 })
     }
 
-    // 2. Load current fuel state
+    // 2. Load current fuel state — must already exist; approve never auto-creates fuel state
     const state = await tx.currentFuelState.findUnique({ where: { stationId: adjReq.stationId } })
-    const fuelBefore = state ? Number(state.currentFuel) : 0
+    if (!state) {
+      throw Object.assign(
+        new Error(`Trạm ${original.stationCode} chưa có tồn nhiên liệu ban đầu. Không thể duyệt điều chỉnh.`),
+        { status: 422 }
+      )
+    }
+    const fuelBefore = Number(state.currentFuel)
     const fuelAfter = fuelBefore + adjustmentEffect
 
     // 3. Validate
@@ -143,31 +149,17 @@ export async function approveRequest(requestId: string, approvedById: string, ap
       },
     })
 
-    // 5. Update CurrentFuelState
-    if (state) {
-      await tx.currentFuelState.update({
-        where: { stationId: adjReq.stationId },
-        data: {
-          currentFuel: fuelAfter.toString(),
-          fuelStatus,
-          lastRecordId: adjRecord.id,
-          lastUpdated: now,
-          snapshotVersion: { increment: 1 },
-        },
-      })
-    } else {
-      await tx.currentFuelState.create({
-        data: {
-          stationId: adjReq.stationId,
-          stationCode: original.stationCode,
-          currentFuel: fuelAfter.toString(),
-          fuelStatus,
-          lastRecordId: adjRecord.id,
-          lastUpdated: now,
-          snapshotVersion: 1,
-        },
-      })
-    }
+    // 5. Update CurrentFuelState (state guaranteed to exist — checked in step 2)
+    await tx.currentFuelState.update({
+      where: { stationId: adjReq.stationId },
+      data: {
+        currentFuel: fuelAfter.toString(),
+        fuelStatus,
+        lastRecordId: adjRecord.id,
+        lastUpdated: now,
+        snapshotVersion: { increment: 1 },
+      },
+    })
 
     return { success: true, adjustmentRecord: adjRecord }
   })
