@@ -15,6 +15,14 @@ import { prisma } from '../lib/prisma'
 // Initial station setup: Admin station management UI/API (POST /stations, POST /stations/bulk-upsert).
 // Station Master Import is a separate future module (own endpoints /api/station-import/*).
 
+function extractHttpError(err: unknown): { status?: number; message?: string } {
+  const e = err as { response?: { status?: number; data?: { error?: string } }; status?: number; statusCode?: number; message?: string }
+  return {
+    status: e.response?.status ?? e.status ?? e.statusCode,
+    message: e.response?.data?.error ?? e.message,
+  }
+}
+
 function computeImportSignature(rows: ParsedRow[]): string {
   const content = rows
     .filter(r => r.hasFuelActivity)
@@ -359,13 +367,21 @@ export async function confirmImport(
       source,
     }, userCtx)
   } catch (err: unknown) {
-    const status = (err as { response?: { status?: number } }).response?.status
+    const { status, message } = extractHttpError(err)
     if (status === 409) {
       await prisma.importJob.update({
         where: { id: jobId },
         data: { status: 'failed', failureStage: 'stale_data', retryable: false, errorMessage: 'Dữ liệu nhiên liệu đã thay đổi sau khi preview.' },
       })
       throw Object.assign(new Error('Dữ liệu nhiên liệu đã thay đổi sau khi preview. Vui lòng xuất và preview lại.'), { status: 409 })
+    }
+    if (status === 400 || status === 422) {
+      const msg = message || 'Dữ liệu nhiên liệu không hợp lệ khi xác nhận.'
+      await prisma.importJob.update({
+        where: { id: jobId },
+        data: { status: 'failed', failureStage: 'fuel_commit_validation', retryable: false, errorMessage: msg },
+      })
+      throw Object.assign(new Error(msg), { status })
     }
     await prisma.importJob.update({
       where: { id: jobId },
