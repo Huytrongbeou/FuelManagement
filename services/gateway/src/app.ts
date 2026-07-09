@@ -44,6 +44,9 @@ app.post('/api/auth/login', createProxyMiddleware({ target: AUTH_URL, changeOrig
 app.post('/api/fuel/import-commit', (_req, res) => {
   res.status(403).json({ error: 'Forbidden' })
 })
+app.post('/api/fuel/current/init', (_req, res) => {
+  res.status(403).json({ error: 'Forbidden' })
+})
 
 // ── 4. Protected proxy wildcards — AFTER specifics and blocks ────────────────
 app.all('/api/auth*', requireAuth, createProxyMiddleware({ target: AUTH_URL, changeOrigin: true, ...stripApi }))
