@@ -221,6 +221,14 @@ export async function preview(rows: DirectEntryRow[], createdBy?: string, userCt
   return { jobId: job.id, totalRows, validRows, invalidRows, warningRows, rows: parsedRows }
 }
 
+async function failJobValidation(jobId: string, message: string): Promise<never> {
+  await prisma.importJob.update({
+    where: { id: jobId },
+    data: { status: 'failed', failureStage: 'validation', retryable: false, errorMessage: message },
+  })
+  throw Object.assign(new Error(message), { status: 422 })
+}
+
 export async function confirm(jobId: string, committedBy?: string, userCtx?: UserContext, acknowledgeWarnings?: boolean) {
   const job = await prisma.importJob.findUnique({ where: { id: jobId }, select: { previewData: true } })
   if (!job) throw Object.assign(new Error('Job not found'), { status: 404 })
@@ -244,12 +252,12 @@ export async function confirm(jobId: string, committedBy?: string, userCtx?: Use
     if (!r.hasFuelActivity) continue
     const station = activeMap.get(r.stationCode ?? '')
     if (!station) {
-      const err = new Error(`Trạm ${r.stationCode} không xác định được. Vui lòng thử lại.`)
-      ;(err as { status?: number }).status = 422; throw err
+      await failJobValidation(jobId, `Trạm ${r.stationCode} không xác định được. Vui lòng thử lại.`)
+      continue
     }
     if (!station.isActive) {
-      const err = new Error(`Trạm ${r.stationCode} không còn hoạt động.`)
-      ;(err as { status?: number }).status = 422; throw err
+      await failJobValidation(jobId, `Trạm ${r.stationCode} không còn hoạt động.`)
+      continue
     }
   }
 
@@ -271,10 +279,10 @@ export async function confirm(jobId: string, committedBy?: string, userCtx?: Use
     for (let i = 0; i < pvItems.length; i++) {
       const pv = pvResults[i]
       if (pv && !pv.valid) {
-        const err = new Error(pv.errorCode === 'EXCEEDS_CAPACITY'
+        const message = pv.errorCode === 'EXCEEDS_CAPACITY'
           ? 'Nhiên liệu vượt quá dung tích tối đa. Vui lòng kiểm tra lại trước khi xác nhận.'
-          : 'Nhiên liệu âm sau khi trừ tiêu thụ. Vui lòng kiểm tra lại trước khi xác nhận.')
-        ;(err as { status?: number }).status = 422; throw err
+          : 'Nhiên liệu âm sau khi trừ tiêu thụ. Vui lòng kiểm tra lại trước khi xác nhận.'
+        await failJobValidation(jobId, message)
       }
     }
   }
