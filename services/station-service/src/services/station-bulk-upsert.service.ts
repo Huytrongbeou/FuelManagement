@@ -135,6 +135,9 @@ export async function bulkUpsert(rows: BulkUpsertRow[], userCtx?: UserContext): 
         errors.push(`${row.station_code}: initial_fuel vượt quá dung tích tối đa`)
         continue
       }
+    } else if (isNew) {
+      errors.push(`${row.station_code}: initial_fuel là bắt buộc cho trạm mới`)
+      continue
     }
 
     resolved.push({
