@@ -36,7 +36,10 @@ The user asked whether the UI/import testing was realistic enough to match how r
 - **Fix:** rewrote `parseCellAsDate` to explicitly recognize ISO year-first (`YYYY-MM-DD`, unambiguous) **and** Vietnamese day-first (`DD/MM/YYYY`, also `-`/`.` separators), building the date via `Date.UTC` (UTC-midnight, identical representation to the previous working ISO path so the stored `date` column is unchanged regardless of Postgres timezone), and rejecting calendar rollover (e.g. `31/02`). Native Excel date cells (`Date` objects) are unchanged. Bonus: `13/07/2026` and other days 13–31 now parse correctly instead of erroring.
 - **Test:** new **FI-28** builds an `.xlsx` whose date cell is the *string* `"05/03/2026"` (5 March) — the real-user scenario — and asserts it parses to `2026-03-05` (not `2026-05-03`) with no format error. This test fails against the old parser and passes against the new one.
 
-**Still open (documented, not fixed this addendum):** comma-decimal input (`"51,5"` liters) is rejected as invalid rather than parsed — lower risk because it's a hard error (not silent corruption) and Excel usually stores numbers as numeric cells regardless of display locale. Noted in Section 4. The template round-trip (export app template → fill in Excel → re-import) is also still not covered by an automated test.
+**Follow-up (same session, after the date fix):** the two lower-risk realism gaps the date fix left open were then also closed at the user's request —
+
+- **Comma-decimal numbers.** `parseCellAsNumber` used `Number(raw)`, so a Vietnamese decimal in a text cell (`"51,5"`) became `NaN` → "không hợp lệ". Added a conservative `normalizeNumericString` that handles the unambiguous locale cases (`"51,5"`→51.5; VN `"1.234,5"` and US `"1,234.5"`→1234.5 via the last-separator-is-decimal rule; multi-comma→thousands) while **leaving genuinely ambiguous input as a loud error** (`"1,234"` — single comma + 3 digits — stays invalid rather than being guessed) and **never** rewriting a currently-valid number into a different value (verified case-by-case). Period-only thousands (`"5.000"`) is deliberately left untouched — too ambiguous to guess — and remains a documented gap (Section 4). Test: **FI-29**.
+- **Template/snapshot round-trip.** Added **FI-30**: it downloads the *real* file the app exports (`GET /export/snapshot` — the app's own headers, every station, and the read-only system columns T–Z populated), fills the fuel columns (P/Q/R) exactly as a user would including a `dd/mm/yyyy` text date, re-imports it, and asserts the row parses cleanly, the date lands on the right day, and the running balance commits (`100 + 30 − 2×1 = 128`). This verifies the export↔import column contract end-to-end and that import correctly ignores the system columns — the single most realistic user workflow, previously untested as a round-trip.
 
 ---
 
@@ -131,7 +134,7 @@ New regression tests added (all passing, see Section 3): **FI-23** (job-stuck-co
 - `services/station-service/src/services/station-bulk-upsert.service.ts` (Round 3: Fix 3 — `initial_fuel` required for new stations)
 - `services/import-export-service/src/services/import-orchestrator.service.ts` (Round 3: Fix 4 — `extractHttpError` helper, deterministic vs transient fuel-commit error mapping)
 - `services/import-export-service/src/services/manual-entry.service.ts` (Round 3: Fix 5 — `failJobValidation` helper)
-- `services/import-export-service/src/utils/excel-parser.ts` (Round 3 addendum: `parseCellAsDate` now parses Vietnamese `dd/mm/yyyy` string dates, not just ISO)
+- `services/import-export-service/src/utils/excel-parser.ts` (Round 3 addendum: `parseCellAsDate` parses Vietnamese `dd/mm/yyyy` string dates; `parseCellAsNumber` parses comma-decimal numbers via `normalizeNumericString`)
 
 **Frontend:**
 - `apps/web/src/app/App.tsx`
@@ -157,11 +160,12 @@ New regression tests added (all passing, see Section 3): **FI-23** (job-stuck-co
 **Evidence (new, Round 3):**
 - `evidence/frontend-e2e-result-20260709111539.txt` — Round 3 full-suite run (58/59), copied into the repo so it travels with this report instead of only existing at the external test-runner path.
 - `evidence/frontend-e2e-result-20260713130923.txt` — Round 3 addendum full-suite run (59/60, after the `dd/mm/yyyy` date-parser fix + FI-28).
+- `evidence/frontend-e2e-result-20260714052746.txt` — Round 3 addendum follow-up full-suite run (61/62, after the comma-decimal fix + FI-29/FI-30 round-trip).
 
 **Tests (outside main repo, `D:\fuel-frontend-test-runner`, not version-controlled):**
 - `tests/F01-F03.spec.ts` through `tests/F15-F20.spec.ts` (selector/RBAC fixes)
 - `tests/F13-F14.spec.ts` (station-detail navigation helper)
-- `tests/FI-import-regression.spec.ts` (Round 2: +13 tests; Round 3: +6 tests — SEC-INTERNAL-INIT-1, ADJ-1, STATION-1, FI-26, FI-27, plus FI-25 updated; Round 3 addendum: +FI-28 — 23 tests total in this file)
+- `tests/FI-import-regression.spec.ts` (Round 2: +13 tests; Round 3: +6 tests — SEC-INTERNAL-INIT-1, ADJ-1, STATION-1, FI-26, FI-27, plus FI-25 updated; Round 3 addendum: +FI-28/FI-29/FI-30 — 25 tests total in this file)
 - `global-setup.ts`
 
 Full commit list: `54c4e20..720701e` (18 commits, Round 1) + 5 commits (Round 2) + Round 3 commits on `refactor/layered-mvc-services` (see `git log`).
@@ -226,6 +230,8 @@ Regression pack detail (`FI-import-regression.spec.ts`):
 | FI-26 *(Round 3, new)* | Deterministic fuel-commit validation error (via a `consumptionRate` race between preview and confirm) → `retryable:false`, real status code (400/422), not a generic 500 |
 | FI-27 *(Round 3, new)* | manual-entry `confirm()`'s own station-liveness rejection now marks the job `failed`/`validation`/`retryable:false` instead of leaving it `previewing` |
 | FI-28 *(Round 3 addendum, new)* | A string date cell `"05/03/2026"` (dd/mm/yyyy) parses as 5 March, not misread as 3 May, and raises no format error — real-user Excel realism |
+| FI-29 *(Round 3 addendum, new)* | A comma-decimal string cell `"51,5"` (VN decimal) parses as 51.5 instead of being rejected as invalid |
+| FI-30 *(Round 3 addendum, new)* | Real `GET /export/snapshot` file → fill fuel columns (incl. dd/mm/yyyy text date) → re-import → parses cleanly, ignores system columns, commits correct running balance (round-trip) |
 | SEC-1 | Spoofed `X-User-Role` header does not escalate privilege (gateway strips it) |
 | SEC-2 | No-auth GET/POST on 6 sensitive endpoints → all 401 |
 | SEC-3 *(Round 2, new)* | `POST /fuel/records` via gateway → 404 (dead endpoint confirmed removed) |
@@ -236,10 +242,13 @@ Regression pack detail (`FI-import-regression.spec.ts`):
 **Round 3 final result: 58 passed, 1 skipped, 0 failed** (59 tests total).
 Report: `evidence/frontend-e2e-result-20260709111539.txt` (copied into this repo — see Section 2).
 
-**Round 3 addendum (date-parsing fix) final result: 59 passed, 1 skipped, 0 failed** (60 tests total: 37 original F01–F20 + 23 FI/SEC/STATION/ADJ regression tests, after adding FI-28). Full suite rerun from the start.
+**Round 3 addendum (date-parsing fix) result: 59 passed, 1 skipped, 0 failed** (60 tests total, after adding FI-28). Full suite rerun from the start.
 Report: `evidence/frontend-e2e-result-20260713130923.txt` (copied into this repo — see Section 2).
 
-Progression (updated): 9 pass/24 fail/4 skip (original baseline) → 36/37 (Phase 1) → 49/50 (Round 1) → 53/54 (Round 2) → 58/59 (Round 3) → **59/60 (Round 3 addendum)**.
+**Round 3 addendum follow-up (comma-decimal + round-trip) final result: 61 passed, 1 skipped, 0 failed** (62 tests total: 37 original F01–F20 + 25 FI/SEC/STATION/ADJ regression tests, after adding FI-29 and FI-30). Full suite rerun from the start.
+Report: `evidence/frontend-e2e-result-20260714052746.txt` (copied into this repo — see Section 2).
+
+Progression (updated): 9 pass/24 fail/4 skip (original baseline) → 36/37 (Phase 1) → 49/50 (Round 1) → 53/54 (Round 2) → 58/59 (Round 3) → 59/60 (addendum: dates) → **61/62 (addendum follow-up: comma-decimal + round-trip)**.
 
 ### Test ID traceability (Round 3 + addendum, per user requirement)
 
@@ -247,29 +256,31 @@ Every `FI-`/`SEC-`/`STATION-`/`ADJ-` test that exists in `D:\fuel-frontend-test-
 
 | ID | File:line | Result |
 |---|---|---|
-| FI-02 | FI-import-regression.spec.ts:99 | PASS |
-| FI-03 / FI-14 | FI-import-regression.spec.ts:115 | PASS |
-| FI-04 / FI-21 | FI-import-regression.spec.ts:147 | PASS |
-| FI-05 | FI-import-regression.spec.ts:175 | PASS |
-| FI-09 | FI-import-regression.spec.ts:214 | PASS |
-| FI-10 / FI-11 | FI-import-regression.spec.ts:233 | PASS |
-| FI-12 | FI-import-regression.spec.ts:259 | PASS |
-| FI-13 | FI-import-regression.spec.ts:288 | PASS |
-| FI-16 | FI-import-regression.spec.ts:320 | PASS |
-| FI-17 | FI-import-regression.spec.ts:338 | PASS |
-| FI-22 | FI-import-regression.spec.ts:385 | PASS |
-| FI-23 | FI-import-regression.spec.ts:398 | PASS |
-| FI-24 | FI-import-regression.spec.ts:464 | PASS |
-| FI-25 | FI-import-regression.spec.ts:485 | PASS |
-| FI-26 | FI-import-regression.spec.ts:575 | PASS |
-| FI-27 | FI-import-regression.spec.ts:619 | PASS |
-| FI-28 | FI-import-regression.spec.ts:651 | PASS |
-| STATION-1 | FI-import-regression.spec.ts:678 | PASS |
-| ADJ-1 | FI-import-regression.spec.ts:701 | PASS |
-| SEC-1 | FI-import-regression.spec.ts:758 | PASS |
-| SEC-2 | FI-import-regression.spec.ts:767 | PASS |
-| SEC-3 | FI-import-regression.spec.ts:782 | PASS |
-| SEC-INTERNAL-INIT-1 | FI-import-regression.spec.ts:791 | PASS |
+| FI-02 | FI-import-regression.spec.ts:110 | PASS |
+| FI-03 / FI-14 | FI-import-regression.spec.ts:126 | PASS |
+| FI-04 / FI-21 | FI-import-regression.spec.ts:158 | PASS |
+| FI-05 | FI-import-regression.spec.ts:186 | PASS |
+| FI-09 | FI-import-regression.spec.ts:225 | PASS |
+| FI-10 / FI-11 | FI-import-regression.spec.ts:244 | PASS |
+| FI-12 | FI-import-regression.spec.ts:270 | PASS |
+| FI-13 | FI-import-regression.spec.ts:299 | PASS |
+| FI-16 | FI-import-regression.spec.ts:331 | PASS |
+| FI-17 | FI-import-regression.spec.ts:349 | PASS |
+| FI-22 | FI-import-regression.spec.ts:396 | PASS |
+| FI-23 | FI-import-regression.spec.ts:409 | PASS |
+| FI-24 | FI-import-regression.spec.ts:475 | PASS |
+| FI-25 | FI-import-regression.spec.ts:496 | PASS |
+| FI-26 | FI-import-regression.spec.ts:586 | PASS |
+| FI-27 | FI-import-regression.spec.ts:630 | PASS |
+| FI-28 | FI-import-regression.spec.ts:662 | PASS |
+| FI-29 | FI-import-regression.spec.ts:687 | PASS |
+| FI-30 | FI-import-regression.spec.ts:710 | PASS |
+| STATION-1 | FI-import-regression.spec.ts:769 | PASS |
+| ADJ-1 | FI-import-regression.spec.ts:792 | PASS |
+| SEC-1 | FI-import-regression.spec.ts:849 | PASS |
+| SEC-2 | FI-import-regression.spec.ts:858 | PASS |
+| SEC-3 | FI-import-regression.spec.ts:873 | PASS |
+| SEC-INTERNAL-INIT-1 | FI-import-regression.spec.ts:882 | PASS |
 
 **Honest gap disclosure:** `FI-01, FI-06, FI-07, FI-08, FI-15, FI-18, FI-19, FI-20` do not exist as tests in this file or anywhere else in either repo. A repo-wide grep (`grep -rn "FI-01\|FI-06\|FI-07\|FI-08\|FI-15\|FI-18\|FI-19\|FI-20"`) found zero references — no document defining what these IDs were meant to cover exists in this codebase. They are not silently-skipped or hidden tests; they simply were never written, and their original intended scope (if any) is not recoverable from this repo. Separately, the UI suite's own module list (F01–F20) shows `F19 Realtime` and `F20 Consistency` as "NOT RUN" in the evidence file — no tests exist for those modules either. If these represent specific requirements, they need to be defined and added as new tests in a future round.
 
@@ -294,15 +305,15 @@ These are specific to this sandbox's port conflict and are not expected to be ne
 | `.env-test` / other local dev files at repo root | NONE | Not tracked by git before or after this session (verified via `git ls-files`); newly gitignored to prevent future accidental commit | No action needed. |
 | **(Round 3)** `fuel-service` has no service-to-service secret on `/fuel/current/init` | LOW | Gateway blocks the route (Fix 1), but fuel-service itself trusts any caller with `requireRole('admin')`. Production `docker-compose.yml` publishes no host port for fuel-service at all (verified — no `ports:` entry), so this is unreachable from outside the Docker network in production. `docker-compose.dev.yml` does expose it (self-documented dev-only, pre-existing) for local debugging. | If defense-in-depth is wanted, add a shared-secret header checked by fuel-service, threaded through every internal caller — a larger, infrastructure-wide change out of this round's scope. Not implemented; documented per the user's own explicit fallback for this item. |
 | **(Round 3)** `checkExactDuplicates`' same-date check doesn't exclude `source:'initial_state'` genesis records | LOW | Found while building FI-26: a station's own genesis `FuelRecord` (created at init, dated "today") counts as a "same date" record for `hasSameDateDifferentValues`, so importing fuel activity on the same calendar day a station was created (with `initialFuel>0`) trips a spurious warning, requiring `acknowledgeWarnings`. Not a silent bypass — just an unnecessary warning. | Add `AND source != 'initial_state'` alongside the existing `AND source != 'adjustment'` filter in `checkExactDuplicates`'s same-date query (`fuel-record.repository.ts`). Not fixed this round — found incidentally while building an unrelated regression test, outside the 8 approved Round 3 items. |
-| **(Round 3 addendum)** Comma-decimal number input (`"51,5"`) rejected as invalid | LOW/UX | `parseCellAsNumber` uses `Number(raw)`, which returns `NaN` for the Vietnamese decimal comma. Real Excel cells usually store numbers as numeric values (locale affects only display), so this only bites text-formatted or pasted numeric cells — and it fails loudly (row error), not silently. | If needed, normalize a single trailing comma-decimal (`"51,5"` → `51.5`) in `parseCellAsNumber`, being careful not to misread thousands separators. Deferred — the addendum's approved scope was the silent date-corruption bug; this is a loud, lower-risk usability gap. |
-| **(Round 3 addendum)** Template round-trip not covered by an automated test | LOW | The most realistic user workflow — download the app's "Export file tổng"/template, fill it in Excel, re-import — is exercised only in pieces (export tested by F12; import by F11/FI-*), never end-to-end as one round-trip with a genuinely user-filled file. | Add a test that exports the template, writes realistic values (VN dates as text, etc.) into it, and re-imports. Deferred — would strengthen confidence but the individual legs are covered and the highest-risk realism bug (dates) is now fixed and tested (FI-28). |
+| **(Round 3 addendum)** Comma-decimal number input (`"51,5"`) | **RESOLVED** | Was rejected as invalid; `parseCellAsNumber` now normalizes VN comma-decimals (and VN/US thousands+decimal) safely via `normalizeNumericString`, leaving genuinely ambiguous input (`"1,234"`) as a loud error. Test FI-29. | None. Period-only thousands (`"5.000"`) remains untouched — see next row. |
+| **(Round 3 addendum)** Period-as-thousands (`"5.000"` meaning 5000) parsed as `5` | LOW/UX | `Number("5.000") = 5`; period is JavaScript's native decimal separator, so a VN user who types `5.000` (five thousand) as a text cell gets `5`. Deliberately not auto-corrected — it's genuinely ambiguous with the legitimate decimal `5.0`, and guessing would risk silent corruption (the very thing this work is eliminating). Real numeric Excel cells are unaffected (stored as numbers). | Leave as-is, or (if the deployment sees this often) require numeric-typed cells / document the expected format in the template. Not auto-guessed by design. |
 | **(Round 3)** ZIP/bundle possibly containing `.env`/cert files (user's original audit Finding 5) | **RESOLVED — verified clean** | `git log --all` full-history scan (not just current tree) confirms `.env`/`.env-test`/`apps/web/.env`/`*.key` were never committed, ever. `.gitignore` covers all of them (`git check-ignore -v` confirmed). No zip/bundle-creation script exists anywhere in either repo. `POSTGRES_PASSWORD` is just the well-known default already in the tracked `docker-compose.yml` (not actually secret); `AUTH_JWT_SECRET`/`NVAPI_KEY`/the nginx `server.key` are real but were never in git and, per the user's explicit confirmation this round, were never bundled/shared outside this machine. | No rotation performed — none needed per the evidence above. If this determination is ever found to be wrong (e.g. a bundle surfaces later), rotate `AUTH_JWT_SECRET`, `NVAPI_KEY`, and the nginx cert/key immediately. |
 
 ---
 
 ## 5. Production Readiness Conclusion
 
-**READY** — Round 3 closes all 8 approved findings from the user's second independent audit (plus a 9th found incidentally, Fix 8's `maxCapacity` guard) and the Round 3 addendum closes a 10th — the silent `dd/mm/yyyy` date-corruption bug the user's realism question surfaced — with the remaining risks in Section 4 understood and accepted (all LOW severity, explicitly accepted tradeoffs, or — for the ZIP/bundle item — positively verified clean).
+**READY** — Round 3 closes all 8 approved findings from the user's second independent audit (plus a 9th found incidentally, Fix 8's `maxCapacity` guard), and the Round 3 addendum + follow-up close the real-world Excel realism gaps the user's question surfaced (silent `dd/mm/yyyy` date corruption; comma-decimal rejection; and an end-to-end export→fill→import round-trip). Remaining risks in Section 4 are understood and accepted (all LOW severity, explicitly accepted tradeoffs, or — for the ZIP/bundle item — positively verified clean).
 
 Gating criteria for this conclusion (per the user's requirement — READY only if **all** of the following passed, otherwise the conclusion must be PARTIAL):
 
@@ -312,17 +323,19 @@ Gating criteria for this conclusion (per the user's requirement — READY only i
 - ✅ FI-26 (deterministic fuel-commit errors mapped to `retryable:false`) — pass
 - ✅ FI-27 (manual-entry confirm bookkeeping on rejection) — pass
 - ✅ FI-28 (Vietnamese `dd/mm/yyyy` string dates parsed correctly) — pass
-- ✅ Full E2E suite rerun from the start after the addendum fix — **59/60 pass, 1 documented skip, 0 fail**
-- ✅ Evidence files copied into the repo (`evidence/`) — done (both the Round 3 and addendum runs)
+- ✅ FI-29 (Vietnamese comma-decimal numbers parsed correctly) — pass
+- ✅ FI-30 (real snapshot export→fill→import round-trip commits correctly) — pass
+- ✅ Full E2E suite rerun from the start after the follow-up fix — **61/62 pass, 1 documented skip, 0 fail**
+- ✅ Evidence files copied into the repo (`evidence/`) — done (Round 3 + both addendum runs)
 - ✅ Sanitized-bundle evidence: no `.env`/private key ever committed, no bundle ever created/shared — verified
 - ✅ Report traceability: every FI-/SEC-/STATION-/ADJ- test ID mapped to file:line and result, ID gaps explicitly disclosed
 
-All 10 conditions are met (Section 3). Round 1 and Round 2's criteria remain valid and were not weakened by Round 3 or its addendum:
+All 12 conditions are met (Section 3). Round 1 and Round 2's criteria remain valid and were not weakened by Round 3 or its addendum:
 
 - ✅ 0 CRITICAL, 0 HIGH open findings
 - ✅ Auth / RBAC (frontend + backend) — pass, including the Staff-quick-update-bypass fix
 - ✅ Manual-entry / DirectEntry — pass (preview/confirm, negative-value rejection, warning-ack dialog wired, fuel-only enforced universally as of Round 2 Fix C, confirm-rejection bookkeeping fixed in Round 3 Fix 5)
-- ✅ Import (Excel + manual-entry) — pass: fuel-only for all roles, all-or-nothing, atomic job claim (race with row-error check closed in Round 2, deterministic-vs-transient error mapping fixed in Round 3 Fix 4), same-station-multi-row guard, missing-fuel-state guard (closed for bulk-upsert in Round 2 Fix D, `initial_fuel` now required rather than defaulted in Round 3 Fix 3), Vietnamese `dd/mm/yyyy` dates now parsed correctly (Round 3 addendum, FI-28)
+- ✅ Import (Excel + manual-entry) — pass: fuel-only for all roles, all-or-nothing, atomic job claim (race with row-error check closed in Round 2, deterministic-vs-transient error mapping fixed in Round 3 Fix 4), same-station-multi-row guard, missing-fuel-state guard (closed for bulk-upsert in Round 2 Fix D, `initial_fuel` now required rather than defaulted in Round 3 Fix 3), Vietnamese `dd/mm/yyyy` dates and comma-decimal numbers now parsed correctly, and a real export→fill→import round-trip verified (Round 3 addendum, FI-28/FI-29/FI-30)
 - ✅ Adjustment (create/approve/reject) — pass (F14.1/F14.4/F14.7 UI, ADJ-1 API-level missing-state guard added Round 3)
 - ✅ Gateway security — pass: JWT validation, X-User-* header stripping, fail-closed writes on auth-service degradation, spoofed-header test (SEC-1), internal-only `/fuel/current/init` now blocked (Round 3 Fix 1)
 - ✅ No-auth sensitive endpoints — pass (SEC-2, 6 endpoints checked)
