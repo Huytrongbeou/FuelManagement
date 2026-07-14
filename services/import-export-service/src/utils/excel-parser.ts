@@ -5,6 +5,38 @@ export type ParsedNumber =
   | { type: 'valid'; value: number }
   | { type: 'invalid'; raw: string }
 
+// Normalizes a numeric string written with locale separators before Number() sees it.
+// Real Excel stores numbers as numeric cells (locale only affects display), so this only
+// matters for text-formatted / pasted cells — where a Vietnamese user's "51,5" would
+// otherwise become NaN. Handled conservatively so we never turn a currently-valid number
+// into a DIFFERENT number, and never guess on genuinely ambiguous input (those stay invalid
+// = a loud error, never silent corruption):
+//   - both separators present  → the last-occurring one is the decimal (VN "1.234,5" and
+//     US "1,234.5" both → 1234.5)
+//   - only a comma, appearing once, with a non-3-digit fraction → decimal comma ("51,5"→51.5)
+//   - only commas, appearing multiple times → thousands separators ("1,234,567"→1234567)
+//   - a single comma followed by exactly 3 digits ("1,234") is ambiguous → left as-is (invalid)
+//   - period-only strings are untouched (period is JS's native decimal; "1.234" thousands is
+//     too ambiguous to guess and is a pre-existing, documented gap)
+function normalizeNumericString(raw: string): string {
+  const s = raw.trim()
+  if (!/^[+-]?[\d.,]+$/.test(s)) return s
+  const hasComma = s.includes(',')
+  const hasDot = s.includes('.')
+  if (hasComma && hasDot) {
+    return s.lastIndexOf(',') > s.lastIndexOf('.')
+      ? s.replace(/\./g, '').replace(',', '.')
+      : s.replace(/,/g, '')
+  }
+  if (hasComma && !hasDot) {
+    const parts = s.split(',')
+    if (parts.length === 2 && parts[1].length !== 3) return s.replace(',', '.')
+    if (parts.length > 2) return s.replace(/,/g, '')
+    return s
+  }
+  return s
+}
+
 export function parseCellAsNumber(cell: Cell): ParsedNumber {
   const v = cell.value
   if (v === null || v === undefined || v === '') return { type: 'blank' }
@@ -13,7 +45,7 @@ export function parseCellAsNumber(cell: Cell): ParsedNumber {
     ? String((v as { result: unknown }).result)
     : String(v)
   if (raw.trim() === '') return { type: 'blank' }
-  const num = Number(raw)
+  const num = Number(normalizeNumericString(raw))
   if (isNaN(num)) return { type: 'invalid', raw }
   return { type: 'valid', value: num }
 }
