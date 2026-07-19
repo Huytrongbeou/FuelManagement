@@ -171,7 +171,7 @@ function DirectEntryTable({ rows, onUpdateRow, onRemoveRow, onRevertRow, onLoadC
             const c = newFuelStatus ? fuelStatusColor(newFuelStatus) : null;
             const noFuelData = row.prevFuel === null;
             return (
-              <tr key={row.id} style={{ background: rowBg(row.status, i) }}>
+              <tr key={row.id} data-testid={`direct-entry-row-${row.code}`} style={{ background: rowBg(row.status, i) }}>
                 <td style={{ position: 'sticky', left: 0, zIndex: 10, background: rowBg(row.status, i), borderRight: '2px solid #e2e8f0', padding: '4px 6px' }}>
                   <div style={{ ...cellStyle(true), display: 'flex', alignItems: 'center' }}>{row.code}</div>
                 </td>
@@ -185,6 +185,7 @@ function DirectEntryTable({ rows, onUpdateRow, onRemoveRow, onRevertRow, onLoadC
                     onChange={e => onUpdateRow(row.id, 'added', e.target.value)}
                     placeholder="0"
                     disabled={noFuelData}
+                    data-testid={`fuel-added-input-${row.code}`}
                     aria-label={`NL bổ sung — ${row.name}`}
                     title={noFuelData ? 'Trạm chưa có tồn ban đầu. Vui lòng nhập tồn ban đầu trước khi tính tự động.' : undefined}
                     style={{ ...cellStyle(noFuelData), opacity: noFuelData ? 0.5 : 1, cursor: noFuelData ? 'not-allowed' : 'text' }}
@@ -199,6 +200,7 @@ function DirectEntryTable({ rows, onUpdateRow, onRemoveRow, onRevertRow, onLoadC
                     onChange={e => onUpdateRow(row.id, 'hoursRun', e.target.value)}
                     placeholder="0"
                     disabled={noFuelData}
+                    data-testid={`hours-run-input-${row.code}`}
                     aria-label={`Số giờ chạy — ${row.name}`}
                     title={noFuelData ? 'Trạm chưa có tồn ban đầu. Vui lòng nhập tồn ban đầu trước khi tính tự động.' : undefined}
                     style={{ ...cellStyle(noFuelData), opacity: noFuelData ? 0.5 : 1, cursor: noFuelData ? 'not-allowed' : 'text' }}
