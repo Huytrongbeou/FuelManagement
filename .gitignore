@@ -18,3 +18,11 @@ prisma/migrations/*.sql.tmp
 infrastructure/nginx/certs/*.crt
 infrastructure/nginx/certs/*.key
 docker-compose.local-override.yml
+
+# Test artifacts & reports — deliberately kept OUTSIDE this repo so nothing
+# test-related ships to the server. See D:\Fuel-Management-artifacts\
+evidence/
+sample-excel/
+*e2e-result*.txt
+test-results/
+playwright-report/
