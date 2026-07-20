@@ -14,17 +14,6 @@ const statusConfig = {
   cancelled:  { label: 'Đã hủy',       bg: '#f8fafc', text: '#64748b', icon: XCircle },
 };
 
-const mockErrors = [
-  { row: 8,  code: 'STXXX', field: 'Mã trạm',           message: 'Mã trạm không tồn tại trong hệ thống' },
-  { row: 10, code: 'ST011', field: 'Nhiên liệu tồn',    message: 'Giá trị âm không hợp lệ: -5' },
-];
-
-const mockWarnings = [
-  { row: 5,  code: 'ST006', field: 'Số giờ chạy', message: 'Số giờ chạy cao bất thường: 22h' },
-];
-
-const affectedStations = ['ST001','ST002','ST003','ST004','ST005','ST006','ST007','ST009','ST012'];
-
 export function ImportHistory({ sessions }: ImportHistoryProps) {
   const [selected, setSelected] = useState<ImportSession | null>(null);
 
@@ -165,17 +154,17 @@ export function ImportHistory({ sessions }: ImportHistoryProps) {
                       ))}
                     </div>
 
-                    {/* Errors */}
-                    {mockErrors.length > 0 && (
-                      <div>
+                    {/* Errors — real per-row errors from this job's previewData */}
+                    {selected.errors.length > 0 && (
+                      <div data-testid="import-detail-errors">
                         <h4 className="mb-3 flex items-center gap-2" style={{ color: '#dc2626' }}>
                           <XCircle size={16} /> Danh sách lỗi
                         </h4>
                         <div className="space-y-2">
-                          {mockErrors.map((e) => (
-                            <div key={e.row} className="rounded-lg px-4 py-3 flex items-start gap-3" style={{ background: '#fff5f5', border: '1px solid #fca5a5' }}>
+                          {selected.errors.map((e, idx) => (
+                            <div key={`${e.row}-${idx}`} className="rounded-lg px-4 py-3 flex items-start gap-3" style={{ background: '#fff5f5', border: '1px solid #fca5a5' }}>
                               <span style={{ color: '#dc2626', fontWeight: 600, fontSize: '0.78rem', whiteSpace: 'nowrap' }}>Dòng {e.row}</span>
-                              <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#64748b', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>{e.code}</span>
+                              {e.code && <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#64748b', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>{e.code}</span>}
                               <span style={{ fontSize: '0.8rem', color: '#b91c1c' }}>{e.message}</span>
                             </div>
                           ))}
@@ -183,17 +172,17 @@ export function ImportHistory({ sessions }: ImportHistoryProps) {
                       </div>
                     )}
 
-                    {/* Warnings */}
-                    {mockWarnings.length > 0 && (
-                      <div>
+                    {/* Warnings — real per-row warnings from this job's previewData */}
+                    {selected.warnings.length > 0 && (
+                      <div data-testid="import-detail-warnings">
                         <h4 className="mb-3 flex items-center gap-2" style={{ color: '#ca8a04' }}>
                           <AlertTriangle size={16} /> Cảnh báo
                         </h4>
                         <div className="space-y-2">
-                          {mockWarnings.map((w) => (
-                            <div key={w.row} className="rounded-lg px-4 py-3 flex items-start gap-3" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+                          {selected.warnings.map((w, idx) => (
+                            <div key={`${w.row}-${idx}`} className="rounded-lg px-4 py-3 flex items-start gap-3" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
                               <span style={{ color: '#ca8a04', fontWeight: 600, fontSize: '0.78rem', whiteSpace: 'nowrap' }}>Dòng {w.row}</span>
-                              <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#64748b', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>{w.code}</span>
+                              {w.code && <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#64748b', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>{w.code}</span>}
                               <span style={{ fontSize: '0.8rem', color: '#92400e' }}>{w.message}</span>
                             </div>
                           ))}
@@ -201,16 +190,20 @@ export function ImportHistory({ sessions }: ImportHistoryProps) {
                       </div>
                     )}
 
-                    {/* Affected stations */}
-                    <div>
-                      <h4 className="mb-3" style={{ color: '#0f172a' }}>Trạm được cập nhật ({affectedStations.length})</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {affectedStations.map(code => (
-                          <span key={code} className="px-2.5 py-1 rounded-lg" style={{ background: '#eff6ff', color: '#2563eb', fontSize: '0.78rem', fontFamily: 'monospace', fontWeight: 600 }}>
-                            {code}
-                          </span>
-                        ))}
-                      </div>
+                    {/* Affected stations — real stations updated by this import (committed only) */}
+                    <div data-testid="import-detail-affected">
+                      <h4 className="mb-3" style={{ color: '#0f172a' }}>Trạm được cập nhật ({selected.affectedStations.length})</h4>
+                      {selected.affectedStations.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {selected.affectedStations.map(code => (
+                            <span key={code} className="px-2.5 py-1 rounded-lg" style={{ background: '#eff6ff', color: '#2563eb', fontSize: '0.78rem', fontFamily: 'monospace', fontWeight: 600 }}>
+                              {code}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Không có trạm nào được cập nhật trong lần import này.</p>
+                      )}
                     </div>
                   </div>
                 </div>

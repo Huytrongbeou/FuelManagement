@@ -80,6 +80,12 @@ export interface AdjustmentRequest {
   createdAt: string;
 }
 
+export interface ImportRowIssue {
+  row: number;
+  code: string;
+  message: string;
+}
+
 export interface ImportSession {
   id: string;
   filename: string;
@@ -90,6 +96,9 @@ export interface ImportSession {
   warningRows: number;
   errorRows: number;
   status: 'previewing' | 'committed' | 'failed' | 'cancelled';
+  errors: ImportRowIssue[];
+  warnings: ImportRowIssue[];
+  affectedStations: string[];
 }
 
 export function getFuelStatus(fuel: number | null): FuelStatus {
