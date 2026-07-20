@@ -13,7 +13,7 @@ export function MobileEntryCard({ row, onUpdateRow, onRemoveRow, onRevertRow }: 
   const noFuelData = row.prevFuel === null;
 
   return (
-    <div className="rounded-xl border p-4 space-y-3" style={{ background: rowBg(row.status, 0), borderColor: '#e2e8f0' }}>
+    <div data-testid={`direct-entry-card-${row.code}`} className="rounded-xl border p-4 space-y-3" style={{ background: rowBg(row.status, 0), borderColor: '#e2e8f0' }}>
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div>
@@ -29,6 +29,7 @@ export function MobileEntryCard({ row, onUpdateRow, onRemoveRow, onRevertRow }: 
           <label htmlFor={`entry-added-${row.id}`} className="block mb-1 text-xs" style={{ color: '#64748b' }}>NL bổ sung (L)</label>
           <input
             id={`entry-added-${row.id}`}
+            data-testid={`fuel-added-input-mobile-${row.code}`}
             aria-label={`NL bổ sung — ${row.name}`}
             type="number" min={0}
             value={row.added}
@@ -43,6 +44,7 @@ export function MobileEntryCard({ row, onUpdateRow, onRemoveRow, onRevertRow }: 
           <label htmlFor={`entry-hours-${row.id}`} className="block mb-1 text-xs" style={{ color: '#64748b' }}>Số giờ chạy</label>
           <input
             id={`entry-hours-${row.id}`}
+            data-testid={`hours-run-input-mobile-${row.code}`}
             aria-label={`Số giờ chạy — ${row.name}`}
             type="number" min={0}
             value={row.hoursRun}
