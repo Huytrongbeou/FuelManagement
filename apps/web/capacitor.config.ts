@@ -16,8 +16,12 @@ const config: CapacitorConfig = {
   appName: 'VNPT Quản lý nhiên liệu',
   webDir: 'dist',
   android: {
-    // Vietnamese text renders identically to the web build
-    allowMixedContent: false,
+    // The webview serves the app from https://localhost, so calling an http:// API counts as
+    // mixed content and Android blocks the request outright (it surfaces as "Failed to fetch").
+    // Enabled so a debug build can reach an http:// gateway on the LAN during testing.
+    // In production VITE_API_URL is https://, where no mixed-content request ever occurs and
+    // this flag has no effect.
+    allowMixedContent: true,
   },
   plugins: {
     SplashScreen: {
