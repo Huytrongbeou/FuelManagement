@@ -4,14 +4,17 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 import { toast } from 'sonner';
 import { Station } from '@/shared/types';
 import { downloadWithAuth } from '@/shared/api/client';
+import { canEnterFuel } from '@/shared/auth/permissions';
 
 interface TopbarProps {
   stations: Station[];
   onMobileMenuOpen: () => void;
   onNavigateToStation?: (stationId: string) => void;
+  onNavigateToImport?: () => void;
+  userRole?: string;
 }
 
-export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation }: TopbarProps) {
+export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavigateToImport, userRole }: TopbarProps) {
   const [query, setQuery] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [showResults, setShowResults] = useState(false);
@@ -129,17 +132,21 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation }: Topb
             </Tooltip.Portal>
           </Tooltip.Root>
 
-          {/* Import */}
-          <button
-            type="button"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all"
-            style={{ background: '#2563eb', color: 'white', fontSize: '0.85rem' }}
-            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#1d4ed8'}
-            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#2563eb'}
-          >
-            <Upload size={16} />
-            <span className="hidden md:inline">Import</span>
-          </button>
+          {/* Import — only for roles that may actually import (same rule as the sidebar's
+              "Nhập liệu" group); navigates to the Import Excel page. */}
+          {canEnterFuel(userRole) && (
+            <button
+              type="button"
+              onClick={onNavigateToImport}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all"
+              style={{ background: '#2563eb', color: 'white', fontSize: '0.85rem' }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#1d4ed8'}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#2563eb'}
+            >
+              <Upload size={16} />
+              <span className="hidden md:inline">Import</span>
+            </button>
+          )}
 
           {/* Notification */}
           <button

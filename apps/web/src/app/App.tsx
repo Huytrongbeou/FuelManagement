@@ -281,6 +281,8 @@ export default function App() {
             stations={stations}
             onMobileMenuOpen={() => setMobileMenuOpen(true)}
             onNavigateToStation={handleViewStation}
+            onNavigateToImport={() => handleNavigate('import')}
+            userRole={currentUser.role}
           />
           <main
             className="flex-1"
