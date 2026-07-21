@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DEBUG BUILDS ONLY (src/debug/) — this file is not part of a release build.
+
+  Allows plain HTTP so a debug APK can reach a development gateway on the local network
+  (LAN IP or 10.0.2.2 from the emulator) before the production domain + TLS certificate exist.
+  A CIDR range cannot be expressed here — Android matches exact hosts — so debug builds simply
+  permit cleartext, which is fine because release builds keep Android's default: HTTPS only,
+  trusted CA only.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
