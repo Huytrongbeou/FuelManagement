@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">VNPT Quản lý nhiên liệu</string>
+    <string name="title_activity_main">VNPT Quản lý nhiên liệu</string>
+    <string name="package_name">vn.vnpt.fuelmanagement</string>
+    <string name="custom_url_scheme">vn.vnpt.fuelmanagement</string>
+</resources>

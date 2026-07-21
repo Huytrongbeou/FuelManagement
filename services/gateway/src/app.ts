@@ -23,7 +23,11 @@ const app = express()
 app.set('trust proxy', 1)  // nginx terminates TLS; rate-limit and HSTS read correct client IP/proto
 app.use(helmet({ hsts: { maxAge: 31536000, includeSubDomains: true } }))
 
-const corsOrigins = CORS_ORIGIN.split(',').map(o => o.trim())
+// Native (Capacitor) builds serve the UI from a local webview origin rather than the site's
+// domain, so those origins must be allowed alongside the configured browser origins.
+// Android uses http(s)://localhost, iOS uses capacitor://localhost.
+const NATIVE_APP_ORIGINS = ['capacitor://localhost', 'http://localhost', 'https://localhost']
+const corsOrigins = [...CORS_ORIGIN.split(',').map(o => o.trim()).filter(Boolean), ...NATIVE_APP_ORIGINS]
 app.use(cors({ origin: corsOrigins, credentials: true }))
 app.use(rateLimit({ windowMs: 60_000, max: 300, standardHeaders: true, legacyHeaders: false }))
 

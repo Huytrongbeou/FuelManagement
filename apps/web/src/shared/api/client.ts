@@ -1,7 +1,29 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
+const TOKEN_KEY = 'fuel:v1:token';
+
+/**
+ * Bearer token support. The browser build can rely on the gateway's HttpOnly cookie, but a
+ * native (Capacitor) build cannot: its webview origin is capacitor://localhost, so the API is
+ * cross-origin and the cookie is not sent. The gateway reads the cookie first and falls back to
+ * `Authorization: Bearer`, so storing and sending the token keeps ONE code path working on both.
+ */
+export function setToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+function authHeader(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export function clearAuth() {
   localStorage.removeItem('fuel:v1:user');
+  localStorage.removeItem(TOKEN_KEY);
 }
 
 async function request<T>(
@@ -12,6 +34,7 @@ async function request<T>(
 ): Promise<T> {
   const reqHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...authHeader(),
     ...headers,
   };
 
@@ -46,17 +69,55 @@ export const api = {
   delete: <T>(path: string) => request<T>('DELETE', path),
 };
 
+/** Blob → base64 payload (without the `data:...;base64,` prefix) for Capacitor Filesystem. */
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Không đọc được dữ liệu file'));
+    reader.onload = () => {
+      const result = String(reader.result);
+      resolve(result.slice(result.indexOf(',') + 1));
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Downloads an authenticated file.
+ *
+ * Browser: object URL + a[download], the normal path.
+ * Native (Capacitor): there is no download manager and `a[download]` silently does nothing, so
+ * the bytes are written to the app's cache directory and handed to the OS share sheet, which is
+ * how a user actually gets an .xlsx off a phone (save to Files, send via Zalo/email, ...).
+ */
 export async function downloadWithAuth(path: string, filename: string): Promise<void> {
   const base = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
   const baseUrl = base.replace(/\/$/, '');
   const cleanPath = path.replace(/^\//, '');
+
+  const res = await fetch(`${baseUrl}/${cleanPath}`, { credentials: 'include', headers: authHeader() });
+  if (res.status === 401) { clearAuth(); window.location.reload(); throw new Error('Unauthorized'); }
+  if (!res.ok) throw new Error(`Download thất bại (${res.status})`);
+  const blob = await res.blob();
+
+  const { Capacitor } = await import('@capacitor/core');
+  if (Capacitor.isNativePlatform()) {
+    const [{ Filesystem, Directory }, { Share }] = await Promise.all([
+      import('@capacitor/filesystem'),
+      import('@capacitor/share'),
+    ]);
+    const written = await Filesystem.writeFile({
+      path: filename,
+      data: await blobToBase64(blob),
+      directory: Directory.Cache,
+    });
+    await Share.share({ title: filename, url: written.uri });
+    return;
+  }
+
   let url: string | null = null;
   let a: HTMLAnchorElement | null = null;
   try {
-    const res = await fetch(`${baseUrl}/${cleanPath}`, { credentials: 'include' });
-    if (res.status === 401) { clearAuth(); window.location.reload(); throw new Error('Unauthorized'); }
-    if (!res.ok) throw new Error(`Download thất bại (${res.status})`);
-    const blob = await res.blob();
     url = URL.createObjectURL(blob);
     a = document.createElement('a');
     a.href = url;
@@ -72,7 +133,8 @@ export async function downloadWithAuth(path: string, filename: string): Promise<
 export async function uploadFile<T>(path: string, file: File, fieldName = 'file'): Promise<T> {
   const form = new FormData();
   form.append(fieldName, file);
-  const res = await fetch(`${API_URL}${path}`, { method: 'POST', credentials: 'include', body: form });
+  // No Content-Type here on purpose — the browser sets the multipart boundary itself.
+  const res = await fetch(`${API_URL}${path}`, { method: 'POST', credentials: 'include', headers: authHeader(), body: form });
   if (res.status === 401) { clearAuth(); window.location.reload(); throw new Error('Unauthorized'); }
   if (!res.ok) {
     let msg = res.statusText;

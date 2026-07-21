@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useReducer } from 'react';
-import { api } from '@/shared/api/client';
+import { useState, useEffect, useCallback, useReducer, useRef } from 'react';
+import { api, clearAuth } from '@/shared/api/client';
 const _rawUser = localStorage.getItem('fuel:v1:user');
 const _hasUser = !!_rawUser;
 import { MotionConfig } from 'motion/react';
@@ -107,10 +107,14 @@ export default function App() {
   const { isLoggedIn, currentUser } = auth;
   const { stations, brands, models, importSessions, loading } = data;
   const { currentPage, selectedStation } = nav;
+  // Mirrors nav for the back-button listener, which is registered once and would otherwise
+  // capture the initial state forever.
+  const navRef = useRef(nav);
+  navRef.current = nav;
 
   const handleLogout = () => {
     api.post('/auth/logout').catch(() => {}); // clears HttpOnly cookie server-side (fire-and-forget)
-    localStorage.removeItem('fuel:v1:user');
+    clearAuth(); // drops the cached user AND the Bearer token used by the native build
     dispatchAuth({ type: 'logout' });
   };
 
@@ -137,6 +141,29 @@ export default function App() {
     getMe().then(user => dispatchAuth({ type: 'set-user', user })).catch(() => {});
     fetchAll();
   }, [fetchAll]);
+
+  // Android hardware back button (native builds only). This app navigates by state, not by URL,
+  // so without this the OS back button would close the app from any screen. Order: close an open
+  // station detail -> go back to Dashboard -> only then let the OS exit.
+  useEffect(() => {
+    let remove: (() => void) | undefined;
+    let cancelled = false;
+
+    (async () => {
+      const { Capacitor } = await import('@capacitor/core');
+      if (!Capacitor.isNativePlatform()) return;
+      const { App: CapApp } = await import('@capacitor/app');
+      const handle = await CapApp.addListener('backButton', () => {
+        if (navRef.current.selectedStation) dispatchNav({ type: 'clear-station' });
+        else if (navRef.current.currentPage !== 'dashboard') dispatchNav({ type: 'navigate', page: 'dashboard' });
+        else CapApp.exitApp();
+      });
+      if (cancelled) handle.remove();
+      else remove = () => handle.remove();
+    })();
+
+    return () => { cancelled = true; remove?.(); };
+  }, []);
 
   if (!isLoggedIn) {
     return (

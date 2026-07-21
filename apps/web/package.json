@@ -6,9 +6,19 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "doctor": "react-doctor"
+    "doctor": "react-doctor",
+    "app:sync": "vite build && cap sync",
+    "app:open:android": "cap open android",
+    "app:run:android": "vite build && cap sync && cap run android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/cli": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/share": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.3",
     "@radix-ui/react-alert-dialog": "1.1.6",
     "@radix-ui/react-dialog": "1.1.6",
     "@radix-ui/react-dropdown-menu": "2.1.6",

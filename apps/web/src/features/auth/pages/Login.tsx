@@ -2,6 +2,7 @@ import { useState, useReducer } from 'react';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { LazyMotion, m, domAnimation } from 'motion/react';
 import { login } from '../api/authApi';
+import { setToken } from '@/shared/api/client';
 
 interface LoginProps {
   onLogin: () => void;
@@ -38,6 +39,9 @@ export function Login({ onLogin }: LoginProps) {
     dispatch({ type: 'submit' });
     try {
       const result = await login(username, password);
+      // Keep the token: the browser build can lean on the gateway cookie, but the native build
+      // has no cookie (cross-origin webview) and authenticates with this Bearer token.
+      setToken(result.token);
       localStorage.setItem('fuel:v1:user', JSON.stringify(result.user));
       dispatch({ type: 'success' });
       onLogin();
