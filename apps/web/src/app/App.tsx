@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useReducer, useRef } from 'react';
 import { api, clearAuth } from '@/shared/api/client';
 const _rawUser = localStorage.getItem('fuel:v1:user');
 const _hasUser = !!_rawUser;
-import { MotionConfig } from 'motion/react';
+import { MotionConfig, LazyMotion, domAnimation, m } from 'motion/react';
 import { Toaster } from 'sonner';
 import { toast } from 'sonner';
 import { Login } from '@/features/auth/pages/Login';
@@ -172,14 +172,22 @@ export default function App() {
   if (!isLoggedIn) {
     return (
       <MotionConfig reducedMotion="user">
-        <>
-          <Login onLogin={() => {
-            dispatchAuth({ type: 'login' });
-            getMe().then(user => dispatchAuth({ type: 'set-user', user })).catch(() => {});
-            fetchAll();
-          }} />
+        <LazyMotion features={domAnimation}>
+          {/* App-open animation: the login screen is the first thing users see on a cold start,
+              so ease it in with a gentle fade + scale. */}
+          <m.div
+            initial={{ opacity: 0, scale: 0.98, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
+          >
+            <Login onLogin={() => {
+              dispatchAuth({ type: 'login' });
+              getMe().then(user => dispatchAuth({ type: 'set-user', user })).catch(() => {});
+              fetchAll();
+            }} />
+          </m.div>
           <Toaster position="top-right" richColors />
-        </>
+        </LazyMotion>
       </MotionConfig>
     );
   }
@@ -292,12 +300,24 @@ export default function App() {
 
   const isMapPage = currentPage === 'map';
   const isDirectEntry = currentPage === 'directEntry';
+  const needsFullHeight = isMapPage || isDirectEntry;
   const pageContent = renderContent();
+  // Re-mounts (and so re-animates) the content area only when the visible page actually changes —
+  // not on every data refresh. Station list ↔ detail counts as a change so it eases too.
+  const transitionKey = currentPage + (currentPage === 'stations' && selectedStation ? ':detail' : '');
 
   return (
     <MotionConfig reducedMotion="user">
+    <LazyMotion features={domAnimation}>
     <>
-      <div className="flex h-screen overflow-hidden" style={{ background: '#f1f5f9' }}>
+      {/* App-open animation: fade the whole shell in on cold start / right after login. */}
+      <m.div
+        className="flex h-screen overflow-hidden"
+        style={{ background: '#f1f5f9' }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+      >
         <Sidebar
           currentPage={currentPage}
           onNavigate={handleNavigate}
@@ -319,16 +339,26 @@ export default function App() {
             className="flex-1"
             style={{
               background: '#f1f5f9',
-              overflowY: (isMapPage || isDirectEntry) ? 'hidden' : 'auto',
+              overflowY: needsFullHeight ? 'hidden' : 'auto',
               overflowX: 'hidden',
-              display: (isMapPage || isDirectEntry) ? 'flex' : 'block',
+              display: needsFullHeight ? 'flex' : 'block',
               flexDirection: 'column',
             }}
           >
-            {pageContent}
+            {/* Page-transition animation: new page eases up + in. The wrapper must carry the
+                full-height flex layout for the map / direct-entry pages, or they'd collapse. */}
+            <m.div
+              key={transitionKey}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              style={needsFullHeight ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } : undefined}
+            >
+              {pageContent}
+            </m.div>
           </main>
         </div>
-      </div>
+      </m.div>
       <Toaster position="top-right" richColors />
       <StationFormModal
         open={addStationOpen}
@@ -338,6 +368,7 @@ export default function App() {
         onCreated={fetchAll}
       />
     </>
+    </LazyMotion>
     </MotionConfig>
   );
 }
