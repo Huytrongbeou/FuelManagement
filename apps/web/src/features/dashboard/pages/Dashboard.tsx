@@ -1,12 +1,13 @@
-import { useState, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 const DashboardCharts = lazy(() => import('../components/DashboardCharts'));
 import {
   MapPin, AlertTriangle, CheckCircle, HelpCircle, TrendingUp,
-  Clock, Activity, Fuel, Filter
+  Clock, Activity, Fuel, Filter, ClipboardList, Timer, Building2
 } from 'lucide-react';
 import { LazyMotion, domAnimation } from 'motion/react';
 import { Station, getFuelStatus, fuelStatusColor } from '@/shared/types';
 import { FuelBadge } from '@/features/stations/components/FuelBadge';
+import { getActivityStats, type ActivityPeriod, type ActivityStats } from '@/features/fuel/api/fuelApi';
 import { StatCard } from '../components/StatCard';
 
 interface DashboardProps {
@@ -16,15 +17,35 @@ interface DashboardProps {
 
 const COLORS_PIE = ['#16a34a', '#ca8a04', '#dc2626', '#94a3b8'];
 
-const TIME_FILTERS = [
+const TIME_FILTERS: { key: ActivityPeriod; label: string }[] = [
   { key: 'today', label: 'Hôm nay' },
   { key: 'week',  label: 'Tuần' },
   { key: 'month', label: 'Tháng' },
   { key: 'year',  label: 'Năm' },
 ];
 
+/** YYYY-MM-DD → dd/mm/yyyy */
+function formatVN(isoDate: string) {
+  const [y, m, d] = isoDate.split('-');
+  return `${d}/${m}/${y}`;
+}
+
 export function Dashboard({ stations, onViewStation }: DashboardProps) {
-  const [timeFilter, setTimeFilter] = useState('today');
+  const [timeFilter, setTimeFilter] = useState<ActivityPeriod>('today');
+  const [activity, setActivity] = useState<ActivityStats | null>(null);
+  const [activityError, setActivityError] = useState(false);
+
+  // Thống kê hoạt động do backend tổng hợp từ fuel_records theo kỳ — các thẻ tồn kho bên dưới là
+  // trạng thái hiện tại nên không phụ thuộc bộ lọc này.
+  useEffect(() => {
+    let cancelled = false;
+    setActivity(null);
+    setActivityError(false);
+    getActivityStats(timeFilter)
+      .then(s => { if (!cancelled) setActivity(s); })
+      .catch(() => { if (!cancelled) setActivityError(true); });
+    return () => { cancelled = true; };
+  }, [timeFilter]);
 
   const green  = stations.filter(s => getFuelStatus(s.currentFuel) === 'green').length;
   const yellow = stations.filter(s => getFuelStatus(s.currentFuel) === 'yellow').length;
@@ -68,7 +89,13 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 style={{ color: '#0f172a' }}>Tổng quan hệ thống</h2>
-          <p style={{ color: '#64748b', fontSize: '0.875rem' }}>Cập nhật: 12/06/2026 08:30</p>
+          <p style={{ color: '#64748b', fontSize: '0.875rem' }}>
+            {activity
+              ? (activity.from === activity.to
+                  ? `Hoạt động ngày ${formatVN(activity.to)}`
+                  : `Hoạt động từ ${formatVN(activity.from)} đến ${formatVN(activity.to)}`)
+              : 'Đang tải thống kê…'}
+          </p>
         </div>
         <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: '#f1f5f9' }}>
           {TIME_FILTERS.map(f => (
@@ -91,7 +118,21 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
         </div>
       </div>
 
-      {/* Stat cards */}
+      {/* Hoạt động trong kỳ — thay đổi theo bộ lọc thời gian ở trên */}
+      {activityError ? (
+        <div className="rounded-xl border px-5 py-4" style={{ background: '#fef2f2', borderColor: '#fecaca', color: '#b91c1c', fontSize: '0.85rem' }}>
+          Không tải được thống kê hoạt động. Vui lòng thử lại.
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4" data-testid="activity-stats">
+          <StatCard testId="activity-entry-count"      title="Lần nhập nhiên liệu" value={activity ? activity.entryCount : '—'}                          icon={ClipboardList} color="#2563eb" delay={0}    />
+          <StatCard testId="activity-total-added"      title="Tổng lít đã đổ"      value={activity ? activity.totalAdded.toLocaleString('vi-VN') : '—'}  icon={Fuel}          color="#0891b2" delay={0.05} sub="lít" />
+          <StatCard testId="activity-total-hours"      title="Tổng giờ chạy máy"   value={activity ? activity.totalHours.toLocaleString('vi-VN') : '—'}  icon={Timer}         color="#7c3aed" delay={0.1}  sub="giờ" />
+          <StatCard testId="activity-stations-updated" title="Trạm được cập nhật"  value={activity ? activity.stationsUpdated : '—'}                     icon={Building2}     color="#16a34a" delay={0.15} sub={activity ? `trên tổng ${stations.length} trạm` : undefined} />
+        </div>
+      )}
+
+      {/* Stat cards — trạng thái tồn kho hiện tại, không phụ thuộc bộ lọc thời gian */}
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4">
         <StatCard title="Tổng số trạm"        value={stations.length}   icon={MapPin}       color="#2563eb" delay={0}    />
         <StatCard title="Tổng NL tồn (L)"   value={totalFuel}         icon={Fuel}         color="#0891b2" delay={0.05} sub={`TB ${Math.round(totalFuel / stations.length)} L/trạm`} />

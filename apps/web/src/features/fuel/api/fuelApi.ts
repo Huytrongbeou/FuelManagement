@@ -18,6 +18,25 @@ function toRecord(r: Record<string, unknown>): FuelRecord {
   };
 }
 
+export type ActivityPeriod = 'today' | 'week' | 'month' | 'year';
+
+export interface ActivityStats {
+  period: ActivityPeriod;
+  /** YYYY-MM-DD, đầu kỳ theo lịch VN */
+  from: string;
+  /** YYYY-MM-DD, ngày cuối kỳ (bao gồm) — luôn là hôm nay */
+  to: string;
+  entryCount: number;
+  totalAdded: number;
+  totalHours: number;
+  totalConsumed: number;
+  stationsUpdated: number;
+}
+
+export async function getActivityStats(period: ActivityPeriod): Promise<ActivityStats> {
+  return api.get<ActivityStats>(`/fuel/stats/activity?period=${period}`);
+}
+
 export async function getFuelHistory(stationId: string, opts?: { limit?: number; offset?: number }): Promise<FuelRecord[]> {
   const params = new URLSearchParams();
   if (opts?.limit) params.set('limit', String(opts.limit));

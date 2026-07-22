@@ -1,7 +1,8 @@
 import type { Request, Response } from 'express'
 import { commitImport } from '../services/import-commit.service'
 import { initCurrentState } from '../services/current-state-init.service'
-import { findAllCurrentStates, findCurrentState, findRecordsByStation, checkExactDuplicates, previewValidate } from '../repositories/fuel-record.repository'
+import { findAllCurrentStates, findCurrentState, findRecordsByStation, checkExactDuplicates, previewValidate, aggregateActivity } from '../repositories/fuel-record.repository'
+import { STATS_PERIODS, toDateOnlyUTC, toPeriodDateRangeVN, type StatsPeriod } from '../utils/date-vn'
 
 function toFuelRecordDto(r: Record<string, unknown>) {
   return {
@@ -63,6 +64,21 @@ export async function getCurrentState(req: Request, res: Response): Promise<void
     const state = await findCurrentState(req.params.station_id)
     if (!state) { res.status(404).json({ error: 'No fuel data for this station' }); return }
     res.json(toCurrentStateDto(state as unknown as Record<string, unknown>))
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message })
+  }
+}
+
+export async function getActivityStats(req: Request, res: Response): Promise<void> {
+  const period = (req.query.period as string) || 'today'
+  if (!STATS_PERIODS.includes(period as StatsPeriod)) {
+    res.status(400).json({ error: `period phải là một trong: ${STATS_PERIODS.join(', ')}` })
+    return
+  }
+  try {
+    const { from, to, toExclusive } = toPeriodDateRangeVN(period as StatsPeriod)
+    const stats = await aggregateActivity(toDateOnlyUTC(from), toDateOnlyUTC(toExclusive))
+    res.json({ period, from, to, ...stats })
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message })
   }

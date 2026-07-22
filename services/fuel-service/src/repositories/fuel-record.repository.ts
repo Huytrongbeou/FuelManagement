@@ -31,6 +31,43 @@ export async function findRecordsByStation(stationId: string, opts: {
   })
 }
 
+/**
+ * Nguồn được tính là "hoạt động nhập liệu" trong kỳ. Loại trừ `initial_state` (bản ghi khởi tạo
+ * tồn đầu, không phải lần nhập nào) và `adjustment` (điều chỉnh sai sót, không phải đổ nhiên liệu).
+ */
+const ACTIVITY_SOURCES = ['direct', 'import', 'manual']
+
+export interface ActivityStats {
+  entryCount: number
+  totalAdded: number
+  totalHours: number
+  totalConsumed: number
+  stationsUpdated: number
+}
+
+export async function aggregateActivity(from: Date, toExclusive: Date): Promise<ActivityStats> {
+  const where = {
+    source: { in: ACTIVITY_SOURCES },
+    recordedDate: { gte: from, lt: toExclusive },
+  }
+  const [agg, stations] = await Promise.all([
+    prisma.fuelRecord.aggregate({
+      where,
+      _count: { _all: true },
+      _sum: { fuelAdded: true, hoursRun: true, fuelConsumed: true },
+    }),
+    prisma.fuelRecord.findMany({ where, select: { stationId: true }, distinct: ['stationId'] }),
+  ])
+  return {
+    entryCount: agg._count._all,
+    // normalizeDecimal2 trả string — bọc Number() để cắt sai số float mà vẫn trả số cho JSON
+    totalAdded: Number(normalizeDecimal2(Number(agg._sum.fuelAdded ?? 0))),
+    totalHours: Number(normalizeDecimal2(Number(agg._sum.hoursRun ?? 0))),
+    totalConsumed: Number(normalizeDecimal2(Number(agg._sum.fuelConsumed ?? 0))),
+    stationsUpdated: stations.length,
+  }
+}
+
 export async function findImportCommit(idempotencyKey: string) {
   return prisma.fuelImportCommit.findUnique({ where: { idempotencyKey } })
 }

@@ -1,8 +1,10 @@
 import { m } from 'motion/react';
 
-export function StatCard({ title, value, sub, icon: Icon, color, delay = 0 }: {
+export function StatCard({ title, value, sub, icon: Icon, color, delay = 0, testId }: {
   title: string; value: string | number; sub?: string;
   icon: React.ComponentType<{ size?: number }>; color: string; delay?: number;
+  /** Đặt lên phần giá trị để test lấy đúng con số, không phụ thuộc thứ tự div trong thẻ. */
+  testId?: string;
 }) {
   return (
     <m.div
@@ -17,7 +19,7 @@ export function StatCard({ title, value, sub, icon: Icon, color, delay = 0 }: {
           <Icon size={20} style={{ color }} />
         </div>
       </div>
-      <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1 }}>{value}</div>
+      <div data-testid={testId} style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.1 }}>{value}</div>
       <div style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '4px' }}>{title}</div>
       {sub && <div style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '2px' }}>{sub}</div>}
     </m.div>
