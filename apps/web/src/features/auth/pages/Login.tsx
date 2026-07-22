@@ -133,7 +133,7 @@ export function Login({ onLogin }: LoginProps) {
                 value={username}
                 onChange={e => dispatch({ type: 'field', name: 'username', value: e.target.value })}
                 placeholder="Nhập tên đăng nhập"
-                className="w-full px-4 py-3 rounded-lg border outline-none transition-all"
+                className="w-full px-4 py-3 rounded-lg border outline-none transition"
                 style={{
                   borderColor: error && !username ? '#ef4444' : '#e2e8f0',
                   background: '#f8fafc',
@@ -156,7 +156,7 @@ export function Login({ onLogin }: LoginProps) {
                   value={password}
                   onChange={e => dispatch({ type: 'field', name: 'password', value: e.target.value })}
                   placeholder="Nhập mật khẩu"
-                  className="w-full px-4 py-3 pr-12 rounded-lg border outline-none transition-all"
+                  className="w-full px-4 py-3 pr-12 rounded-lg border outline-none transition"
                   style={{
                     borderColor: '#e2e8f0',
                     background: '#f8fafc',
@@ -186,7 +186,7 @@ export function Login({ onLogin }: LoginProps) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-lg flex items-center justify-center gap-2 transition-all"
+              className="w-full py-3 rounded-lg flex items-center justify-center gap-2 transition"
               style={{
                 background: loading ? '#93c5fd' : '#2563eb',
                 color: 'white',

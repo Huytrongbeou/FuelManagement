@@ -161,8 +161,8 @@ export function ImportHistory({ sessions }: ImportHistoryProps) {
                           <XCircle size={16} /> Danh sách lỗi
                         </h4>
                         <div className="space-y-2">
-                          {selected.errors.map((e, idx) => (
-                            <div key={`${e.row}-${idx}`} className="rounded-lg px-4 py-3 flex items-start gap-3" style={{ background: '#fff5f5', border: '1px solid #fca5a5' }}>
+                          {selected.errors.map((e) => (
+                            <div key={`${e.row}-${e.code ?? ''}-${e.message}`} className="rounded-lg px-4 py-3 flex items-start gap-3" style={{ background: '#fff5f5', border: '1px solid #fca5a5' }}>
                               <span style={{ color: '#dc2626', fontWeight: 600, fontSize: '0.78rem', whiteSpace: 'nowrap' }}>Dòng {e.row}</span>
                               {e.code && <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#64748b', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>{e.code}</span>}
                               <span style={{ fontSize: '0.8rem', color: '#b91c1c' }}>{e.message}</span>
@@ -179,8 +179,8 @@ export function ImportHistory({ sessions }: ImportHistoryProps) {
                           <AlertTriangle size={16} /> Cảnh báo
                         </h4>
                         <div className="space-y-2">
-                          {selected.warnings.map((w, idx) => (
-                            <div key={`${w.row}-${idx}`} className="rounded-lg px-4 py-3 flex items-start gap-3" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+                          {selected.warnings.map((w) => (
+                            <div key={`${w.row}-${w.code ?? ''}-${w.message}`} className="rounded-lg px-4 py-3 flex items-start gap-3" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
                               <span style={{ color: '#ca8a04', fontWeight: 600, fontSize: '0.78rem', whiteSpace: 'nowrap' }}>Dòng {w.row}</span>
                               {w.code && <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#64748b', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>{w.code}</span>}
                               <span style={{ fontSize: '0.8rem', color: '#92400e' }}>{w.message}</span>

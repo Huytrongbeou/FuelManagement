@@ -42,7 +42,7 @@ export default function DashboardCharts({ pieData, barData }: {
           {pieData.map(d => (
             <div key={d.name} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: d.color }} />
+                <span className="w-3 h-3 rounded-full shrink-0" style={{ background: d.color }} />
                 <span style={{ fontSize: '0.8rem', color: '#475569' }}>{d.name}</span>
               </div>
               <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0f172a' }}>{d.value}</span>

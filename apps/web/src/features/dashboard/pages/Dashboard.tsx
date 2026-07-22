@@ -103,7 +103,7 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
               type="button"
               key={f.key}
               onClick={() => setTimeFilter(f.key)}
-              className="px-3 py-1.5 rounded-lg transition-all"
+              className="px-3 py-1.5 rounded-lg transition"
               style={{
                 fontSize: '0.8rem',
                 fontWeight: timeFilter === f.key ? 600 : 400,
@@ -184,7 +184,7 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
                   <button
                     type="button"
                     onClick={() => onViewStation(s.id)}
-                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 px-2.5 py-1 rounded-lg transition-all"
+                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 px-2.5 py-1 rounded-lg transition"
                     style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.75rem' }}
                   >
                     Xem
@@ -207,7 +207,7 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
               return (
                 <div key={s.id} className="flex items-center gap-3 px-5 py-3 group">
                   <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                     style={{ background: c.bg }}
                   >
                     <MapPin size={14} style={{ color: c.dot }} />

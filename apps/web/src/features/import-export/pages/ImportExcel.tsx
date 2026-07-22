@@ -109,7 +109,7 @@ function ImportStep1Panel({ file, dragging, uploading, fileRef, setDragging, onD
         <button
           type="button"
           aria-label="Khu vực tải file — kéo thả hoặc nhấn để chọn file Excel"
-          className="w-full rounded-xl border-2 border-dashed p-6 sm:p-10 text-center transition-all cursor-pointer"
+          className="w-full rounded-xl border-2 border-dashed p-6 sm:p-10 text-center transition cursor-pointer"
           style={{ borderColor: dragging ? '#2563eb' : '#e2e8f0', background: dragging ? '#eff6ff' : file ? '#f0fdf4' : 'white' }}
           onDragOver={e => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
@@ -167,9 +167,9 @@ function ImportStep1Panel({ file, dragging, uploading, fileRef, setDragging, onD
             'Cột P: Nhiên liệu bổ sung. Cột Q: Số giờ chạy.',
             'Các cột hệ thống (T-Z) không cần sửa.',
             'Hệ thống tự tính tồn cuối từ giờ chạy và định mức.',
-          ].map((item, i) => (
-            <li key={i} className="flex items-start gap-2" style={{ fontSize: '0.8rem', color: '#92400e' }}>
-              <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: '#ca8a04' }} />
+          ].map((item) => (
+            <li key={item} className="flex items-start gap-2" style={{ fontSize: '0.8rem', color: '#92400e' }}>
+              <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: '#ca8a04' }} />
               {item}
             </li>
           ))}
@@ -181,7 +181,7 @@ function ImportStep1Panel({ file, dragging, uploading, fileRef, setDragging, onD
           type="button"
           disabled={!file || uploading}
           onClick={onUpload}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-lg transition-all"
+          className="flex items-center gap-2 px-6 py-2.5 rounded-lg transition"
           style={{ background: file && !uploading ? '#2563eb' : '#e2e8f0', color: file && !uploading ? 'white' : '#94a3b8', fontSize: '0.875rem', fontWeight: 600, cursor: file && !uploading ? 'pointer' : 'not-allowed' }}
         >
           {uploading ? 'Đang tải lên...' : 'Tiếp theo'} <ArrowRight size={16} />
@@ -309,7 +309,7 @@ function ImportStep2Panel({ previewRows, jobSummary, file, validRows, warningRow
           type="button"
           disabled={errorRows > 0}
           onClick={onNext}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-lg transition-all"
+          className="flex items-center gap-2 px-6 py-2.5 rounded-lg transition"
           style={{ background: errorRows > 0 ? '#e2e8f0' : '#2563eb', color: errorRows > 0 ? '#94a3b8' : 'white', fontSize: '0.875rem', fontWeight: 600, cursor: errorRows > 0 ? 'not-allowed' : 'pointer' }}
         >
           Tiếp theo <ArrowRight size={16} />
@@ -357,7 +357,7 @@ function ImportSuccessModal({ open, jobSummary, validRows, warningRows, errorRow
             <button type="button" onClick={onHistory} className="flex-1 py-2.5 rounded-lg border transition-colors" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem' }}>
               Xem lịch sử
             </button>
-            <button type="button" onClick={onDashboard} className="flex-1 py-2.5 rounded-lg transition-all" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
+            <button type="button" onClick={onDashboard} className="flex-1 py-2.5 rounded-lg transition" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
               Về Dashboard
             </button>
           </div>
@@ -458,9 +458,9 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
       <div className="flex items-center gap-0">
         {STEPS.map((step, i) => (
           <div key={step.n} className="flex items-center flex-1">
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
+                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition"
                 style={{
                   background: s.step > step.n ? '#16a34a' : s.step === step.n ? '#2563eb' : '#e2e8f0',
                   color: s.step >= step.n ? 'white' : '#94a3b8',
@@ -544,7 +544,7 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
                       type="checkbox"
                       checked={s.warningAcknowledged}
                       onChange={e => dispatch({ type: 'acknowledge-warning', checked: e.target.checked })}
-                      className="mt-0.5 flex-shrink-0"
+                      className="mt-0.5 shrink-0"
                       style={{ width: '16px', height: '16px', accentColor: '#ca8a04' }}
                     />
                     <span style={{ fontSize: '0.8rem', color: '#92400e' }}>
@@ -561,7 +561,7 @@ export function ImportExcel({ onNavigateToHistory, onNavigateToDashboard }: Impo
                   type="button"
                   onClick={handleConfirmImport}
                   disabled={s.confirming || ((s.jobSummary.warningRows || warningRows) > 0 && !s.warningAcknowledged)}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-lg transition-all flex-1 justify-center"
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-lg transition flex-1 justify-center"
                   style={{
                     background: s.confirming || ((s.jobSummary.warningRows || warningRows) > 0 && !s.warningAcknowledged) ? '#e2e8f0' : '#16a34a',
                     color: s.confirming || ((s.jobSummary.warningRows || warningRows) > 0 && !s.warningAcknowledged) ? '#94a3b8' : 'white',

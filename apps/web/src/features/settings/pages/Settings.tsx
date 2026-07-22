@@ -136,7 +136,7 @@ function ProfileTabContent({ profile, setProfile }: { profile: ProfileState; set
           ))}
         </div>
         <div className="mt-4 pt-4 border-t" style={{ borderColor: '#f1f5f9' }}>
-          <button type="button" onClick={handleSave} className="flex items-center gap-2 px-5 py-2.5 rounded-lg transition-all"
+          <button type="button" onClick={handleSave} className="flex items-center gap-2 px-5 py-2.5 rounded-lg transition"
             style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
             <Save size={15} /> Lưu thay đổi
           </button>
@@ -165,11 +165,13 @@ function NotificationsTabContent({ notifications, setNotifications }: { notifica
                 aria-label={`${n.label}: ${notifications[n.key as keyof NotificationsState] ? 'Bật' : 'Tắt'}`}
                 aria-pressed={notifications[n.key as keyof NotificationsState]}
                 onClick={() => setNotifications(prev => ({ ...prev, [n.key]: !prev[n.key as keyof NotificationsState] }))}
-                className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
+                className="relative w-11 h-6 rounded-full transition-colors shrink-0"
                 style={{ background: notifications[n.key as keyof NotificationsState] ? '#2563eb' : '#e2e8f0' }}
               >
+                {/* transition-[left]: the knob slides via `left`, which plain `transition` does
+                    not cover — it would jump instead of slide. */}
                 <span
-                  className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all"
+                  className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-[left]"
                   style={{ left: notifications[n.key as keyof NotificationsState] ? '22px' : '2px', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}
                 />
               </button>
@@ -412,7 +414,7 @@ export function Settings({ userRole, stations = EMPTY_STATIONS }: SettingsProps)
                               <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '2px' }}>Ghi chú: {req.newNotes}</div>
                             )}
                           </div>
-                          <div className="flex gap-2 flex-shrink-0">
+                          <div className="flex gap-2 shrink-0">
                             <button
                               type="button"
                               disabled={adj.processing === req.id}

@@ -67,8 +67,8 @@ export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobi
   const sidebarContent = (
     <div className="flex flex-col h-full" style={{ background: '#0c2340' }}>
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-5 border-b flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0 overflow-hidden" style={{ background: 'white', padding: '2px' }}>
+      <div className="flex items-center gap-3 px-5 py-5 border-b shrink-0" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0 overflow-hidden" style={{ background: 'white', padding: '2px' }}>
           <img src="/vnpt-logo.jpg" alt="VNPT" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         </div>
         {!collapsed && (
@@ -99,7 +99,7 @@ export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobi
                     type="button"
                     key={page}
                     onClick={() => handleNav(page)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group relative"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition group relative"
                     style={{
                       background: active ? 'rgba(37,99,235,0.25)' : 'transparent',
                       color: active ? '#93c5fd' : '#94a3b8',
@@ -125,9 +125,9 @@ export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobi
 
       {/* User */}
       {!collapsed && (
-        <div className="px-3 py-4 border-t flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+        <div className="px-3 py-4 border-t shrink-0" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.06)' }}>
-            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#2563eb', color: 'white', fontSize: '0.85rem', fontWeight: 700 }}>{initial}</div>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: '#2563eb', color: 'white', fontSize: '0.85rem', fontWeight: 700 }}>{initial}</div>
             <div className="flex-1 min-w-0">
               <div style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
               <div style={{ color: '#7dd3fc', fontSize: '0.75rem' }}>{roleLabel}</div>
@@ -152,7 +152,9 @@ export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobi
 
   return (
     <>
-      <div className="hidden lg:flex flex-col flex-shrink-0 h-full transition-all duration-300" style={{ width: collapsed ? '64px' : '240px' }}>
+      {/* transition-[width]: the collapse animates `width`, which plain `transition` does not
+          cover — it would snap instead of slide. */}
+      <div className="hidden lg:flex flex-col shrink-0 h-full transition-[width] duration-300" style={{ width: collapsed ? '64px' : '240px' }}>
         {sidebarContent}
       </div>
       {mobileOpen && (

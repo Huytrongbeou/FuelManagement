@@ -365,7 +365,7 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex-shrink-0 px-6 py-4 border-b" style={{ background: 'white', borderColor: '#e2e8f0' }}>
+      <div className="shrink-0 px-6 py-4 border-b" style={{ background: 'white', borderColor: '#e2e8f0' }}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div>
             <h2 style={{ color: '#0f172a' }}>Nhập dữ liệu trực tiếp</h2>
@@ -378,7 +378,7 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
             <button type="button" onClick={checkData} disabled={rows.length === 0} className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors" style={{ background: '#f0f9ff', color: '#0284c7', fontSize: '0.82rem', border: '1px solid #bae6fd', cursor: rows.length === 0 ? 'not-allowed' : 'pointer' }}>
               <CheckCircle size={14} /> Kiểm tra dữ liệu
             </button>
-            <button type="button" onClick={handleSave} disabled={!checked || hasErrors || save.saving || rows.length === 0} className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all" style={{ background: !checked || hasErrors || rows.length === 0 ? '#e2e8f0' : '#16a34a', color: !checked || hasErrors || rows.length === 0 ? '#94a3b8' : 'white', fontSize: '0.82rem', cursor: !checked || hasErrors || rows.length === 0 ? 'not-allowed' : 'pointer' }}>
+            <button type="button" onClick={handleSave} disabled={!checked || hasErrors || save.saving || rows.length === 0} className="flex items-center gap-2 px-3 py-2 rounded-lg transition" style={{ background: !checked || hasErrors || rows.length === 0 ? '#e2e8f0' : '#16a34a', color: !checked || hasErrors || rows.length === 0 ? '#94a3b8' : 'white', fontSize: '0.82rem', cursor: !checked || hasErrors || rows.length === 0 ? 'not-allowed' : 'pointer' }}>
               <Save size={14} />{save.saving ? 'Đang lưu...' : 'Xác nhận lưu'}
             </button>
             <button
@@ -417,7 +417,7 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
       </div>
 
       {/* Rules */}
-      <div className="flex-shrink-0 px-6 py-2 flex flex-wrap gap-4" style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a' }}>
+      <div className="shrink-0 px-6 py-2 flex flex-wrap gap-4" style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a' }}>
         {RULES.map(rule => (
           <span key={rule} className="flex items-center gap-1" style={{ fontSize: '0.75rem', color: '#92400e' }}>
             <span style={{ color: '#ca8a04' }}>•</span> {rule}

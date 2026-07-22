@@ -137,7 +137,7 @@ export function MapView({ stations, onViewStation }: Props) {
       {/* Side panel — a static column on desktop, a dismissible drawer on phones where a fixed
           288px column would leave almost nothing for the map itself. */}
       <div
-        className={`${panelOpen ? 'flex' : 'hidden'} lg:flex flex-col w-72 flex-shrink-0 border-r overflow-y-auto absolute lg:relative inset-y-0 left-0 z-[1100] lg:z-auto`}
+        className={`${panelOpen ? 'flex' : 'hidden'} lg:flex flex-col w-72 shrink-0 border-r overflow-y-auto absolute lg:relative inset-y-0 left-0 z-[1100] lg:z-auto`}
         style={{ background: 'white', borderColor: '#e2e8f0' }}
       >
         <div className="px-4 py-4 border-b" style={{ borderColor: '#f1f5f9' }}>
@@ -150,7 +150,7 @@ export function MapView({ stations, onViewStation }: Props) {
               type="button"
               onClick={() => setPanelOpen(false)}
               aria-label="Đóng danh sách trạm"
-              className="lg:hidden p-1.5 rounded-lg flex-shrink-0"
+              className="lg:hidden p-1.5 rounded-lg shrink-0"
               style={{ color: '#64748b', background: '#f1f5f9' }}
             >
               <X size={18} />
@@ -184,7 +184,7 @@ export function MapView({ stations, onViewStation }: Props) {
                 type="button"
                 key={f.key}
                 onClick={() => { setFilterStatus(f.key); setSelectedStation(null); }}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg transition"
                 style={{
                   background: filterStatus === f.key ? f.color + '18' : 'transparent',
                   border: `1px solid ${filterStatus === f.key ? f.color + '40' : 'transparent'}`,
@@ -222,14 +222,14 @@ export function MapView({ stations, onViewStation }: Props) {
                       mapRef.current.setView([s.lat!, s.lng!], 15, { animate: true });
                     }
                   }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition"
                   style={{
                     background: selectedStation?.id === s.id ? '#eff6ff' : 'transparent',
                     border: `1px solid ${selectedStation?.id === s.id ? '#dbeafe' : 'transparent'}`,
                     opacity: hasCoords ? 1 : 0.6,
                   }}
                 >
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: c.dot }}>
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: c.dot }}>
                     <span style={{ color: 'white', fontSize: '0.75rem', fontWeight: 700 }}>{s.code.replace('CL-', '')}</span>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -358,7 +358,7 @@ export function MapView({ stations, onViewStation }: Props) {
             { color: '#94a3b8', label: 'Chưa có dữ liệu' },
           ].map(item => (
             <div key={item.label} className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: item.color }} />
+              <span className="w-3 h-3 rounded-full shrink-0" style={{ background: item.color }} />
               <span style={{ fontSize: '0.75rem', color: '#475569' }}>{item.label}</span>
             </div>
           ))}

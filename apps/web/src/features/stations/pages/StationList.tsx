@@ -286,7 +286,7 @@ export function StationList({ stations, userRole, onViewStation, onAddStation, o
               <>
                 <div className="px-6 pt-6 pb-4 border-b" style={{ borderColor: '#f1f5f9' }}>
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#fee2e2' }}>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: '#fee2e2' }}>
                       <AlertTriangle size={18} style={{ color: '#dc2626' }} />
                     </div>
                     <AlertDialog.Title asChild><h3 style={{ color: '#0f172a' }}>Vô hiệu hóa trạm?</h3></AlertDialog.Title>
@@ -326,7 +326,7 @@ export function StationList({ stations, userRole, onViewStation, onAddStation, o
                     <AlertDialog.Cancel asChild>
                       <button type="button" className="flex-1 py-2.5 rounded-lg border" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem' }}>Hủy</button>
                     </AlertDialog.Cancel>
-                    <button type="button" onClick={handleDeactivate} disabled={!deactivateDialog.confirmed || deactivating} className="flex-1 py-2.5 rounded-lg transition-all flex items-center justify-center gap-2" style={{ background: deactivateDialog.confirmed ? '#dc2626' : '#e2e8f0', color: deactivateDialog.confirmed ? 'white' : '#94a3b8', fontSize: '0.875rem', fontWeight: 600, cursor: deactivateDialog.confirmed && !deactivating ? 'pointer' : 'not-allowed' }}>
+                    <button type="button" onClick={handleDeactivate} disabled={!deactivateDialog.confirmed || deactivating} className="flex-1 py-2.5 rounded-lg transition flex items-center justify-center gap-2" style={{ background: deactivateDialog.confirmed ? '#dc2626' : '#e2e8f0', color: deactivateDialog.confirmed ? 'white' : '#94a3b8', fontSize: '0.875rem', fontWeight: 600, cursor: deactivateDialog.confirmed && !deactivating ? 'pointer' : 'not-allowed' }}>
                       {deactivating && <Loader2 size={14} className="animate-spin" />}
                       {deactivating ? 'Đang xử lý...' : 'Xác nhận vô hiệu hóa'}
                     </button>

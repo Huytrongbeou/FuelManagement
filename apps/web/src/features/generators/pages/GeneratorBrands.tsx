@@ -104,7 +104,7 @@ export function GeneratorBrands({ brands, models, onUpdate }: Props) {
           <h2 style={{ color: '#0f172a' }}>Hãng máy phát</h2>
           <p style={{ color: '#64748b', fontSize: '0.875rem' }}>{brands.filter(b => b.active).length} hãng đang sử dụng</p>
         </div>
-        <button type="button" onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
+        <button type="button" onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 rounded-lg transition" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
           <Plus size={16} /> Thêm hãng
         </button>
       </div>
@@ -139,7 +139,7 @@ export function GeneratorBrands({ brands, models, onUpdate }: Props) {
               >
                 <td className="px-4 py-3.5 border-b" style={{ borderColor: '#f1f5f9' }}>
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#eff6ff' }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#eff6ff' }}>
                       <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#2563eb' }}>{b.name[0]}</span>
                     </div>
                     <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#1e293b' }}>{b.name}</span>

@@ -324,7 +324,7 @@ export function StationDetail({ station, records, userRole, onBack, onGoToDirect
               {station.currentFuel !== null && (
                 <div className="mt-4">
                   <div className="h-3 rounded-full" style={{ background: '#f1f5f9' }}>
-                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: c.dot }} />
+                    <div className="h-full rounded-full transition" style={{ width: `${pct}%`, background: c.dot }} />
                   </div>
                 </div>
               )}
@@ -343,7 +343,7 @@ export function StationDetail({ station, records, userRole, onBack, onGoToDirect
             <p style={{ color: '#64748b', fontSize: '0.82rem', marginBottom: '16px' }}>
               Nhập nhiên liệu cho trạm này qua màn hình Nhập dữ liệu trực tiếp (có kiểm tra và xác nhận trước khi lưu).
             </p>
-            <button type="button" onClick={onGoToDirectEntry} className="flex items-center gap-2 px-5 py-2.5 rounded-lg transition-all" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
+            <button type="button" onClick={onGoToDirectEntry} className="flex items-center gap-2 px-5 py-2.5 rounded-lg transition" style={{ background: '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
               <Droplets size={15} /> Nhập nhiên liệu
             </button>
           </div>

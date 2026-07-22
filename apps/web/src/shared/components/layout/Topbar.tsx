@@ -48,7 +48,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavi
   return (
     <Tooltip.Provider delayDuration={300}>
       <div
-        className="flex items-center gap-4 px-4 lg:px-6 py-3 border-b flex-shrink-0"
+        className="flex items-center gap-4 px-4 lg:px-6 py-3 border-b shrink-0"
         style={{ background: 'white', borderColor: '#e2e8f0', height: '60px' }}
       >
         {/* Mobile menu */}
@@ -128,7 +128,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavi
               <button
                 type="button"
                 onClick={() => downloadWithAuth('export/snapshot', 'fuel-snapshot.xlsx').catch(e => toast.error((e as Error).message))}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-all"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg border transition"
                 style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.85rem', background: 'white' }}
                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f8fafc'}
                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'white'}
@@ -151,7 +151,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavi
             <button
               type="button"
               onClick={onNavigateToImport}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg transition"
               style={{ background: '#2563eb', color: 'white', fontSize: '0.85rem' }}
               onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#1d4ed8'}
               onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#2563eb'}
@@ -217,7 +217,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavi
                             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
                           >
                             <span
-                              className="w-2 h-2 rounded-full flex-shrink-0"
+                              className="w-2 h-2 rounded-full shrink-0"
                               style={{ background: danger ? '#dc2626' : '#ca8a04' }}
                             />
                             <span className="flex-1 min-w-0">
@@ -225,7 +225,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavi
                               <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontFamily: 'monospace' }}>{s.code}</span>
                             </span>
                             <span
-                              className="flex-shrink-0"
+                              className="shrink-0"
                               style={{ fontSize: '0.8rem', fontWeight: 700, color: danger ? '#dc2626' : '#ca8a04' }}
                             >
                               {s.currentFuel}L
@@ -243,7 +243,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavi
           {/* Avatar */}
           <button
             type="button"
-            className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 transition-opacity hover:opacity-80"
+            className="flex items-center justify-center w-8 h-8 rounded-full shrink-0 transition-opacity hover:opacity-80"
             style={{ background: '#2563eb', color: 'white', fontSize: '0.85rem', fontWeight: 700 }}
           >
             A
