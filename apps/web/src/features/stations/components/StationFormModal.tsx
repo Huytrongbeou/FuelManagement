@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X, MapPin, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { GeneratorBrand, GeneratorModel } from '@/shared/types';
+import { DONG_THAP_PHUONG, DONG_THAP_XA } from '@/shared/data/dongthap-admin-units';
 import { createStation } from '../api/stationApi';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -56,7 +57,9 @@ interface FormState {
 
 const EMPTY: FormState = {
   stationCode: '', stationName: '', generatorName: '', address: '',
-  currentAdminUnitName: 'TP. Cao Lãnh', legacyAreaName: '', operationAreaName: '',
+  // Mặc định Phường Cao Lãnh (nơi phần lớn trạm đặt), nhưng chọn được mọi phường/xã của
+  // tỉnh Đồng Tháp mới sau sắp xếp 01/7/2025.
+  currentAdminUnitName: 'Phường Cao Lãnh', legacyAreaName: '', operationAreaName: '',
   latitude: '', longitude: '',
   brandId: '', modelId: '',
   powerKva: '', fuelType: 'diesel', consumptionRate: '', maxCapacity: '',
@@ -94,8 +97,16 @@ function BasicInfoFields({ form, set }: BasicInfoFieldsProps) {
           <input id="station-address" style={INPUT_STYLE} placeholder="Số nhà, tên đường..." value={form.address} onChange={e => set('address', e.target.value)} />
         </div>
         <div>
-          <label htmlFor="admin-unit" style={LABEL_STYLE}>Đơn vị hành chính</label>
-          <input id="admin-unit" style={INPUT_STYLE} value={form.currentAdminUnitName} onChange={e => set('currentAdminUnitName', e.target.value)} />
+          <label htmlFor="admin-unit" style={LABEL_STYLE}>Đơn vị hành chính (phường/xã)</label>
+          <select id="admin-unit" style={INPUT_STYLE} value={form.currentAdminUnitName} onChange={e => set('currentAdminUnitName', e.target.value)}>
+            <option value="">— Chọn phường/xã —</option>
+            <optgroup label="Phường">
+              {DONG_THAP_PHUONG.map(name => <option key={name} value={name}>{name}</option>)}
+            </optgroup>
+            <optgroup label="Xã">
+              {DONG_THAP_XA.map(name => <option key={name} value={name}>{name}</option>)}
+            </optgroup>
+          </select>
         </div>
         <div>
           <label htmlFor="legacy-area" style={LABEL_STYLE}>Địa bàn cũ</label>
