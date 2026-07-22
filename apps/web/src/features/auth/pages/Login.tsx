@@ -1,8 +1,8 @@
 import { useState, useReducer } from 'react';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ServerCog } from 'lucide-react';
 import { LazyMotion, m, domAnimation } from 'motion/react';
 import { login } from '../api/authApi';
-import { setToken } from '@/shared/api/client';
+import { setToken, getApiBase, setApiBase } from '@/shared/api/client';
 
 interface LoginProps {
   onLogin: () => void;
@@ -28,6 +28,8 @@ function formReducer(state: FormState, action: FormAction): FormState {
 export function Login({ onLogin }: LoginProps) {
   const [form, dispatch] = useReducer(formReducer, { username: '', password: '', loading: false, error: '' });
   const [showPassword, setShowPassword] = useState(false);
+  const [showServer, setShowServer] = useState(false);
+  const [serverInput, setServerInput] = useState(getApiBase);
   const { username, password, loading, error } = form;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -202,9 +204,48 @@ export function Login({ onLogin }: LoginProps) {
             </button>
           </form>
 
-          <p className="text-center mt-6" style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
-            Tài khoản: admin / admin123
-          </p>
+          {/* Server address, editable here on purpose: if it is wrong there is no way to log in
+              and reach any other screen. Lets one installed APK follow the server as its address
+              changes (demo tunnel, LAN IP, VNPT server) without a rebuild. */}
+          <div className="text-center mt-6">
+            <button
+              type="button"
+              onClick={() => setShowServer(v => !v)}
+              className="inline-flex items-center gap-1.5"
+              style={{ color: '#94a3b8', fontSize: '0.8rem' }}
+            >
+              <ServerCog size={14} />
+              Cấu hình máy chủ
+            </button>
+          </div>
+
+          {showServer && (
+            <div className="mt-3 rounded-lg border p-3" style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}>
+              <label htmlFor="api-base" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                Địa chỉ máy chủ
+              </label>
+              <input
+                id="api-base"
+                value={serverInput}
+                onChange={e => setServerInput(e.target.value)}
+                placeholder="https://vi-du.trycloudflare.com"
+                className="w-full px-3 py-2 rounded-lg border outline-none"
+                style={{ borderColor: '#e2e8f0', background: 'white', color: '#1e293b', fontSize: '0.85rem' }}
+              />
+              <p style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '6px', lineHeight: 1.5 }}>
+                Dán địa chỉ máy chủ rồi bấm Lưu. Thiếu <code>/api</code> ở cuối sẽ được tự thêm.
+                Để trống rồi Lưu để quay về địa chỉ mặc định.
+              </p>
+              <button
+                type="button"
+                onClick={() => { setApiBase(serverInput); window.location.reload(); }}
+                className="mt-2 w-full py-2 rounded-lg"
+                style={{ background: '#0c2340', color: 'white', fontSize: '0.85rem', fontWeight: 600 }}
+              >
+                Lưu và tải lại
+              </button>
+            </div>
+          )}
 
           <div className="mt-8 pt-6 border-t" style={{ borderColor: '#f1f5f9' }}>
             <p style={{ color: '#94a3b8', fontSize: '0.8rem', textAlign: 'center' }}>

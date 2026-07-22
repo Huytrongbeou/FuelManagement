@@ -1,6 +1,37 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const BUILD_TIME_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
+const API_BASE_KEY = 'fuel:v1:apiBase';
 const TOKEN_KEY = 'fuel:v1:token';
+
+/**
+ * Server address, resolved per request rather than frozen at module load.
+ *
+ * A packaged APK would otherwise be locked to whatever URL it was built against, and the address
+ * does change independently of app releases — a demo tunnel hands out a new URL every restart, a
+ * DHCP LAN IP moves, and the VNPT server will have a different one again. Storing an override on
+ * the device means the address can be corrected in the app instead of rebuilding and reinstalling.
+ */
+export function getApiBase(): string {
+  return localStorage.getItem(API_BASE_KEY) || BUILD_TIME_API_URL;
+}
+
+/** Forgiving about what a user actually pastes: trailing slashes, and a missing `/api` suffix. */
+export function normalizeApiBase(input: string): string {
+  const trimmed = input.trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  return /\/api$/i.test(trimmed) ? trimmed : `${trimmed}/api`;
+}
+
+/** Empty input clears the override and falls back to the address baked in at build time. */
+export function setApiBase(input: string): void {
+  const normalized = normalizeApiBase(input);
+  if (normalized) localStorage.setItem(API_BASE_KEY, normalized);
+  else localStorage.removeItem(API_BASE_KEY);
+}
+
+export function getApiBaseOverride(): string | null {
+  return localStorage.getItem(API_BASE_KEY);
+}
 
 /**
  * Bearer token support. The browser build can rely on the gateway's HttpOnly cookie, but a
@@ -38,7 +69,7 @@ async function request<T>(
     ...headers,
   };
 
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(`${getApiBase()}${path}`, {
     method,
     headers: reqHeaders,
     credentials: 'include',
@@ -91,8 +122,7 @@ function blobToBase64(blob: Blob): Promise<string> {
  * how a user actually gets an .xlsx off a phone (save to Files, send via Zalo/email, ...).
  */
 export async function downloadWithAuth(path: string, filename: string): Promise<void> {
-  const base = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-  const baseUrl = base.replace(/\/$/, '');
+  const baseUrl = getApiBase().replace(/\/$/, '');
   const cleanPath = path.replace(/^\//, '');
 
   const res = await fetch(`${baseUrl}/${cleanPath}`, { credentials: 'include', headers: authHeader() });
@@ -134,7 +164,7 @@ export async function uploadFile<T>(path: string, file: File, fieldName = 'file'
   const form = new FormData();
   form.append(fieldName, file);
   // No Content-Type here on purpose — the browser sets the multipart boundary itself.
-  const res = await fetch(`${API_URL}${path}`, { method: 'POST', credentials: 'include', headers: authHeader(), body: form });
+  const res = await fetch(`${getApiBase()}${path}`, { method: 'POST', credentials: 'include', headers: authHeader(), body: form });
   if (res.status === 401) { clearAuth(); window.location.reload(); throw new Error('Unauthorized'); }
   if (!res.ok) {
     let msg = res.statusText;
