@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Droplets, Clock, ExternalLink, AlertTriangle } from 'lucide-react';
+import { X, Droplets, Clock, ExternalLink, AlertTriangle, List } from 'lucide-react';
 import { Station, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/shared/types';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -71,6 +71,8 @@ export function MapView({ stations, onViewStation }: Props) {
   const markersRef = useRef<L.Marker[]>([]);
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  // Drawer state for phones; on lg+ the panel is always visible and this is ignored.
+  const [panelOpen, setPanelOpen] = useState(false);
 
   const green  = stations.filter(s => getFuelStatus(s.currentFuel) === 'green').length;
   const yellow = stations.filter(s => getFuelStatus(s.currentFuel) === 'yellow').length;
@@ -131,12 +133,29 @@ export function MapView({ stations, onViewStation }: Props) {
   const noCoords = stations.filter(s => s.lat === null || s.lng === null).length;
 
   return (
-    <div className="flex h-full">
-      {/* Side panel */}
-      <div className="flex flex-col w-72 flex-shrink-0 border-r overflow-y-auto" style={{ background: 'white', borderColor: '#e2e8f0' }}>
+    <div className="flex h-full relative">
+      {/* Side panel — a static column on desktop, a dismissible drawer on phones where a fixed
+          288px column would leave almost nothing for the map itself. */}
+      <div
+        className={`${panelOpen ? 'flex' : 'hidden'} lg:flex flex-col w-72 flex-shrink-0 border-r overflow-y-auto absolute lg:relative inset-y-0 left-0 z-[1100] lg:z-auto`}
+        style={{ background: 'white', borderColor: '#e2e8f0' }}
+      >
         <div className="px-4 py-4 border-b" style={{ borderColor: '#f1f5f9' }}>
-          <h3 style={{ color: '#0f172a', marginBottom: '4px' }}>Bản đồ trạm</h3>
-          <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '12px' }}>TP. Cao Lãnh, Đồng Tháp</p>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h3 style={{ color: '#0f172a', marginBottom: '4px' }}>Bản đồ trạm</h3>
+              <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '12px' }}>TP. Cao Lãnh, Đồng Tháp</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPanelOpen(false)}
+              aria-label="Đóng danh sách trạm"
+              className="lg:hidden p-1.5 rounded-lg flex-shrink-0"
+              style={{ color: '#64748b', background: '#f1f5f9' }}
+            >
+              <X size={18} />
+            </button>
+          </div>
 
           <div className="grid grid-cols-2 gap-2 mb-4">
             {[
@@ -196,6 +215,9 @@ export function MapView({ stations, onViewStation }: Props) {
                   key={s.id}
                   onClick={() => {
                     setSelectedStation(s);
+                    // On phones the drawer covers the map, so close it to reveal the station
+                    // that was just selected.
+                    setPanelOpen(false);
                     if (hasCoords && mapRef.current) {
                       mapRef.current.setView([s.lat!, s.lng!], 15, { animate: true });
                     }
@@ -231,14 +253,26 @@ export function MapView({ stations, onViewStation }: Props) {
       <div className="flex-1 relative">
         <div ref={mapDivRef} style={{ width: '100%', height: '100%' }} />
 
+        {/* Opens the station list drawer on phones, where the panel is hidden by default */}
+        {!panelOpen && (
+          <button
+            type="button"
+            onClick={() => setPanelOpen(true)}
+            className="lg:hidden absolute top-4 left-4 flex items-center gap-2 px-3 py-2 rounded-lg border shadow-md"
+            style={{ background: 'white', borderColor: '#e2e8f0', color: '#1e293b', fontSize: '0.8rem', fontWeight: 600, zIndex: 1000 }}
+          >
+            <List size={16} /> Danh sách trạm
+          </button>
+        )}
+
         {/* Station popup */}
         {selectedStation && (() => {
           const status = getFuelStatus(selectedStation.currentFuel);
           const c = fuelStatusColor(status);
           return (
             <div
-              className="absolute top-4 right-4 rounded-xl border shadow-xl overflow-hidden"
-              style={{ background: 'white', borderColor: '#e2e8f0', width: '280px', zIndex: 1000 }}
+              className="absolute top-4 right-4 left-4 sm:left-auto rounded-xl border shadow-xl overflow-hidden"
+              style={{ background: 'white', borderColor: '#e2e8f0', maxWidth: '280px', marginLeft: 'auto', zIndex: 1000 }}
             >
               <div className="flex items-start justify-between px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', background: c.bg }}>
                 <div>
