@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Search, Download, Upload, Bell, Menu, CheckCircle2, RefreshCw } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { toast } from 'sonner';
-import { Station } from '@/shared/types';
+import { Station, getFuelStatus } from '@/shared/types';
 import { downloadWithAuth } from '@/shared/api/client';
 import { canEnterFuel } from '@/shared/auth/permissions';
 
@@ -18,6 +18,19 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavi
   const [query, setQuery] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [showAlerts, setShowAlerts] = useState(false);
+
+  // Stations needing attention: red (< 10 L) first, then yellow (10–20 L). Stations with no
+  // fuel data yet are excluded — "unknown" is not an alert.
+  const alerts = stations
+    .filter(s => {
+      const status = getFuelStatus(s.currentFuel);
+      return status === 'red' || status === 'yellow';
+    })
+    .sort((a, b) => {
+      const rank = (s: Station) => (getFuelStatus(s.currentFuel) === 'red' ? 0 : 1);
+      return rank(a) - rank(b) || (a.currentFuel ?? 0) - (b.currentFuel ?? 0);
+    });
 
   const results = query.length > 1
     ? stations.filter(s =>
@@ -148,20 +161,84 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavi
             </button>
           )}
 
-          {/* Notification */}
-          <button
-            type="button"
-            className="relative p-2 rounded-lg transition-colors"
-            style={{ color: '#475569' }}
-            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f8fafc'}
-            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
-          >
-            <Bell size={18} />
-            <span
-              className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-              style={{ background: '#ef4444' }}
-            />
-          </button>
+          {/* Notifications — real fuel alerts derived from the stations already loaded */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowAlerts(v => !v)}
+              aria-label={`Thông báo${alerts.length ? ` (${alerts.length} cảnh báo)` : ''}`}
+              className="relative p-2 rounded-lg transition-colors"
+              style={{ color: '#475569' }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f8fafc'}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+            >
+              <Bell size={18} />
+              {/* Only badge when there is something to report — no permanent fake dot */}
+              {alerts.length > 0 && (
+                <span
+                  className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center"
+                  style={{ background: '#ef4444', color: 'white', fontSize: '0.65rem', fontWeight: 700 }}
+                >
+                  {alerts.length > 99 ? '99+' : alerts.length}
+                </span>
+              )}
+            </button>
+
+            {showAlerts && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowAlerts(false)} aria-hidden="true" />
+                <div
+                  className="absolute right-0 mt-2 rounded-xl border shadow-xl z-50 overflow-hidden"
+                  style={{ background: 'white', borderColor: '#e2e8f0', width: 'min(320px, calc(100vw - 2rem))' }}
+                >
+                  <div className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}>
+                    <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>Cảnh báo nhiên liệu</div>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                      {alerts.length > 0 ? `${alerts.length} trạm cần chú ý` : 'Không có cảnh báo'}
+                    </div>
+                  </div>
+
+                  {alerts.length === 0 ? (
+                    <div className="px-4 py-6 text-center" style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+                      Tất cả trạm đều đủ nhiên liệu.
+                    </div>
+                  ) : (
+                    <div className="max-h-80 overflow-y-auto">
+                      {alerts.map(s => {
+                        const danger = getFuelStatus(s.currentFuel) === 'red';
+                        return (
+                          <button
+                            type="button"
+                            key={s.id}
+                            onClick={() => { onNavigateToStation?.(s.id); setShowAlerts(false); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors border-b last:border-b-0"
+                            style={{ borderColor: '#f8fafc' }}
+                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f8fafc'}
+                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                          >
+                            <span
+                              className="w-2 h-2 rounded-full flex-shrink-0"
+                              style={{ background: danger ? '#dc2626' : '#ca8a04' }}
+                            />
+                            <span className="flex-1 min-w-0">
+                              <span className="block truncate" style={{ fontSize: '0.82rem', color: '#1e293b' }}>{s.name}</span>
+                              <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontFamily: 'monospace' }}>{s.code}</span>
+                            </span>
+                            <span
+                              className="flex-shrink-0"
+                              style={{ fontSize: '0.8rem', fontWeight: 700, color: danger ? '#dc2626' : '#ca8a04' }}
+                            >
+                              {s.currentFuel}L
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Avatar */}
           <button
