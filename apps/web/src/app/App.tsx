@@ -136,11 +136,15 @@ export default function App() {
     } catch {}
   }, []);
 
+  // Load the session + data whenever the user becomes logged in. This must follow the live
+  // isLoggedIn state, not the module-level _hasUser snapshot: that constant is evaluated once
+  // when the bundle loads, so it stays false through a fresh login and the app would render
+  // with no data until the page was reloaded.
   useEffect(() => {
-    if (!_hasUser) return;
+    if (!isLoggedIn) return;
     getMe().then(user => dispatchAuth({ type: 'set-user', user })).catch(() => {});
     fetchAll();
-  }, [fetchAll]);
+  }, [isLoggedIn, fetchAll]);
 
   // Android hardware back button (native builds only). This app navigates by state, not by URL,
   // so without this the OS back button would close the app from any screen. Order: close an open
