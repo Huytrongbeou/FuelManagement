@@ -110,7 +110,7 @@ export default function App() {
   // Mirrors nav for the back-button listener, which is registered once and would otherwise
   // capture the initial state forever.
   const navRef = useRef(nav);
-  navRef.current = nav;
+  useEffect(() => { navRef.current = nav; });
 
   const handleLogout = () => {
     api.post('/auth/logout').catch(() => {}); // clears HttpOnly cookie server-side (fire-and-forget)

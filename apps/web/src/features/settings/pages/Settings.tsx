@@ -1,4 +1,4 @@
-import { useState, useRef, useReducer, useMemo } from 'react';
+import { useState, useEffect, useReducer, useMemo } from 'react';
 import { User, Bell, Shield, Database, Save, Camera, ClipboardList, Check, X } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { toast } from 'sonner';
@@ -272,13 +272,12 @@ export function Settings({ userRole, stations = EMPTY_STATIONS }: SettingsProps)
 
   const stationMap = useMemo(() => new Map(stations.map(s => [s.id, s.name])), [stations]);
 
-  const hasFetchedAdjRef = useRef(false);
-  if (userRole === 'admin' && !hasFetchedAdjRef.current) {
-    hasFetchedAdjRef.current = true;
+  useEffect(() => {
+    if (userRole !== 'admin') return;
     listAdjustmentRequests({ status: 'pending' })
       .then(requests => { dispatchAdj({ type: 'fetched', requests }); })
       .catch(() => { toast.error('Lỗi tải danh sách yêu cầu điều chỉnh'); dispatchAdj({ type: 'fetch-error' }); });
-  }
+  }, [userRole]);
 
   const handleApprove = async (req: AdjustmentRequest) => {
     dispatchAdj({ type: 'processing-start', id: req.id });

@@ -200,9 +200,9 @@ export function StationFormModal({ open, onClose, brands, models, onCreated }: P
 
   const set = (field: keyof FormState, value: string) => setForm(f => ({ ...f, [field]: value }));
 
-  const prevOpenRef = useRef(open);
-  if (open !== prevOpenRef.current) {
-    prevOpenRef.current = open;
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) { setForm(EMPTY); setShowMapPicker(false); }
   }
 

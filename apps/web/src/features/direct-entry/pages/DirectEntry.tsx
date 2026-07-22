@@ -269,12 +269,12 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
   const [save, dispatchSave] = useReducer(saveReducer, { saving: false, successOpen: false, doubleSubmitOpen: false, warningAckOpen: false });
   const lastSubmitRef = useRef<{ signature: string; time: number } | null>(null);
   const pendingSubmitRef = useRef<(() => Promise<void>) | null>(null);
-  const hasAutoLoadedRef = useRef(false);
+  const [hasAutoLoaded, setHasAutoLoaded] = useState(false);
 
   // Auto-load once when stations first become available.
-  // Called during render (not effect) so rows are ready before the first paint.
-  if (!hasAutoLoadedRef.current && stations.length > 0) {
-    hasAutoLoadedRef.current = true;
+  // Set during render (not effect) so rows are ready before the first paint.
+  if (!hasAutoLoaded && stations.length > 0) {
+    setHasAutoLoaded(true);
     setRows(stations.map(s => ({
       id: s.id, stationId: s.id, code: s.code, name: s.name,
       added: '', hoursRun: '', date: TODAY, note: '',
