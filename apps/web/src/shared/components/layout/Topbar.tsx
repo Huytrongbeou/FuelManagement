@@ -14,11 +14,31 @@ interface TopbarProps {
   userRole?: string;
 }
 
+const SEEN_ALERTS_KEY = 'fuel:v1:seenAlerts';
+
+/**
+ * Identifies an alert by station *and* severity, so a station sliding from yellow to red counts
+ * as something new to look at rather than staying silently "already seen".
+ */
+function alertKey(stationId: string, status: string) {
+  return `${stationId}:${status}`;
+}
+
+function loadSeenAlerts(): Set<string> {
+  try {
+    const raw = localStorage.getItem(SEEN_ALERTS_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
 export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavigateToImport, userRole }: TopbarProps) {
   const [query, setQuery] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
+  const [seenAlerts, setSeenAlerts] = useState<Set<string>>(loadSeenAlerts);
 
   // Stations needing attention: red (< 10 L) first, then yellow (10–20 L). Stations with no
   // fuel data yet are excluded — "unknown" is not an alert.
@@ -31,6 +51,26 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavi
       const rank = (s: Station) => (getFuelStatus(s.currentFuel) === 'red' ? 0 : 1);
       return rank(a) - rank(b) || (a.currentFuel ?? 0) - (b.currentFuel ?? 0);
     });
+
+  // These alerts are derived live from fuel levels, not a message inbox: a low station stays low
+  // until someone refuels it. So the badge counts only what hasn't been looked at yet, while the
+  // dropdown still lists every station that needs attention.
+  const unseenCount = alerts.reduce(
+    (n, s) => n + (seenAlerts.has(alertKey(s.id, getFuelStatus(s.currentFuel))) ? 0 : 1),
+    0
+  );
+
+  const openAlerts = () => {
+    setShowAlerts(true);
+    const next = new Set(seenAlerts);
+    for (const s of alerts) next.add(alertKey(s.id, getFuelStatus(s.currentFuel)));
+    setSeenAlerts(next);
+    // Keep only keys still relevant, so the list can't grow without bound as stations recover.
+    const live = new Set(alerts.map(s => alertKey(s.id, getFuelStatus(s.currentFuel))));
+    try {
+      localStorage.setItem(SEEN_ALERTS_KEY, JSON.stringify([...next].filter(k => live.has(k))));
+    } catch {}
+  };
 
   const results = query.length > 1
     ? stations.filter(s =>
@@ -165,21 +205,21 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavi
           <div className="relative">
             <button
               type="button"
-              onClick={() => setShowAlerts(v => !v)}
-              aria-label={`Thông báo${alerts.length ? ` (${alerts.length} cảnh báo)` : ''}`}
+              onClick={() => (showAlerts ? setShowAlerts(false) : openAlerts())}
+              aria-label={`Thông báo${unseenCount ? ` (${unseenCount} cảnh báo chưa xem)` : ''}`}
               className="relative p-2 rounded-lg transition-colors"
               style={{ color: '#475569' }}
               onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f8fafc'}
               onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
             >
               <Bell size={18} />
-              {/* Only badge when there is something to report — no permanent fake dot */}
-              {alerts.length > 0 && (
+              {/* Badge counts unseen alerts only, so it clears once they've been read */}
+              {unseenCount > 0 && (
                 <span
                   className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center"
                   style={{ background: '#ef4444', color: 'white', fontSize: '0.65rem', fontWeight: 700 }}
                 >
-                  {alerts.length > 99 ? '99+' : alerts.length}
+                  {unseenCount > 99 ? '99+' : unseenCount}
                 </span>
               )}
             </button>

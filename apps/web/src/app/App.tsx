@@ -18,6 +18,7 @@ import { ImportHistory } from '@/features/import-export/pages/ImportHistory';
 import { GeneratorBrands } from '@/features/generators/pages/GeneratorBrands';
 import { GeneratorModels } from '@/features/generators/pages/GeneratorModels';
 import { Settings } from '@/features/settings/pages/Settings';
+import { Users } from '@/features/users/pages/Users';
 import { StationFormModal } from '@/features/stations/components/StationFormModal';
 import type { Page, Station, GeneratorBrand, GeneratorModel } from '@/shared/types';
 import { getStations, getStation } from '@/features/stations/api/stationApi';
@@ -215,7 +216,7 @@ export default function App() {
   const renderContent = () => {
     const role = currentUser?.role;
     const managerPages: Page[] = ['directEntry', 'import', 'history'];
-    const adminPages: Page[] = ['brands', 'models'];
+    const adminPages: Page[] = ['brands', 'models', 'users'];
     if (role === 'staff' && (managerPages.includes(currentPage) || adminPages.includes(currentPage))) {
       return <Dashboard stations={stations} onViewStation={handleViewStation} />;
     }
@@ -291,6 +292,8 @@ export default function App() {
             onUpdate={(updated) => { dispatchData({ type: 'update-models', models: updated }); }}
           />
         );
+      case 'users':
+        return <Users currentUserId={currentUser?.id} />;
       case 'settings':
         return <Settings userRole={currentUser?.role} stations={stations} />;
       default:

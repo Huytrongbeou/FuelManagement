@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Map, Upload, History, Settings, ChevronRight, Cpu, Factory, X, ClipboardList, LogOut } from 'lucide-react';
+import { LayoutDashboard, MapPin, Map, Upload, History, Settings, ChevronRight, Cpu, Factory, X, ClipboardList, LogOut, Users } from 'lucide-react';
 import { Page } from '@/shared/types';
 
 interface SidebarProps {
@@ -45,6 +45,8 @@ const navGroups = [
   {
     label: 'Hệ thống',
     items: [
+      // "Hệ thống" itself is visible to everyone, so this one item carries its own admin gate.
+      { page: 'users'    as Page, label: 'Quản lý người dùng',  icon: Users, adminOnly: true },
       { page: 'settings' as Page, label: 'Tài khoản / Cài đặt', icon: Settings },
     ],
   },
@@ -92,7 +94,7 @@ export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobi
               </div>
             )}
             <div className="space-y-0.5">
-              {group.items.map(({ page, label, icon: Icon }) => {
+              {group.items.flatMap(item => (item.adminOnly && userRole !== 'admin' ? [] : [item])).map(({ page, label, icon: Icon }) => {
                 const active = currentPage === page;
                 return (
                   <button

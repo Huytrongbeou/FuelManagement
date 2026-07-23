@@ -54,6 +54,9 @@ app.post('/api/fuel/current/init', (_req, res) => {
 
 // ── 4. Protected proxy wildcards — AFTER specifics and blocks ────────────────
 app.all('/api/auth*', requireAuth, createProxyMiddleware({ target: AUTH_URL, changeOrigin: true, ...stripApi }))
+// User administration lives in auth-service; the admin-only check is enforced there via the
+// x-user-role header this gateway sets.
+app.all('/api/users*', requireAuth, createProxyMiddleware({ target: AUTH_URL, changeOrigin: true, ...stripApi }))
 app.all('/api/brands*', requireAuth, createProxyMiddleware({ target: STATION_URL, changeOrigin: true, ...stripApi }))
 app.all('/api/models*', requireAuth, createProxyMiddleware({ target: STATION_URL, changeOrigin: true, ...stripApi }))
 app.all('/api/stations*', requireAuth, createProxyMiddleware({ target: STATION_URL, changeOrigin: true, ...stripApi }))

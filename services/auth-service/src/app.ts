@@ -1,5 +1,6 @@
 import express from 'express'
 import authRoutes from './routes/auth.routes'
+import userRoutes from './routes/user.routes'
 import { prisma } from './lib/prisma'
 
 const app = express()
@@ -16,5 +17,6 @@ app.get('/health', async (_req, res) => {
 })
 
 app.use('/auth', authRoutes)
+app.use('/users', userRoutes)
 
 export default app
