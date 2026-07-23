@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Map, Upload, History, Settings, ChevronRight, Cpu, Factory, X, ClipboardList, LogOut, Users } from 'lucide-react';
+import { LayoutDashboard, MapPin, Map, Upload, History, Settings, ChevronRight, Cpu, Factory, X, ClipboardList, ClipboardCheck, LogOut, Users } from 'lucide-react';
 import { Page } from '@/shared/types';
 
 interface SidebarProps {
@@ -25,6 +25,7 @@ const navGroups = [
       { page: 'dashboard'  as Page, label: 'Dashboard',              icon: LayoutDashboard },
       { page: 'stations'   as Page, label: 'Danh sách trạm',         icon: MapPin },
       { page: 'map'        as Page, label: 'Bản đồ trạm',            icon: Map },
+      { page: 'stationRequests' as Page, label: 'Duyệt đề xuất trạm', icon: ClipboardCheck, reviewerOnly: true },
     ],
   },
   {
@@ -94,7 +95,10 @@ export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobi
               </div>
             )}
             <div className="space-y-0.5">
-              {group.items.flatMap(item => (item.adminOnly && userRole !== 'admin' ? [] : [item])).map(({ page, label, icon: Icon }) => {
+              {group.items.flatMap(item => (
+                (item.adminOnly && userRole !== 'admin') ||
+                (item.reviewerOnly && userRole !== 'admin' && userRole !== 'manager') ? [] : [item]
+              )).map(({ page, label, icon: Icon }) => {
                 const active = currentPage === page;
                 return (
                   <button

@@ -19,6 +19,7 @@ import { GeneratorBrands } from '@/features/generators/pages/GeneratorBrands';
 import { GeneratorModels } from '@/features/generators/pages/GeneratorModels';
 import { Settings } from '@/features/settings/pages/Settings';
 import { Users } from '@/features/users/pages/Users';
+import { StationRequests } from '@/features/stations/pages/StationRequests';
 import { StationFormModal } from '@/features/stations/components/StationFormModal';
 import type { Page, Station, GeneratorBrand, GeneratorModel } from '@/shared/types';
 import { getStations, getStation } from '@/features/stations/api/stationApi';
@@ -28,7 +29,7 @@ import { getJobs } from '@/features/import-export/api/importApi';
 import type { ImportSession } from '@/shared/types';
 import { getMe } from '@/features/auth/api/authApi';
 import type { AuthUser } from '@/features/auth/api/authApi';
-import { canManageStations } from '@/shared/auth/permissions';
+import { canManageStations, canReviewStationRequests } from '@/shared/auth/permissions';
 
 // Auth
 type AuthState = { isLoggedIn: boolean; currentUser: AuthUser | null };
@@ -217,6 +218,10 @@ export default function App() {
     const role = currentUser?.role;
     const managerPages: Page[] = ['directEntry', 'import', 'history'];
     const adminPages: Page[] = ['brands', 'models', 'users'];
+    // Staff may propose stations but not review them.
+    if (currentPage === 'stationRequests' && !canReviewStationRequests(role)) {
+      return <Dashboard stations={stations} onViewStation={handleViewStation} />;
+    }
     if (role === 'staff' && (managerPages.includes(currentPage) || adminPages.includes(currentPage))) {
       return <Dashboard stations={stations} onViewStation={handleViewStation} />;
     }
@@ -252,7 +257,7 @@ export default function App() {
             stations={stations}
             userRole={currentUser?.role}
             onViewStation={handleViewStation}
-            onAddStation={canManageStations(currentUser?.role) ? () => setAddStationOpen(true) : undefined}
+            onAddStation={() => setAddStationOpen(true)}
             onGoToDirectEntry={() => handleNavigate('directEntry')}
             onStationsChanged={fetchAll}
           />
@@ -292,6 +297,8 @@ export default function App() {
             onUpdate={(updated) => { dispatchData({ type: 'update-models', models: updated }); }}
           />
         );
+      case 'stationRequests':
+        return <StationRequests onStationsChanged={fetchAll} />;
       case 'users':
         return <Users currentUserId={currentUser?.id} />;
       case 'settings':
@@ -369,6 +376,7 @@ export default function App() {
         brands={brands}
         models={models}
         onCreated={fetchAll}
+        submitAsRequest={!canManageStations(currentUser.role)}
       />
     </>
     </LazyMotion>

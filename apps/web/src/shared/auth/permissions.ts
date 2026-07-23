@@ -12,3 +12,8 @@ export function canEnterFuel(role?: string): boolean {
 export function canManageUsers(role?: string): boolean {
   return role === 'admin';
 }
+
+/** Anyone signed in may propose a station; only these roles may turn a proposal into one. */
+export function canReviewStationRequests(role?: string): boolean {
+  return role === 'admin' || role === 'manager';
+}

@@ -1,5 +1,5 @@
 export type FuelStatus = 'green' | 'yellow' | 'red' | 'gray';
-export type Page = 'dashboard' | 'stations' | 'map' | 'directEntry' | 'import' | 'history' | 'brands' | 'models' | 'users' | 'settings';
+export type Page = 'dashboard' | 'stations' | 'map' | 'directEntry' | 'import' | 'history' | 'brands' | 'models' | 'stationRequests' | 'users' | 'settings';
 
 export interface GeneratorBrand {
   id: string;

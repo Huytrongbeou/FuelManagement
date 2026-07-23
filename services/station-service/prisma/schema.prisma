@@ -76,3 +76,39 @@ model Station {
   @@index([isActive], map: "idx_stations_active")
   @@map("stations")
 }
+
+/// Đề xuất tạo trạm mới. Nhân viên gửi đề xuất, quản lý/admin duyệt; chỉ khi duyệt mới sinh ra
+/// Station thật. Tách bảng riêng để mọi truy vấn trạm hiện có không phải lọc bỏ bản nháp.
+model StationRequest {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stationCode          String    @map("station_code") @db.VarChar(50)
+  stationName          String    @map("station_name") @db.VarChar(200)
+  generatorName        String?   @map("generator_name") @db.VarChar(200)
+  address              String?
+  latitude             Decimal?  @db.Decimal(10, 7)
+  longitude            Decimal?  @db.Decimal(10, 7)
+  currentAdminUnitName String?   @map("current_admin_unit_name") @db.VarChar(100)
+  legacyAreaName       String?   @map("legacy_area_name") @db.VarChar(100)
+  operationAreaName    String?   @map("operation_area_name") @db.VarChar(100)
+  brandId              String?   @map("brand_id") @db.Uuid
+  modelId              String?   @map("model_id") @db.Uuid
+  powerKva             Decimal?  @map("power_kva") @db.Decimal(8, 2)
+  fuelType             String    @default("diesel") @map("fuel_type") @db.VarChar(50)
+  consumptionRate      Decimal   @map("consumption_rate") @db.Decimal(6, 3)
+  maxCapacity          Decimal   @map("max_capacity") @db.Decimal(8, 2)
+  initialFuel          Decimal   @default(0) @map("initial_fuel") @db.Decimal(8, 2)
+  notes                String?
+
+  /// pending → approving (đang giành quyền, thoáng qua) → approved | rejected
+  status           String    @default("pending") @db.VarChar(20)
+  requestedBy      String    @map("requested_by") @db.VarChar(100)
+  requestedAt      DateTime  @default(now()) @map("requested_at") @db.Timestamptz
+  reviewedBy       String?   @map("reviewed_by") @db.VarChar(100)
+  reviewedAt       DateTime? @map("reviewed_at") @db.Timestamptz
+  rejectionReason  String?   @map("rejection_reason")
+  /// Đặt khi duyệt thành công — cho phép duyệt lại mà không sinh trạm thứ hai.
+  createdStationId String?   @map("created_station_id") @db.Uuid
+
+  @@index([status], map: "idx_station_requests_status")
+  @@map("station_requests")
+}

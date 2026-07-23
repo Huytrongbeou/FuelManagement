@@ -1,5 +1,6 @@
 import express from 'express'
 import stationRoutes from './routes/station.routes'
+import stationRequestRoutes from './routes/station-request.routes'
 import brandRoutes from './routes/generator-brand.routes'
 import modelRoutes from './routes/generator-model.routes'
 import { prisma } from './lib/prisma'
@@ -18,6 +19,7 @@ app.get('/health', async (_req, res) => {
 })
 
 app.use('/stations', stationRoutes)
+app.use('/station-requests', stationRequestRoutes)
 app.use('/brands', brandRoutes)
 app.use('/models', modelRoutes)
 

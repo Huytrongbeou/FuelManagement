@@ -32,4 +32,10 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Filling a station's coordinates from where the user is standing. Coarse is listed too so
+         the request still succeeds on devices/locales where the user only grants approximate
+         location — good enough to place a station, and Android requires both to be declared. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 </manifest>

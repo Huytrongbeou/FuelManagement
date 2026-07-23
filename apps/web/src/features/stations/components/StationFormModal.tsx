@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, MapPin, Loader2 } from 'lucide-react';
+import { X, MapPin, Loader2, LocateFixed } from 'lucide-react';
 import { toast } from 'sonner';
 import { GeneratorBrand, GeneratorModel } from '@/shared/types';
 import { DONG_THAP_PHUONG, DONG_THAP_XA } from '@/shared/data/dongthap-admin-units';
+import { getCurrentPosition } from '@/shared/utils/geolocation';
 import { createStation } from '../api/stationApi';
+import { createStationRequest } from '../api/stationRequestApi';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -33,6 +35,8 @@ interface Props {
   brands: GeneratorBrand[];
   models: GeneratorModel[];
   onCreated: () => void;
+  /** Staff can't create stations directly — their submission becomes a proposal to review. */
+  submitAsRequest?: boolean;
 }
 
 interface FormState {
@@ -189,10 +193,11 @@ function GeneratorFields({ form, brands, filteredModels, onBrandChange, onModelC
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function StationFormModal({ open, onClose, brands, models, onCreated }: Props) {
+export function StationFormModal({ open, onClose, brands, models, onCreated, submitAsRequest = false }: Props) {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -276,6 +281,31 @@ export function StationFormModal({ open, onClose, brands, models, onCreated }: P
   // oxlint-disable-next-line react-doctor/exhaustive-deps -- Leaflet map init reads form coords at open-time only; mapRef.current guards re-init
   }, [showMapPicker]);
 
+  const handleUseCurrentLocation = async () => {
+    setLocating(true);
+    try {
+      const { latitude, longitude, accuracy } = await getCurrentPosition();
+      const lat = latitude.toFixed(6);
+      const lng = longitude.toFixed(6);
+      set('latitude', lat);
+      set('longitude', lng);
+      // Keep an open map picker in step with the fields it is meant to reflect.
+      if (markerRef.current) markerRef.current.setLatLng([latitude, longitude]);
+      mapRef.current?.setView([latitude, longitude], 17);
+
+      // A 500 m fix would put the station on the wrong street; say so rather than let it pass.
+      if (accuracy != null && accuracy > 100) {
+        toast.warning(`Đã lấy vị trí nhưng sai số khoảng ${Math.round(accuracy)} m. Hãy ra chỗ thoáng và thử lại nếu cần chính xác hơn.`);
+      } else {
+        toast.success('Đã lấy vị trí hiện tại');
+      }
+    } catch (err) {
+      toast.error((err as Error).message || 'Không lấy được vị trí hiện tại');
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.stationCode || !form.stationName || !form.consumptionRate || !form.maxCapacity) {
@@ -283,35 +313,42 @@ export function StationFormModal({ open, onClose, brands, models, onCreated }: P
       return;
     }
     setSaving(true);
+    const payload = {
+      stationCode: form.stationCode.trim().toUpperCase(),
+      stationName: form.stationName.trim(),
+      generatorName: form.generatorName.trim() || null,
+      address: form.address.trim() || null,
+      currentAdminUnitName: form.currentAdminUnitName.trim() || null,
+      legacyAreaName: form.legacyAreaName.trim() || null,
+      operationAreaName: form.operationAreaName.trim() || null,
+      latitude: form.latitude ? parseFloat(form.latitude) : null,
+      longitude: form.longitude ? parseFloat(form.longitude) : null,
+      brandId: form.brandId || null,
+      modelId: form.modelId || null,
+      powerKva: form.powerKva ? parseFloat(form.powerKva) : null,
+      fuelType: form.fuelType,
+      consumptionRate: parseFloat(form.consumptionRate),
+      maxCapacity: parseFloat(form.maxCapacity),
+      notes: form.notes.trim() || null,
+      initialFuel: form.initialFuel ? parseFloat(form.initialFuel) : 0,
+    };
+
     try {
-      const result = await createStation({
-        stationCode: form.stationCode.trim().toUpperCase(),
-        stationName: form.stationName.trim(),
-        generatorName: form.generatorName.trim() || null,
-        address: form.address.trim() || null,
-        currentAdminUnitName: form.currentAdminUnitName.trim() || null,
-        legacyAreaName: form.legacyAreaName.trim() || null,
-        operationAreaName: form.operationAreaName.trim() || null,
-        latitude: form.latitude ? parseFloat(form.latitude) : null,
-        longitude: form.longitude ? parseFloat(form.longitude) : null,
-        brandId: form.brandId || null,
-        modelId: form.modelId || null,
-        powerKva: form.powerKva ? parseFloat(form.powerKva) : null,
-        fuelType: form.fuelType,
-        consumptionRate: parseFloat(form.consumptionRate),
-        maxCapacity: parseFloat(form.maxCapacity),
-        notes: form.notes.trim() || null,
-        initialFuel: form.initialFuel ? parseFloat(form.initialFuel) : 0,
-      });
-      if (result.currentFuelStateInitialized) {
-        toast.success(`Đã tạo trạm ${form.stationCode.toUpperCase()}`);
+      if (submitAsRequest) {
+        await createStationRequest(payload);
+        toast.success(`Đã gửi đề xuất trạm ${payload.stationCode}. Chờ quản lý duyệt.`);
       } else {
-        toast.warning(result.warning || `Trạm ${form.stationCode.toUpperCase()} đã tạo nhưng chưa khởi tạo tồn nhiên liệu.`);
+        const result = await createStation(payload);
+        if (result.currentFuelStateInitialized) {
+          toast.success(`Đã tạo trạm ${payload.stationCode}`);
+        } else {
+          toast.warning(result.warning || `Trạm ${payload.stationCode} đã tạo nhưng chưa khởi tạo tồn nhiên liệu.`);
+        }
       }
       onCreated();
       onClose();
     } catch (err) {
-      toast.error((err as Error).message || 'Lỗi tạo trạm');
+      toast.error((err as Error).message || (submitAsRequest ? 'Lỗi gửi đề xuất' : 'Lỗi tạo trạm'));
     } finally {
       setSaving(false);
     }
@@ -325,8 +362,12 @@ export function StationFormModal({ open, onClose, brands, models, onCreated }: P
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: '#f1f5f9', flexShrink: 0 }}>
             <div>
-              <Dialog.Title style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>Thêm trạm mới</Dialog.Title>
-              <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '2px' }}>TP. Cao Lãnh, Đồng Tháp</p>
+              <Dialog.Title style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>
+                {submitAsRequest ? 'Đề xuất trạm mới' : 'Thêm trạm mới'}
+              </Dialog.Title>
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '2px' }}>
+                {submitAsRequest ? 'Đề xuất sẽ được quản lý duyệt trước khi tạo trạm' : 'Tỉnh Đồng Tháp'}
+              </p>
             </div>
             <Dialog.Close asChild>
               <button type="button" style={{ color: '#94a3b8', padding: '4px' }}><X size={18} /></button>
@@ -373,15 +414,27 @@ export function StationFormModal({ open, onClose, brands, models, onCreated }: P
                     />
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowMapPicker(v => !v)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border mb-2"
-                  style={{ fontSize: '0.8rem', color: '#2563eb', borderColor: '#dbeafe', background: '#eff6ff' }}
-                >
-                  <MapPin size={14} />
-                  {showMapPicker ? 'Ẩn bản đồ' : 'Chọn vị trí trên bản đồ'}
-                </button>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={handleUseCurrentLocation}
+                    disabled={locating}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border"
+                    style={{ fontSize: '0.8rem', color: 'white', borderColor: '#16a34a', background: locating ? '#86efac' : '#16a34a' }}
+                  >
+                    {locating ? <Loader2 size={14} className="animate-spin" /> : <LocateFixed size={14} />}
+                    {locating ? 'Đang lấy vị trí...' : 'Lấy vị trí hiện tại'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowMapPicker(v => !v)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border"
+                    style={{ fontSize: '0.8rem', color: '#2563eb', borderColor: '#dbeafe', background: '#eff6ff' }}
+                  >
+                    <MapPin size={14} />
+                    {showMapPicker ? 'Ẩn bản đồ' : 'Chọn vị trí trên bản đồ'}
+                  </button>
+                </div>
                 {showMapPicker && (
                   <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
                     <div style={{ background: '#f8fafc', padding: '6px 10px', fontSize: '0.75rem', color: '#64748b' }}>
@@ -414,7 +467,7 @@ export function StationFormModal({ open, onClose, brands, models, onCreated }: P
                 style={{ background: saving ? '#93c5fd' : '#2563eb', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}
               >
                 {saving && <Loader2 size={15} className="animate-spin" />}
-                {saving ? 'Đang lưu...' : 'Tạo trạm'}
+                {saving ? 'Đang lưu...' : submitAsRequest ? 'Gửi đề xuất' : 'Tạo trạm'}
               </button>
             </div>
           </form>
