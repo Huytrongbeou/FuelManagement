@@ -18,6 +18,7 @@ import { ImportHistory } from '@/features/import-export/pages/ImportHistory';
 import { GeneratorBrands } from '@/features/generators/pages/GeneratorBrands';
 import { GeneratorModels } from '@/features/generators/pages/GeneratorModels';
 import { Settings } from '@/features/settings/pages/Settings';
+import { LoadingScreen } from '@/shared/components/LoadingScreen';
 import { Users } from '@/features/users/pages/Users';
 import { StationRequests } from '@/features/stations/pages/StationRequests';
 import { StationFormModal } from '@/features/stations/components/StationFormModal';
@@ -195,11 +196,7 @@ export default function App() {
   }
 
   if (!currentUser) {
-    return (
-      <div className="flex items-center justify-center h-screen" style={{ background: '#f1f5f9' }}>
-        <div style={{ color: '#64748b', fontSize: '1rem' }}>Đang tải...</div>
-      </div>
-    );
+    return <LoadingScreen fullScreen message="Đang khởi động" />;
   }
 
   const handleViewStation = (id: string) => {
@@ -230,11 +227,7 @@ export default function App() {
     }
 
     if (loading && stations.length === 0) {
-      return (
-        <div className="flex items-center justify-center h-full">
-          <div style={{ color: '#64748b', fontSize: '1rem' }}>Đang tải dữ liệu...</div>
-        </div>
-      );
+      return <LoadingScreen />;
     }
 
     if (currentPage === 'stations' && selectedStation) {
@@ -359,9 +352,9 @@ export default function App() {
                 full-height flex layout for the map / direct-entry pages, or they'd collapse. */}
             <m.div
               key={transitionKey}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
               style={needsFullHeight ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } : undefined}
             >
               {pageContent}
