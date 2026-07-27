@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, MapPin, Loader2, LocateFixed } from 'lucide-react';
+import * as AlertDialog from '@radix-ui/react-alert-dialog';
+import { X, MapPin, Loader2, LocateFixed, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { GeneratorBrand, GeneratorModel } from '@/shared/types';
 import { DONG_THAP_PHUONG, DONG_THAP_XA } from '@/shared/data/dongthap-admin-units';
 import { getCurrentPosition } from '@/shared/utils/geolocation';
+import type { ApiError } from '@/shared/api/client';
 import { createStation } from '../api/stationApi';
-import { createStationRequest } from '../api/stationRequestApi';
+import { createStationRequest, type NearbyStation } from '../api/stationRequestApi';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -198,6 +200,8 @@ export function StationFormModal({ open, onClose, brands, models, onCreated, sub
   const [saving, setSaving] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [locating, setLocating] = useState(false);
+  // Non-null while the "a station already exists within 200 m" confirmation is showing.
+  const [nearby, setNearby] = useState<NearbyStation[] | null>(null);
 
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -208,7 +212,7 @@ export function StationFormModal({ open, onClose, brands, models, onCreated, sub
   const [prevOpen, setPrevOpen] = useState(open);
   if (open !== prevOpen) {
     setPrevOpen(open);
-    if (open) { setForm(EMPTY); setShowMapPicker(false); }
+    if (open) { setForm(EMPTY); setShowMapPicker(false); setNearby(null); }
   }
 
   const filteredModels = form.brandId ? models.filter(m => m.brandId === form.brandId) : [];
@@ -306,12 +310,7 @@ export function StationFormModal({ open, onClose, brands, models, onCreated, sub
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.stationCode || !form.stationName || !form.consumptionRate || !form.maxCapacity) {
-      toast.error('Vui lòng điền đầy đủ các trường bắt buộc (*)');
-      return;
-    }
+  const submit = async (confirmNearby: boolean) => {
     setSaving(true);
     const payload = {
       stationCode: form.stationCode.trim().toUpperCase(),
@@ -331,6 +330,7 @@ export function StationFormModal({ open, onClose, brands, models, onCreated, sub
       maxCapacity: parseFloat(form.maxCapacity),
       notes: form.notes.trim() || null,
       initialFuel: form.initialFuel ? parseFloat(form.initialFuel) : 0,
+      ...(confirmNearby ? { confirmNearby: true } : {}),
     };
 
     try {
@@ -345,13 +345,30 @@ export function StationFormModal({ open, onClose, brands, models, onCreated, sub
           toast.warning(result.warning || `Trạm ${payload.stationCode} đã tạo nhưng chưa khởi tạo tồn nhiên liệu.`);
         }
       }
+      setNearby(null);
       onCreated();
       onClose();
     } catch (err) {
-      toast.error((err as Error).message || (submitAsRequest ? 'Lỗi gửi đề xuất' : 'Lỗi tạo trạm'));
+      const e = err as ApiError;
+      // A station already sits within 200 m — let the user review the list and decide, rather
+      // than blocking outright (a compound really can hold two generators).
+      if (e.status === 409 && (e.data?.code === 'NEARBY_DUPLICATE')) {
+        setNearby((e.data?.nearbyStations as NearbyStation[]) ?? []);
+      } else {
+        toast.error(e.message || (submitAsRequest ? 'Lỗi gửi đề xuất' : 'Lỗi tạo trạm'));
+      }
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.stationCode || !form.stationName || !form.consumptionRate || !form.maxCapacity) {
+      toast.error('Vui lòng điền đầy đủ các trường bắt buộc (*)');
+      return;
+    }
+    submit(false);
   };
 
   return (
@@ -473,6 +490,59 @@ export function StationFormModal({ open, onClose, brands, models, onCreated, sub
           </form>
         </Dialog.Content>
       </Dialog.Portal>
+
+      <AlertDialog.Root open={nearby !== null} onOpenChange={v => { if (!v) setNearby(null); }}>
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="fixed inset-0" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 60 }} />
+          <AlertDialog.Content
+            className="fixed rounded-2xl p-6"
+            style={{
+              top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 61,
+              background: 'white', width: '440px', maxWidth: '92vw', boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+            }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle size={20} style={{ color: '#ca8a04' }} />
+              <AlertDialog.Title style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
+                Có trạm ở gần vị trí này
+              </AlertDialog.Title>
+            </div>
+            <AlertDialog.Description style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '10px' }}>
+              Trong bán kính 200 m đã có {nearby?.length ?? 0} trạm đang hoạt động. Kiểm tra để tránh
+              tạo trùng — nếu đây thực sự là trạm khác, bạn vẫn có thể tiếp tục.
+            </AlertDialog.Description>
+            <div className="rounded-lg border divide-y mb-4" style={{ borderColor: '#e2e8f0' }}>
+              {(nearby ?? []).map(s => (
+                <div key={s.id} className="flex items-center justify-between px-3 py-2">
+                  <div className="min-w-0">
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{s.stationName}</div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontFamily: 'monospace' }}>{s.stationCode}</div>
+                  </div>
+                  <span className="shrink-0 px-2 py-0.5 rounded-full" style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.72rem', fontWeight: 600 }}>
+                    cách {s.distanceM} m
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-3">
+              <AlertDialog.Cancel asChild>
+                <button type="button" className="px-4 py-2 rounded-lg border" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0', color: '#64748b' }}>
+                  Để tôi kiểm tra lại
+                </button>
+              </AlertDialog.Cancel>
+              <button
+                type="button"
+                onClick={() => submit(true)}
+                disabled={saving}
+                className="px-4 py-2 rounded-lg"
+                style={{ background: saving ? '#93c5fd' : '#ca8a04', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}
+              >
+                Vẫn tiếp tục
+              </button>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </Dialog.Root>
   );
 }

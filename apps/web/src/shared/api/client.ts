@@ -83,13 +83,23 @@ async function request<T>(
   }
 
   if (!res.ok) {
-    let msg = res.statusText;
-    try { const data = await res.json(); msg = data.error || msg; } catch {}
-    throw new Error(msg);
+    let data: Record<string, unknown> = {};
+    try { data = await res.json(); } catch {}
+    // Attach status + parsed body so callers can act on structured errors (e.g. a 409 carrying
+    // `nearbyStations`), while `.message` keeps working for the common case.
+    const err = new Error((data.error as string) || res.statusText) as ApiError;
+    err.status = res.status;
+    err.data = data;
+    throw err;
   }
 
   if (res.status === 204 || res.headers.get('content-length') === '0') return undefined as unknown as T;
   return res.json();
+}
+
+export interface ApiError extends Error {
+  status?: number;
+  data?: Record<string, unknown>;
 }
 
 export const api = {

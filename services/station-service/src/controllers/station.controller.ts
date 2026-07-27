@@ -3,7 +3,13 @@ import * as service from '../services/station.service'
 import { bulkUpsert } from '../services/station-bulk-upsert.service'
 
 function handleError(res: Response, err: unknown) {
-  res.status((err as { status?: number }).status || 500).json({ error: (err as Error).message })
+  const e = err as { status?: number; code?: string; nearbyStations?: unknown }
+  const body: Record<string, unknown> = { error: (err as Error).message }
+  // Surface the proximity-duplicate detail so the client can list the nearby stations and let the
+  // user confirm, rather than showing a bare "409".
+  if (e.code) body.code = e.code
+  if (e.nearbyStations) body.nearbyStations = e.nearbyStations
+  res.status(e.status || 500).json(body)
 }
 
 export async function list(req: Request, res: Response): Promise<void> {
@@ -62,7 +68,7 @@ export async function create(req: Request, res: Response): Promise<void> {
       maxCapacity: Number(maxCapacity),
       notes: notes ?? null,
       initialFuel: initialFuel != null ? Number(initialFuel) : undefined,
-    }, userCtx)
+    }, userCtx, { confirmNearby: req.body.confirmNearby === true })
     res.status(201).json({ ...result.station, currentFuelStateInitialized: result.currentFuelStateInitialized, warning: 'warning' in result ? result.warning : undefined })
   } catch (err) { handleError(res, err) }
 }

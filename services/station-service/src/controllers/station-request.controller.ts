@@ -14,8 +14,11 @@ function userCtx(req: Request) {
 }
 
 function sendError(res: Response, err: unknown): void {
-  const status = (err as { status?: number }).status || 500
-  res.status(status).json({ error: (err as Error).message })
+  const e = err as { status?: number; code?: string; nearbyStations?: unknown }
+  const body: Record<string, unknown> = { error: (err as Error).message }
+  if (e.code) body.code = e.code
+  if (e.nearbyStations) body.nearbyStations = e.nearbyStations
+  res.status(e.status || 500).json(body)
 }
 
 export async function list(req: Request, res: Response): Promise<void> {
@@ -44,10 +47,11 @@ export async function create(req: Request, res: Response): Promise<void> {
 
 export async function approve(req: Request, res: Response): Promise<void> {
   try {
-    const result = await service.approveRequest(req.params.id, {
-      name: reviewerName(req),
-      ctx: userCtx(req),
-    })
+    const result = await service.approveRequest(
+      req.params.id,
+      { name: reviewerName(req), ctx: userCtx(req) },
+      { confirmNearby: req.body?.confirmNearby === true }
+    )
     res.json(result)
   } catch (err: unknown) {
     sendError(res, err)

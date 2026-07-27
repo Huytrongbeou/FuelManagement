@@ -1,6 +1,7 @@
 import * as stationRepo from '../repositories/station.repository'
 import * as fuelClient from '../clients/fuel.client'
 import type { UserContext } from '../clients/fuel.client'
+import { findNearbyActiveStations, DUPLICATE_RADIUS_M } from '../utils/geo'
 
 type ListOpts = {
   active?: 'true' | 'false' | 'all'
@@ -40,7 +41,7 @@ export async function create(data: {
   maxCapacity: number
   notes?: string | null
   initialFuel?: number
-}, userCtx?: UserContext) {
+}, userCtx?: UserContext, opts?: { confirmNearby?: boolean }) {
   if (!data.stationCode || data.stationCode.length > 50) {
     throw Object.assign(new Error('stationCode must be 1-50 characters'), { status: 400 })
   }
@@ -58,6 +59,19 @@ export async function create(data: {
   }
   const existing = await stationRepo.findByCode(data.stationCode)
   if (existing) throw Object.assign(new Error('Station code already exists'), { status: 409 })
+
+  // Proximity-duplicate guard: two stations within 200 m are very likely the same site entered
+  // twice under different names/codes. It's only a warning (a compound really can hold two
+  // generators), so the caller may proceed by passing confirmNearby once they've reviewed the list.
+  if (data.latitude != null && data.longitude != null && !opts?.confirmNearby) {
+    const nearby = await findNearbyActiveStations(Number(data.latitude), Number(data.longitude))
+    if (nearby.length > 0) {
+      throw Object.assign(
+        new Error(`Có ${nearby.length} trạm đang hoạt động trong vòng ${DUPLICATE_RADIUS_M} m. Vui lòng kiểm tra để tránh tạo trùng.`),
+        { status: 409, code: 'NEARBY_DUPLICATE', nearbyStations: nearby }
+      )
+    }
+  }
 
   const { initialFuel, ...stationData } = data
   const station = await stationRepo.create(stationData)

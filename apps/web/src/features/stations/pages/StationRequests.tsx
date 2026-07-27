@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MapPin, Check, X, Clock, Loader2, RefreshCw } from 'lucide-react';
+import { MapPin, Check, X, Clock, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import { toast } from 'sonner';
+import type { ApiError } from '@/shared/api/client';
 import {
   getStationRequests, approveStationRequest, rejectStationRequest,
-  type StationRequest,
+  type StationRequest, type NearbyStation,
 } from '../api/stationRequestApi';
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
@@ -25,6 +26,8 @@ export function StationRequests({ onStationsChanged }: Props) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<StationRequest | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  // Set when approval is blocked because a station appeared within 200 m since the proposal.
+  const [nearbyConfirm, setNearbyConfirm] = useState<{ req: StationRequest; stations: NearbyStation[] } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -39,17 +42,25 @@ export function StationRequests({ onStationsChanged }: Props) {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleApprove = async (req: StationRequest) => {
+  const handleApprove = async (req: StationRequest, confirmNearby = false) => {
     setBusyId(req.id);
     try {
-      const result = await approveStationRequest(req.id);
+      const result = await approveStationRequest(req.id, confirmNearby);
       toast.success(`Đã duyệt và tạo trạm ${result.station.stationCode}`);
+      setNearbyConfirm(null);
       onStationsChanged();
       await load();
     } catch (err) {
-      // A 409 here means another reviewer approved it first — reload so the screen tells the truth.
-      toast.error((err as Error).message || 'Lỗi duyệt đề xuất');
-      await load();
+      const e = err as ApiError;
+      // A station showed up within 200 m since the proposal — ask the reviewer to confirm rather
+      // than silently create a probable duplicate.
+      if (e.status === 409 && e.data?.code === 'NEARBY_DUPLICATE') {
+        setNearbyConfirm({ req, stations: (e.data?.nearbyStations as NearbyStation[]) ?? [] });
+      } else {
+        // Any other 409 means someone else already handled it — reload so the screen tells the truth.
+        toast.error(e.message || 'Lỗi duyệt đề xuất');
+        await load();
+      }
     } finally {
       setBusyId(null);
     }
@@ -99,6 +110,14 @@ export function StationRequests({ onStationsChanged }: Props) {
             {Number(r.consumptionRate)} L/giờ · bình {Number(r.maxCapacity)} L · tồn đầu {Number(r.initialFuel)} L
             {r.address ? ` · ${r.address}` : ''}
           </div>
+          {isOpen && (r.nearbyStations?.length ?? 0) > 0 && (
+            <div className="flex items-start gap-1.5 mt-2 px-2 py-1.5 rounded-lg" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+              <AlertTriangle size={13} style={{ color: '#ca8a04', marginTop: '1px', flexShrink: 0 }} />
+              <div style={{ fontSize: '0.72rem', color: '#92400e' }}>
+                Gần {r.nearbyStations!.length} trạm đang hoạt động (≤200m): {r.nearbyStations!.map(s => `${s.stationCode} (${s.distanceM}m)`).join(', ')} — có thể trùng.
+              </div>
+            </div>
+          )}
           {r.status === 'rejected' && r.rejectionReason && (
             <div style={{ color: '#b91c1c', fontSize: '0.75rem', marginTop: '3px' }}>
               Lý do: {r.rejectionReason}
@@ -226,6 +245,60 @@ export function StationRequests({ onStationsChanged }: Props) {
                 }}
               >
                 Từ chối
+              </button>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
+
+      <AlertDialog.Root open={nearbyConfirm !== null} onOpenChange={v => { if (!v) setNearbyConfirm(null); }}>
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="fixed inset-0" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 60 }} />
+          <AlertDialog.Content
+            className="fixed rounded-2xl p-6"
+            style={{
+              top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 61,
+              background: 'white', width: '440px', maxWidth: '92vw', boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+            }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle size={20} style={{ color: '#ca8a04' }} />
+              <AlertDialog.Title style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
+                Duyệt dù có trạm ở gần?
+              </AlertDialog.Title>
+            </div>
+            <AlertDialog.Description style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '10px' }}>
+              Trong bán kính 200 m của đề xuất <b>{nearbyConfirm?.req.stationCode}</b> đã có
+              {' '}{nearbyConfirm?.stations.length ?? 0} trạm đang hoạt động. Nếu đây là trùng, hãy từ chối
+              thay vì duyệt.
+            </AlertDialog.Description>
+            <div className="rounded-lg border divide-y mb-4" style={{ borderColor: '#e2e8f0' }}>
+              {(nearbyConfirm?.stations ?? []).map(s => (
+                <div key={s.id} className="flex items-center justify-between px-3 py-2">
+                  <div className="min-w-0">
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{s.stationName}</div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontFamily: 'monospace' }}>{s.stationCode}</div>
+                  </div>
+                  <span className="shrink-0 px-2 py-0.5 rounded-full" style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.72rem', fontWeight: 600 }}>
+                    cách {s.distanceM} m
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-3">
+              <AlertDialog.Cancel asChild>
+                <button type="button" className="px-4 py-2 rounded-lg border" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0', color: '#64748b' }}>
+                  Hủy
+                </button>
+              </AlertDialog.Cancel>
+              <button
+                type="button"
+                onClick={() => nearbyConfirm && handleApprove(nearbyConfirm.req, true)}
+                disabled={busyId !== null}
+                className="px-4 py-2 rounded-lg"
+                style={{ background: '#ca8a04', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}
+              >
+                Vẫn duyệt
               </button>
             </div>
           </AlertDialog.Content>

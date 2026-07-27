@@ -31,6 +31,14 @@ export async function findByCode(stationCode: string) {
   return prisma.station.findUnique({ where: { stationCode }, include })
 }
 
+/** Active stations that have coordinates — the candidate set for proximity-duplicate checks. */
+export async function findActiveWithCoords() {
+  return prisma.station.findMany({
+    where: { isActive: true, latitude: { not: null }, longitude: { not: null } },
+    select: { id: true, stationCode: true, stationName: true, latitude: true, longitude: true },
+  })
+}
+
 export async function create(data: {
   stationCode: string
   stationName: string

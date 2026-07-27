@@ -22,11 +22,23 @@ export interface StationRequest {
   reviewedAt: string | null;
   rejectionReason: string | null;
   createdStationId: string | null;
+  /** Active stations within 200 m — surfaced so a reviewer spots a likely duplicate before approving. */
+  nearbyStations?: NearbyStation[];
+}
+
+export interface NearbyStation {
+  id: string;
+  stationCode: string;
+  stationName: string;
+  /** Metres from the point being added. */
+  distanceM: number;
 }
 
 export interface NewStationRequest {
   stationCode: string;
   stationName: string;
+  /** Set true to proceed past the "a station already exists within 200 m" warning. */
+  confirmNearby?: boolean;
   generatorName?: string | null;
   address?: string | null;
   latitude?: number | null;
@@ -52,9 +64,12 @@ export function createStationRequest(data: NewStationRequest): Promise<StationRe
   return api.post<StationRequest>('/station-requests', data);
 }
 
-/** Rejects with a 409 if another reviewer got there first — the caller should refresh the list. */
-export function approveStationRequest(id: string): Promise<{ station: { id: string; stationCode: string } }> {
-  return api.post(`/station-requests/${id}/approve`);
+/**
+ * Rejects with a 409 if another reviewer got there first, or if a station now sits within 200 m
+ * (error `code: 'NEARBY_DUPLICATE'` with `nearbyStations`). Pass confirmNearby to proceed anyway.
+ */
+export function approveStationRequest(id: string, confirmNearby = false): Promise<{ station: { id: string; stationCode: string } }> {
+  return api.post(`/station-requests/${id}/approve`, confirmNearby ? { confirmNearby: true } : undefined);
 }
 
 export function rejectStationRequest(id: string, reason: string): Promise<StationRequest> {

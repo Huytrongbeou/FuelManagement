@@ -2,6 +2,7 @@ import * as requestRepo from '../repositories/station-request.repository'
 import * as stationRepo from '../repositories/station.repository'
 import * as stationService from './station.service'
 import type { UserContext } from '../clients/fuel.client'
+import { findNearbyActiveStations, DUPLICATE_RADIUS_M } from '../utils/geo'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -14,8 +15,30 @@ function isUniqueViolation(err: unknown): boolean {
   return (err as { code?: string }).code === 'P2002'
 }
 
+function nearbyError(nearby: Awaited<ReturnType<typeof findNearbyActiveStations>>) {
+  return Object.assign(
+    new Error(`Có ${nearby.length} trạm đang hoạt động trong vòng ${DUPLICATE_RADIUS_M} m. Vui lòng kiểm tra để tránh tạo trùng.`),
+    { status: 409, code: 'NEARBY_DUPLICATE', nearbyStations: nearby }
+  )
+}
+
 export async function listRequests(status?: string) {
-  return requestRepo.findMany(status)
+  const requests = await requestRepo.findMany(status)
+  // Attach nearby active stations to each still-open request, so a reviewer sees a possible
+  // duplicate before approving instead of discovering it only when approval is blocked.
+  const openWithCoords = requests.filter(
+    r => (r.status === 'pending' || r.status === 'approving') && r.latitude != null && r.longitude != null
+  )
+  if (openWithCoords.length === 0) return requests.map(r => ({ ...r, nearbyStations: [] }))
+
+  return Promise.all(
+    requests.map(async r => {
+      if (r.latitude == null || r.longitude == null || (r.status !== 'pending' && r.status !== 'approving')) {
+        return { ...r, nearbyStations: [] }
+      }
+      return { ...r, nearbyStations: await findNearbyActiveStations(Number(r.latitude), Number(r.longitude)) }
+    })
+  )
 }
 
 export async function getRequest(id: string) {
@@ -48,6 +71,15 @@ export async function createRequest(data: Record<string, unknown>, requestedBy: 
   }
   if (await requestRepo.findOpenByCode(stationCode)) {
     throw fail('Đã có đề xuất đang chờ duyệt cho mã trạm này', 409)
+  }
+
+  // Warn about a station already at (roughly) this spot, unless the submitter has reviewed the
+  // list and chosen to proceed. Only checks against real stations, not other open proposals.
+  const lat = data.latitude == null ? null : Number(data.latitude)
+  const lng = data.longitude == null ? null : Number(data.longitude)
+  if (lat != null && lng != null && data.confirmNearby !== true) {
+    const nearby = await findNearbyActiveStations(lat, lng)
+    if (nearby.length > 0) throw nearbyError(nearby)
   }
 
   try {
@@ -91,7 +123,11 @@ export async function createRequest(data: Record<string, unknown>, requestedBy: 
  * On failure the claim is released (transient) or the request is rejected (deterministic), never
  * left stuck in 'approving'.
  */
-export async function approveRequest(id: string, reviewer: { name: string; ctx: UserContext }) {
+export async function approveRequest(
+  id: string,
+  reviewer: { name: string; ctx: UserContext },
+  opts?: { confirmNearby?: boolean }
+) {
   const request = await getRequest(id)
 
   if (request.status === 'approved' && request.createdStationId) {
@@ -104,6 +140,20 @@ export async function approveRequest(id: string, reviewer: { name: string; ctx: 
 
   if (!(await requestRepo.claimForApproval(id, reviewer.name))) {
     throw fail('Đề xuất này đã được xử lý bởi người khác', 409)
+  }
+
+  // Re-check proximity here, not inside create(): a station near this spot may have appeared
+  // between proposal and approval. Done before the try (and outside create) so create()'s only
+  // remaining 409 is "code exists", which the catch can safely treat as a hard reject. If nearby
+  // and unconfirmed, release the claim so the reviewer can confirm and retry.
+  const lat = request.latitude == null ? null : Number(request.latitude)
+  const lng = request.longitude == null ? null : Number(request.longitude)
+  if (lat != null && lng != null && !opts?.confirmNearby) {
+    const nearby = await findNearbyActiveStations(lat, lng)
+    if (nearby.length > 0) {
+      await requestRepo.releaseClaim(id)
+      throw nearbyError(nearby)
+    }
   }
 
   try {
@@ -127,7 +177,8 @@ export async function approveRequest(id: string, reviewer: { name: string; ctx: 
         notes: request.notes,
         initialFuel: Number(request.initialFuel),
       },
-      reviewer.ctx
+      reviewer.ctx,
+      { confirmNearby: true }
     )
 
     const updated = await requestRepo.markApproved(id, result.station.id)
