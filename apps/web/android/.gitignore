@@ -91,3 +91,6 @@ app/src/main/assets/public
 app/src/main/assets/capacitor.config.json
 app/src/main/assets/capacitor.plugins.json
 app/src/main/res/xml/config.xml
+
+# Ảnh nguồn icon do người dùng thả vào để sinh launcher icon — không cần theo dõi.
+icon/

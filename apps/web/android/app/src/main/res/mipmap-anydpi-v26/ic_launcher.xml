@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background>
-        <inset android:drawable="@mipmap/ic_launcher_background" android:inset="16.7%" />
-    </background>
+    <!-- Solid VNPT blue fills the whole 108dp layer, so no launcher mask (circle/squircle/rounded)
+         can ever reveal a transparent or white corner. The foreground PNG is blue+logo baked in;
+         its own blue matches this colour, so the smaller inset only makes the logo more prominent
+         while staying inside the 66.6% safe zone. -->
+    <background android:drawable="@color/ic_launcher_background" />
     <foreground>
-        <inset android:drawable="@mipmap/ic_launcher_foreground" android:inset="16.7%" />
+        <inset android:drawable="@mipmap/ic_launcher_foreground" android:inset="9%" />
     </foreground>
 </adaptive-icon>
