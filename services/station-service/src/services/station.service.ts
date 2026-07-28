@@ -23,8 +23,35 @@ export async function getById(id: string) {
   return station
 }
 
+function isUniqueViolation(err: unknown): boolean {
+  return (err as { code?: string }).code === 'P2002'
+}
+
+/**
+ * Inserts a station, filling in a fresh CL-NNN code first when `autoCode` is set. If a concurrent
+ * insert took that code, the unique constraint throws P2002 — regenerate and retry. A supplied
+ * code is inserted as-is (its duplicate handling is the caller's concern).
+ */
+type StationCreateInput = Parameters<typeof stationRepo.create>[0]
+
+async function createWithCodeRetry(
+  stationData: Omit<StationCreateInput, 'stationCode'> & { stationCode?: string },
+  autoCode: boolean
+): Promise<Awaited<ReturnType<typeof stationRepo.create>>> {
+  if (!autoCode) return stationRepo.create(stationData as StationCreateInput)
+  for (let attempt = 0; attempt < 6; attempt++) {
+    try {
+      return await stationRepo.create({ ...stationData, stationCode: await stationRepo.nextStationCode() })
+    } catch (err) {
+      if (isUniqueViolation(err) && attempt < 5) continue
+      throw err
+    }
+  }
+  throw Object.assign(new Error('Không tạo được mã trạm mới, vui lòng thử lại'), { status: 409 })
+}
+
 export async function create(data: {
-  stationCode: string
+  stationCode?: string
   stationName: string
   generatorName?: string | null
   address?: string | null
@@ -42,7 +69,10 @@ export async function create(data: {
   notes?: string | null
   initialFuel?: number
 }, userCtx?: UserContext, opts?: { confirmNearby?: boolean }) {
-  if (!data.stationCode || data.stationCode.length > 50) {
+  // Station code is auto-generated (CL-NNN) when the caller doesn't supply one — the add-station
+  // form no longer asks for it. An explicit code (e.g. bulk import) is still honoured.
+  const autoCode = !data.stationCode
+  if (data.stationCode && data.stationCode.length > 50) {
     throw Object.assign(new Error('stationCode must be 1-50 characters'), { status: 400 })
   }
   if (!data.stationName) {
@@ -57,8 +87,10 @@ export async function create(data: {
   if (data.initialFuel != null && (!Number.isFinite(data.initialFuel) || data.initialFuel < 0 || data.initialFuel > data.maxCapacity)) {
     throw Object.assign(new Error('initialFuel must be between 0 and maxCapacity'), { status: 400 })
   }
-  const existing = await stationRepo.findByCode(data.stationCode)
-  if (existing) throw Object.assign(new Error('Station code already exists'), { status: 409 })
+  if (!autoCode) {
+    const existing = await stationRepo.findByCode(data.stationCode!)
+    if (existing) throw Object.assign(new Error('Station code already exists'), { status: 409 })
+  }
 
   // Proximity-duplicate guard: two stations within 200 m are very likely the same site entered
   // twice under different names/codes. It's only a warning (a compound really can hold two
@@ -74,7 +106,9 @@ export async function create(data: {
   }
 
   const { initialFuel, ...stationData } = data
-  const station = await stationRepo.create(stationData)
+  // On an auto-generated code, a concurrent create could grab the same CL-NNN first; the unique
+  // constraint rejects the loser, so regenerate and retry a few times before giving up.
+  const station = await createWithCodeRetry(stationData, autoCode)
 
   // Station is already created at this point — init failure must never look like station
   // creation failed (no rollback here; the station row is the source of truth). Surface the

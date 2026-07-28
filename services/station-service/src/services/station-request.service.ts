@@ -49,13 +49,14 @@ export async function getRequest(id: string) {
 }
 
 export async function createRequest(data: Record<string, unknown>, requestedBy: string) {
-  const stationCode = String(data.stationCode ?? '').trim().toUpperCase()
+  const suppliedCode = String(data.stationCode ?? '').trim().toUpperCase()
+  const autoCode = !suppliedCode
   const stationName = String(data.stationName ?? '').trim()
   const consumptionRate = Number(data.consumptionRate)
   const maxCapacity = Number(data.maxCapacity)
   const initialFuel = data.initialFuel == null ? 0 : Number(data.initialFuel)
 
-  if (!stationCode || stationCode.length > 50) throw fail('Mã trạm phải từ 1 đến 50 ký tự')
+  if (!autoCode && suppliedCode.length > 50) throw fail('Mã trạm phải từ 1 đến 50 ký tự')
   if (!stationName) throw fail('Tên trạm là bắt buộc')
   if (!Number.isFinite(consumptionRate) || consumptionRate <= 0) throw fail('Định mức tiêu hao phải lớn hơn 0')
   if (!Number.isFinite(maxCapacity) || maxCapacity <= 0) throw fail('Dung tích tối đa phải lớn hơn 0')
@@ -63,14 +64,16 @@ export async function createRequest(data: Record<string, unknown>, requestedBy: 
     throw fail('Tồn nhiên liệu ban đầu phải nằm trong khoảng 0 đến dung tích tối đa')
   }
 
-  // Two ways a duplicate could sneak in: the code is already a real station, or someone else has
-  // an open request for it. Both are checked here for a clear message; the partial unique index
-  // on (station_code) where status in (pending, approving) is the race-proof backstop.
-  if (await stationRepo.findByCode(stationCode)) {
-    throw fail('Mã trạm này đã tồn tại trong hệ thống', 409)
-  }
-  if (await requestRepo.findOpenByCode(stationCode)) {
-    throw fail('Đã có đề xuất đang chờ duyệt cho mã trạm này', 409)
+  // Only meaningful for a supplied code. Two ways a duplicate could sneak in: the code is already
+  // a real station, or someone else has an open request for it. The partial unique index on
+  // (station_code) where status in (pending, approving) is the race-proof backstop.
+  if (!autoCode) {
+    if (await stationRepo.findByCode(suppliedCode)) {
+      throw fail('Mã trạm này đã tồn tại trong hệ thống', 409)
+    }
+    if (await requestRepo.findOpenByCode(suppliedCode)) {
+      throw fail('Đã có đề xuất đang chờ duyệt cho mã trạm này', 409)
+    }
   }
 
   // Warn about a station already at (roughly) this spot, unless the submitter has reviewed the
@@ -82,32 +85,40 @@ export async function createRequest(data: Record<string, unknown>, requestedBy: 
     if (nearby.length > 0) throw nearbyError(nearby)
   }
 
-  try {
-    return await requestRepo.create({
-      stationCode,
-      stationName,
-      generatorName: (data.generatorName as string) ?? null,
-      address: (data.address as string) ?? null,
-      latitude: data.latitude == null ? null : Number(data.latitude),
-      longitude: data.longitude == null ? null : Number(data.longitude),
-      currentAdminUnitName: (data.currentAdminUnitName as string) ?? null,
-      legacyAreaName: (data.legacyAreaName as string) ?? null,
-      operationAreaName: (data.operationAreaName as string) ?? null,
-      brandId: (data.brandId as string) || null,
-      modelId: (data.modelId as string) || null,
-      powerKva: data.powerKva == null ? null : Number(data.powerKva),
-      fuelType: (data.fuelType as string) ?? 'diesel',
-      consumptionRate,
-      maxCapacity,
-      initialFuel,
-      notes: (data.notes as string) ?? null,
-      requestedBy,
-    })
-  } catch (err: unknown) {
-    // Lost the race against a concurrent submission of the same code.
-    if (isUniqueViolation(err)) throw fail('Đã có đề xuất đang chờ duyệt cho mã trạm này', 409)
-    throw err
+  const base = {
+    stationName,
+    generatorName: (data.generatorName as string) ?? null,
+    address: (data.address as string) ?? null,
+    latitude: lat,
+    longitude: lng,
+    currentAdminUnitName: (data.currentAdminUnitName as string) ?? null,
+    legacyAreaName: (data.legacyAreaName as string) ?? null,
+    operationAreaName: (data.operationAreaName as string) ?? null,
+    brandId: (data.brandId as string) || null,
+    modelId: (data.modelId as string) || null,
+    powerKva: data.powerKva == null ? null : Number(data.powerKva),
+    fuelType: (data.fuelType as string) ?? 'diesel',
+    consumptionRate,
+    maxCapacity,
+    initialFuel,
+    notes: (data.notes as string) ?? null,
+    requestedBy,
   }
+
+  // Auto codes retry on the partial-unique collision (another open proposal grabbed CL-NNN first).
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const stationCode = autoCode ? await stationRepo.nextStationCode() : suppliedCode
+    try {
+      return await requestRepo.create({ ...base, stationCode })
+    } catch (err: unknown) {
+      if (isUniqueViolation(err)) {
+        if (autoCode && attempt < 5) continue
+        throw fail('Đã có đề xuất đang chờ duyệt cho mã trạm này', 409)
+      }
+      throw err
+    }
+  }
+  throw fail('Không tạo được mã trạm mới, vui lòng thử lại', 409)
 }
 
 /**

@@ -42,13 +42,9 @@ interface Props {
 }
 
 interface FormState {
-  stationCode: string;
   stationName: string;
-  generatorName: string;
   address: string;
   currentAdminUnitName: string;
-  legacyAreaName: string;
-  operationAreaName: string;
   latitude: string;
   longitude: string;
   brandId: string;
@@ -62,10 +58,10 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
-  stationCode: '', stationName: '', generatorName: '', address: '',
+  stationName: '', address: '',
   // Mặc định Phường Cao Lãnh (nơi phần lớn trạm đặt), nhưng chọn được mọi phường/xã của
   // tỉnh Đồng Tháp mới sau sắp xếp 01/7/2025.
-  currentAdminUnitName: 'Phường Cao Lãnh', legacyAreaName: '', operationAreaName: '',
+  currentAdminUnitName: 'Phường Cao Lãnh',
   latitude: '', longitude: '',
   brandId: '', modelId: '',
   powerKva: '', fuelType: 'diesel', consumptionRate: '', maxCapacity: '',
@@ -85,18 +81,13 @@ function BasicInfoFields({ form, set }: BasicInfoFieldsProps) {
       <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
         Thông tin cơ bản
       </h4>
+      <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '12px', marginTop: '-6px' }}>
+        Mã trạm được cấp tự động (dạng CL-xxx) khi lưu.
+      </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="station-code" style={LABEL_STYLE}>Mã trạm *</label>
-          <input id="station-code" style={INPUT_STYLE} placeholder="VD: CL-013" value={form.stationCode} onChange={e => set('stationCode', e.target.value)} required />
-        </div>
         <div>
           <label htmlFor="station-name" style={LABEL_STYLE}>Tên trạm *</label>
           <input id="station-name" style={INPUT_STYLE} placeholder="VD: Trạm Phường 11" value={form.stationName} onChange={e => set('stationName', e.target.value)} required />
-        </div>
-        <div>
-          <label htmlFor="generator-name" style={LABEL_STYLE}>Tên máy phát</label>
-          <input id="generator-name" style={INPUT_STYLE} placeholder="VD: Máy phát dự phòng A" value={form.generatorName} onChange={e => set('generatorName', e.target.value)} />
         </div>
         <div>
           <label htmlFor="station-address" style={LABEL_STYLE}>Địa chỉ</label>
@@ -113,14 +104,6 @@ function BasicInfoFields({ form, set }: BasicInfoFieldsProps) {
               {DONG_THAP_XA.map(name => <option key={name} value={name}>{name}</option>)}
             </optgroup>
           </select>
-        </div>
-        <div>
-          <label htmlFor="legacy-area" style={LABEL_STYLE}>Địa bàn cũ</label>
-          <input id="legacy-area" style={INPUT_STYLE} placeholder="VD: Phường 11 cũ" value={form.legacyAreaName} onChange={e => set('legacyAreaName', e.target.value)} />
-        </div>
-        <div className="col-span-2">
-          <label htmlFor="operation-area" style={LABEL_STYLE}>Khu vực quản lý nội bộ</label>
-          <input id="operation-area" style={INPUT_STYLE} placeholder="VD: Cao Lãnh trung tâm" value={form.operationAreaName} onChange={e => set('operationAreaName', e.target.value)} />
         </div>
       </div>
     </section>
@@ -312,14 +295,15 @@ export function StationFormModal({ open, onClose, brands, models, onCreated, sub
 
   const submit = async (confirmNearby: boolean) => {
     setSaving(true);
+    // No stationCode: the backend auto-assigns the next CL-NNN. generatorName/legacyAreaName/
+    // operationAreaName were dropped from the form, so they're always null now.
     const payload = {
-      stationCode: form.stationCode.trim().toUpperCase(),
       stationName: form.stationName.trim(),
-      generatorName: form.generatorName.trim() || null,
+      generatorName: null,
       address: form.address.trim() || null,
       currentAdminUnitName: form.currentAdminUnitName.trim() || null,
-      legacyAreaName: form.legacyAreaName.trim() || null,
-      operationAreaName: form.operationAreaName.trim() || null,
+      legacyAreaName: null,
+      operationAreaName: null,
       latitude: form.latitude ? parseFloat(form.latitude) : null,
       longitude: form.longitude ? parseFloat(form.longitude) : null,
       brandId: form.brandId || null,
@@ -335,14 +319,14 @@ export function StationFormModal({ open, onClose, brands, models, onCreated, sub
 
     try {
       if (submitAsRequest) {
-        await createStationRequest(payload);
-        toast.success(`Đã gửi đề xuất trạm ${payload.stationCode}. Chờ quản lý duyệt.`);
+        const created = await createStationRequest(payload);
+        toast.success(`Đã gửi đề xuất trạm ${created.stationCode}. Chờ quản lý duyệt.`);
       } else {
         const result = await createStation(payload);
         if (result.currentFuelStateInitialized) {
-          toast.success(`Đã tạo trạm ${payload.stationCode}`);
+          toast.success(`Đã tạo trạm ${result.station.code}`);
         } else {
-          toast.warning(result.warning || `Trạm ${payload.stationCode} đã tạo nhưng chưa khởi tạo tồn nhiên liệu.`);
+          toast.warning(result.warning || `Trạm ${result.station.code} đã tạo nhưng chưa khởi tạo tồn nhiên liệu.`);
         }
       }
       setNearby(null);
@@ -364,7 +348,7 @@ export function StationFormModal({ open, onClose, brands, models, onCreated, sub
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.stationCode || !form.stationName || !form.consumptionRate || !form.maxCapacity) {
+    if (!form.stationName || !form.consumptionRate || !form.maxCapacity) {
       toast.error('Vui lòng điền đầy đủ các trường bắt buộc (*)');
       return;
     }

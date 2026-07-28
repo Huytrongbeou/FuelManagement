@@ -41,7 +41,7 @@ export async function create(req: Request, res: Response): Promise<void> {
       brandId, modelId, powerKva, fuelType,
       consumptionRate, maxCapacity, notes, initialFuel,
     } = req.body
-    if (!stationCode) { res.status(400).json({ error: 'stationCode is required' }); return }
+    // stationCode is optional: when omitted the service auto-generates the next CL-NNN code.
     if (!stationName) { res.status(400).json({ error: 'stationName is required' }); return }
     if (consumptionRate == null) { res.status(400).json({ error: 'consumptionRate is required' }); return }
     if (maxCapacity == null) { res.status(400).json({ error: 'maxCapacity is required' }); return }
@@ -51,7 +51,7 @@ export async function create(req: Request, res: Response): Promise<void> {
       userName: req.headers['x-user-name'] as string | undefined,
     }
     const result = await service.create({
-      stationCode,
+      stationCode: stationCode || undefined,
       stationName,
       generatorName: generatorName ?? null,
       address: address ?? null,

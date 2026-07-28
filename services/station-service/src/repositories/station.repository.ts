@@ -31,6 +31,27 @@ export async function findByCode(stationCode: string) {
   return prisma.station.findUnique({ where: { stationCode }, include })
 }
 
+/**
+ * Next auto station code in the `CL-NNN` series, one past the highest number currently used by a
+ * real station OR reserved by an open proposal — so a pending proposal's code isn't handed out
+ * again. Only `CL-<digits>` codes count; unrelated/test codes with other shapes are ignored.
+ */
+export async function nextStationCode(): Promise<string> {
+  const [stations, requests] = await Promise.all([
+    prisma.station.findMany({ where: { stationCode: { startsWith: 'CL-' } }, select: { stationCode: true } }),
+    prisma.stationRequest.findMany({
+      where: { stationCode: { startsWith: 'CL-' }, status: { in: ['pending', 'approving'] } },
+      select: { stationCode: true },
+    }),
+  ])
+  let max = 0
+  for (const { stationCode } of [...stations, ...requests]) {
+    const m = /^CL-(\d+)$/.exec(stationCode)
+    if (m) max = Math.max(max, parseInt(m[1], 10))
+  }
+  return `CL-${String(max + 1).padStart(3, '0')}`
+}
+
 /** Active stations that have coordinates — the candidate set for proximity-duplicate checks. */
 export async function findActiveWithCoords() {
   return prisma.station.findMany({
