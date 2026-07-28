@@ -122,7 +122,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavi
           />
           {showResults && results.length > 0 && (
             <div
-              className="absolute top-full left-0 right-0 mt-1 rounded-lg border shadow-lg z-50 overflow-hidden"
+              className="absolute top-full left-0 right-0 mt-1 rounded-lg border shadow-lg z-[1200] overflow-hidden"
               style={{ background: 'white', borderColor: '#e2e8f0' }}
             >
               {results.map(s => (
@@ -226,9 +226,9 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavi
 
             {showAlerts && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowAlerts(false)} aria-hidden="true" />
+                <div className="fixed inset-0 z-[1190]" onClick={() => setShowAlerts(false)} aria-hidden="true" />
                 <div
-                  className="absolute right-0 mt-2 rounded-xl border shadow-xl z-50 overflow-hidden"
+                  className="absolute right-0 mt-2 rounded-xl border shadow-xl z-[1200] overflow-hidden"
                   style={{ background: 'white', borderColor: '#e2e8f0', width: 'min(320px, calc(100vw - 2rem))' }}
                 >
                   <div className="px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}>

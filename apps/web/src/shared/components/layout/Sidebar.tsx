@@ -164,7 +164,9 @@ export function Sidebar({ currentPage, onNavigate, collapsed, mobileOpen, onMobi
         {sidebarContent}
       </div>
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
+        // z-[2000]: the mobile nav drawer must sit above the map page, whose station-list panel
+        // (z-1100) and Leaflet controls/popups (~z-1000) otherwise paint over a z-50 drawer.
+        <div className="lg:hidden fixed inset-0 z-[2000] flex">
           <div aria-hidden="true" className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={onMobileClose} />
           <div className="relative flex flex-col w-64 h-full z-10">{sidebarContent}</div>
         </div>
