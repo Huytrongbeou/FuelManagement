@@ -24,6 +24,33 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+type HistoryPeriod = 'all' | 'week' | 'month' | 'year';
+
+const HISTORY_PERIODS: { key: HistoryPeriod; label: string }[] = [
+  { key: 'week',  label: 'Tuần' },
+  { key: 'month', label: 'Tháng' },
+  { key: 'year',  label: 'Năm' },
+  { key: 'all',   label: 'Tất cả' },
+];
+
+/** Start-of-period date (YYYY-MM-DD) by VN calendar, or null for "all". */
+function periodCutoff(period: HistoryPeriod): string | null {
+  if (period === 'all') return null;
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (period === 'week') d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // back to Monday
+  else if (period === 'month') d.setDate(1);
+  else if (period === 'year') d.setMonth(0, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** ISO or YYYY-MM-DD → dd/mm/yyyy for display. */
+export function formatRecordDate(date: string): string {
+  const ymd = date.slice(0, 10);
+  const [y, m, d] = ymd.split('-');
+  return d && m && y ? `${d}/${m}/${y}` : date;
+}
+
 const HISTORY_TABLE_HEADERS = [
   { label: 'Ngày' },
   { label: 'Tồn trước', hide: 'hidden sm:table-cell' },
@@ -63,18 +90,43 @@ interface FuelHistoryTableProps {
   adjustedIds: Set<string>;
   canRequestAdjustment: boolean;
   onRequestAdjustment: (r: FuelRecord) => void;
+  period: HistoryPeriod;
+  onPeriodChange: (p: HistoryPeriod) => void;
 }
 
-function FuelHistoryTable({ records, adjustedIds, canRequestAdjustment, onRequestAdjustment }: FuelHistoryTableProps) {
+function FuelHistoryTable({ records, adjustedIds, canRequestAdjustment, onRequestAdjustment, period, onPeriodChange }: FuelHistoryTableProps) {
   return (
     <div className="lg:col-span-1 rounded-xl border overflow-hidden" style={{ background: 'white', borderColor: '#e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-      <div className="flex items-center gap-2 px-5 py-4 border-b" style={{ borderColor: '#f1f5f9' }}>
-        <Clock size={16} style={{ color: '#2563eb' }} />
-        <h4 style={{ color: '#0f172a' }}>Lịch sử nhiên liệu</h4>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b" style={{ borderColor: '#f1f5f9' }}>
+        <div className="flex items-center gap-2">
+          <Clock size={16} style={{ color: '#2563eb' }} />
+          <h4 style={{ color: '#0f172a' }}>Lịch sử nhiên liệu</h4>
+        </div>
+        <div className="flex items-center gap-1 p-1 rounded-lg self-start" style={{ background: '#f1f5f9' }}>
+          {HISTORY_PERIODS.map(p => (
+            <button
+              type="button"
+              key={p.key}
+              onClick={() => onPeriodChange(p.key)}
+              className="px-2.5 py-1 rounded-md transition"
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: period === p.key ? 600 : 400,
+                background: period === p.key ? 'white' : 'transparent',
+                color: period === p.key ? '#0f172a' : '#64748b',
+                boxShadow: period === p.key ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="overflow-x-auto">
         {records.length === 0 ? (
-          <div className="py-10 text-center" style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Chưa có lịch sử</div>
+          <div className="py-10 text-center" style={{ color: '#94a3b8', fontSize: '0.875rem' }}>
+            {period === 'all' ? 'Chưa có lịch sử' : 'Không có bản ghi trong kỳ này'}
+          </div>
         ) : (
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
@@ -93,7 +145,7 @@ function FuelHistoryTable({ records, adjustedIds, canRequestAdjustment, onReques
                 return (
                   <tr key={r.id} className="border-b" style={{ borderColor: '#f8fafc', background: isAdjustment ? '#f0f9ff' : undefined }}>
                     <td className="px-3 py-2.5" style={{ fontSize: '0.8rem', color: '#374151', whiteSpace: 'nowrap' }}>
-                      <div>{r.date}</div>
+                      <div>{formatRecordDate(r.date)}</div>
                       {hasBeenAdjusted && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium" style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.75rem' }}>
                           Đã điều chỉnh
@@ -218,11 +270,18 @@ function AdjustmentModal({ adj, dispatchAdj, onSubmit }: AdjustmentModalProps) {
 
 export function StationDetail({ station, records, userRole, onBack, onGoToDirectEntry }: StationDetailProps) {
   const [localRecords, setLocalRecords] = useState<FuelRecord[]>([]);
+  const [historyPeriod, setHistoryPeriod] = useState<HistoryPeriod>('all');
   const [adj, dispatchAdj] = useReducer(adjModalReducer, { open: false, target: null, form: ADJ_EMPTY_FORM, saving: false });
 
   useEffect(() => {
-    getFuelHistory(station.id).then(setLocalRecords).catch(() => {});
+    // Pull a wide window so the period filter (below) has the full history to work with.
+    getFuelHistory(station.id, { limit: 500 }).then(setLocalRecords).catch(() => {});
   }, [station.id]);
+
+  const visibleRecords = useMemo(() => {
+    const cutoff = periodCutoff(historyPeriod);
+    return cutoff ? localRecords.filter(r => r.date.slice(0, 10) >= cutoff) : localRecords;
+  }, [localRecords, historyPeriod]);
 
   const status = getFuelStatus(station.currentFuel);
   const c = fuelStatusColor(status);
@@ -351,10 +410,12 @@ export function StationDetail({ station, records, userRole, onBack, onGoToDirect
 
         {/* Right: History table */}
         <FuelHistoryTable
-          records={localRecords}
+          records={visibleRecords}
           adjustedIds={adjustedIds}
           canRequestAdjustment={canRequestAdjustment}
           onRequestAdjustment={r => dispatchAdj({ type: 'open', target: r })}
+          period={historyPeriod}
+          onPeriodChange={setHistoryPeriod}
         />
       </div>
 

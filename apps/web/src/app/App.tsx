@@ -106,6 +106,7 @@ export default function App() {
   const [nav, dispatchNav] = useReducer(navReducer, { currentPage: 'dashboard' as Page, selectedStation: null });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [addStationOpen, setAddStationOpen] = useState(false);
+  const [directEntryFocus, setDirectEntryFocus] = useState<string | null>(null);
 
   const { isLoggedIn, currentUser } = auth;
   const { stations, brands, models, importSessions, loading } = data;
@@ -207,8 +208,17 @@ export default function App() {
   };
 
   const handleNavigate = (page: Page) => {
+    // Any navigation that isn't "enter direct entry for one station" clears the single-station focus.
+    if (page !== 'directEntry') setDirectEntryFocus(null);
     dispatchNav({ type: 'navigate', page });
     if (page === 'history') fetchImportSessions();
+  };
+
+  // "Nhập NL" on a station row jumps straight to direct entry for just that station, instead of
+  // dumping the user into the all-stations form to hunt for it again.
+  const handleEnterFuelForStation = (stationId?: string) => {
+    setDirectEntryFocus(stationId ?? null);
+    dispatchNav({ type: 'navigate', page: 'directEntry' });
   };
 
   const renderContent = () => {
@@ -237,7 +247,7 @@ export default function App() {
           records={[]}
           userRole={currentUser?.role}
           onBack={() => dispatchNav({ type: 'clear-station' })}
-          onGoToDirectEntry={() => handleNavigate('directEntry')}
+          onGoToDirectEntry={() => handleEnterFuelForStation(selectedStation.id)}
         />
       );
     }
@@ -251,7 +261,7 @@ export default function App() {
             userRole={currentUser?.role}
             onViewStation={handleViewStation}
             onAddStation={() => setAddStationOpen(true)}
-            onGoToDirectEntry={() => handleNavigate('directEntry')}
+            onGoToDirectEntry={handleEnterFuelForStation}
             onStationsChanged={fetchAll}
           />
         );
@@ -261,6 +271,7 @@ export default function App() {
         return (
           <DirectEntry
             stations={stations}
+            focusStationId={directEntryFocus}
             onNavigateToDashboard={() => { fetchAll(); handleNavigate('dashboard'); }}
           />
         );

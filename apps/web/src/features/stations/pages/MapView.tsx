@@ -34,6 +34,21 @@ function makeMarkerIcon(color: string, size: number = 12) {
   });
 }
 
+/** A clearly bigger marker with a blue ring, so the selected station stands out among same-colour dots. */
+function makeHighlightIcon(color: string) {
+  return L.divIcon({
+    className: '',
+    html: `
+      <div style="position:relative;width:38px;height:38px">
+        <div style="position:absolute;inset:0;border:3px solid #2563eb;border-radius:50%;background:rgba(37,99,235,0.15);box-shadow:0 0 0 4px rgba(37,99,235,0.25)"></div>
+        <div style="position:absolute;inset:9px;background:${color};border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.45)"></div>
+      </div>`,
+    iconSize: [38, 38],
+    iconAnchor: [19, 19],
+    popupAnchor: [0, -19],
+  });
+}
+
 function makePulseIcon(color: string) {
   return L.divIcon({
     className: '',
@@ -68,7 +83,7 @@ interface Props {
 export function MapView({ stations, onViewStation }: Props) {
   const mapRef = useRef<L.Map | null>(null);
   const mapDivRef = useRef<HTMLDivElement>(null);
-  const markersRef = useRef<L.Marker[]>([]);
+  const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   // Drawer state for phones; on lg+ the panel is always visible and this is ignored.
@@ -104,7 +119,7 @@ export function MapView({ stations, onViewStation }: Props) {
     const map = mapRef.current;
     if (!map) return;
     markersRef.current.forEach(m => m.remove());
-    markersRef.current = [];
+    markersRef.current = new Map();
 
     filtered.forEach(s => {
       if (s.lat === null || s.lng === null) return;
@@ -113,14 +128,31 @@ export function MapView({ stations, onViewStation }: Props) {
         const icon = status === 'red' ? makePulseIcon(c.dot) : makeMarkerIcon(c.dot, status === 'gray' ? 9 : 11);
         const marker = L.marker([s.lat!, s.lng!], { icon }).addTo(map);
         marker.on('click', () => setSelectedStation(prev => prev?.id === s.id ? null : s));
-        markersRef.current.push(marker);
+        markersRef.current.set(s.id, marker);
       });
 
     return () => {
       markersRef.current.forEach(m => m.remove());
-      markersRef.current = [];
+      markersRef.current = new Map();
     };
   }, [filtered, filterStatus]);
+
+  // Highlight the selected station's marker so it's obvious which dot it is among same-colour ones.
+  useEffect(() => {
+    markersRef.current.forEach((marker, id) => {
+      const s = filtered.find(x => x.id === id);
+      if (!s) return;
+      const status = getFuelStatus(s.currentFuel);
+      const c = fuelStatusColor(status);
+      if (id === selectedStation?.id) {
+        marker.setIcon(makeHighlightIcon(c.dot));
+        marker.setZIndexOffset(1000);
+      } else {
+        marker.setIcon(status === 'red' ? makePulseIcon(c.dot) : makeMarkerIcon(c.dot, status === 'gray' ? 9 : 11));
+        marker.setZIndexOffset(0);
+      }
+    });
+  }, [selectedStation, filtered]);
 
   const statusFilters = [
     { key: 'all',    label: 'Tất cả',          count: stations.length, color: '#475569' },

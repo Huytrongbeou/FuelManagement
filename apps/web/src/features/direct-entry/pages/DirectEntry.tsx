@@ -11,6 +11,8 @@ import { EntryRow, RowStatus, fmt, rowBg, statusBadge } from '../lib/entryRow';
 interface Props {
   stations: Station[];
   onNavigateToDashboard: () => void;
+  /** When set (opened via a station's "Nhập NL"), the form loads only this station. */
+  focusStationId?: string | null;
 }
 
 function calcRow(row: EntryRow, station: Station | undefined): Partial<EntryRow> {
@@ -263,7 +265,7 @@ function DirectEntryTable({ rows, onUpdateRow, onRemoveRow, onRevertRow, onLoadC
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
+export function DirectEntry({ stations, onNavigateToDashboard, focusStationId }: Props) {
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [checked, setChecked] = useState(false);
   const [save, dispatchSave] = useReducer(saveReducer, { saving: false, successOpen: false, doubleSubmitOpen: false, warningAckOpen: false });
@@ -271,30 +273,33 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
   const pendingSubmitRef = useRef<(() => Promise<void>) | null>(null);
   const [hasAutoLoaded, setHasAutoLoaded] = useState(false);
 
+  // When opened for one station (from its "Nhập NL"), load only that station; otherwise all.
+  const source = focusStationId ? stations.filter(s => s.id === focusStationId) : stations;
+  const focusStation = focusStationId ? stations.find(s => s.id === focusStationId) : undefined;
+
+  const rowsFrom = (list: Station[]): EntryRow[] => list.map(s => ({
+    id: s.id, stationId: s.id, code: s.code, name: s.name,
+    added: '', hoursRun: '', date: TODAY, note: '',
+    prevFuel: s.currentFuel, consumed: null, systemCalc: null, finalFuel: null,
+    status: 'unchanged' as RowStatus, errorMsg: '',
+  }));
+
   // Auto-load once when stations first become available.
   // Set during render (not effect) so rows are ready before the first paint.
-  if (!hasAutoLoaded && stations.length > 0) {
+  if (!hasAutoLoaded && source.length > 0) {
     setHasAutoLoaded(true);
-    setRows(stations.map(s => ({
-      id: s.id, stationId: s.id, code: s.code, name: s.name,
-      added: '', hoursRun: '', date: TODAY, note: '',
-      prevFuel: s.currentFuel, consumed: null, systemCalc: null, finalFuel: null,
-      status: 'unchanged' as RowStatus, errorMsg: '',
-    })));
+    setRows(rowsFrom(source));
   }
 
   const loadCurrent = useCallback((options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
-    const loaded = stations.map(s => ({
-      id: s.id, stationId: s.id, code: s.code, name: s.name,
-      added: '', hoursRun: '', date: TODAY, note: '',
-      prevFuel: s.currentFuel, consumed: null, systemCalc: null, finalFuel: null,
-      status: 'unchanged' as RowStatus, errorMsg: '',
-    }));
-    setRows(loaded);
+    const list = focusStationId ? stations.filter(s => s.id === focusStationId) : stations;
+    setRows(rowsFrom(list));
     setChecked(false);
     if (!silent) toast.success('Đã tải dữ liệu hiện tại');
-  }, [stations]);
+  // rowsFrom is a stable pure mapper; stations/focusStationId are the real inputs.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stations, focusStationId]);
 
   const updateRow = (id: string, field: string, value: string) => {
     setRows(prev => prev.map(r => r.id !== id ? r : { ...r, [field]: value }));
@@ -369,7 +374,13 @@ export function DirectEntry({ stations, onNavigateToDashboard }: Props) {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div>
             <h2 style={{ color: '#0f172a' }}>Nhập dữ liệu trực tiếp</h2>
-            <p style={{ color: '#64748b', fontSize: '0.8rem' }}>Cập nhật thông tin và nhiên liệu nhiều trạm cùng lúc, giống nhập Excel.</p>
+            {focusStation ? (
+              <p style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                Đang nhập cho trạm <b>{focusStation.code} — {focusStation.name}</b>.
+              </p>
+            ) : (
+              <p style={{ color: '#64748b', fontSize: '0.8rem' }}>Cập nhật thông tin và nhiên liệu nhiều trạm cùng lúc, giống nhập Excel.</p>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => loadCurrent({ silent: false })} className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.82rem', background: 'white' }}>

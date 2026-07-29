@@ -14,7 +14,7 @@ interface Props {
   userRole?: string;
   onViewStation: (id: string) => void;
   onAddStation?: () => void;
-  onGoToDirectEntry: () => void;
+  onGoToDirectEntry: (stationId?: string) => void;
   onStationsChanged: () => void;
 }
 
@@ -208,7 +208,7 @@ export function StationList({ stations, userRole, onViewStation, onAddStation, o
                       <div className="flex items-center gap-2">
                         {/* Nhập nhiên liệu — navigates to DirectEntry (preview/confirm flow), no quick-update bypass */}
                         {canEnterFuel(userRole) && (
-                          <button type="button" onClick={onGoToDirectEntry} className="px-2.5 py-1.5 rounded-lg transition-colors" style={{ background: '#2563eb', color: 'white', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}
+                          <button type="button" onClick={() => onGoToDirectEntry(s.id)} className="px-2.5 py-1.5 rounded-lg transition-colors" style={{ background: '#2563eb', color: 'white', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}
                             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#1d4ed8'}
                             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#2563eb'}>
                             Nhập NL
