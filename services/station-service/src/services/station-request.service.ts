@@ -102,6 +102,7 @@ export async function createRequest(data: Record<string, unknown>, requestedBy: 
     maxCapacity,
     initialFuel,
     notes: (data.notes as string) ?? null,
+    managedByEmployeeId: (data.managedByEmployeeId as string) || null,
     requestedBy,
   }
 
@@ -137,7 +138,7 @@ export async function createRequest(data: Record<string, unknown>, requestedBy: 
 export async function approveRequest(
   id: string,
   reviewer: { name: string; ctx: UserContext },
-  opts?: { confirmNearby?: boolean }
+  opts?: { confirmNearby?: boolean; managedByEmployeeId?: string | null }
 ) {
   const request = await getRequest(id)
 
@@ -187,6 +188,8 @@ export async function approveRequest(
         maxCapacity: Number(request.maxCapacity),
         notes: request.notes,
         initialFuel: Number(request.initialFuel),
+        // Reviewer may set/override the managing employee at approval time.
+        managedByEmployeeId: opts?.managedByEmployeeId !== undefined ? opts.managedByEmployeeId : request.managedByEmployeeId,
       },
       reviewer.ctx,
       { confirmNearby: true }

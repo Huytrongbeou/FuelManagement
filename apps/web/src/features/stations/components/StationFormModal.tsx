@@ -7,6 +7,8 @@ import { GeneratorBrand, GeneratorModel } from '@/shared/types';
 import { DONG_THAP_PHUONG, DONG_THAP_XA } from '@/shared/data/dongthap-admin-units';
 import { getCurrentPosition } from '@/shared/utils/geolocation';
 import type { ApiError } from '@/shared/api/client';
+import { getEmployees, type Employee } from '@/features/employees/api/employeeApi';
+import { EmployeeSelect } from '@/features/employees/components/EmployeeSelect';
 import { createStation } from '../api/stationApi';
 import { createStationRequest, type NearbyStation } from '../api/stationRequestApi';
 import 'leaflet/dist/leaflet.css';
@@ -45,6 +47,7 @@ interface FormState {
   stationName: string;
   address: string;
   currentAdminUnitName: string;
+  managedByEmployeeId: string | null;
   latitude: string;
   longitude: string;
   brandId: string;
@@ -62,6 +65,7 @@ const EMPTY: FormState = {
   // Mặc định Phường Cao Lãnh (nơi phần lớn trạm đặt), nhưng chọn được mọi phường/xã của
   // tỉnh Đồng Tháp mới sau sắp xếp 01/7/2025.
   currentAdminUnitName: 'Phường Cao Lãnh',
+  managedByEmployeeId: null,
   latitude: '', longitude: '',
   brandId: '', modelId: '',
   powerKva: '', fuelType: 'diesel', consumptionRate: '', maxCapacity: '',
@@ -73,9 +77,11 @@ const EMPTY: FormState = {
 interface BasicInfoFieldsProps {
   form: FormState;
   set: (field: keyof FormState, value: string) => void;
+  employees: Employee[];
+  onEmployeeChange: (id: string | null) => void;
 }
 
-function BasicInfoFields({ form, set }: BasicInfoFieldsProps) {
+function BasicInfoFields({ form, set, employees, onEmployeeChange }: BasicInfoFieldsProps) {
   return (
     <section>
       <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
@@ -104,6 +110,10 @@ function BasicInfoFields({ form, set }: BasicInfoFieldsProps) {
               {DONG_THAP_XA.map(name => <option key={name} value={name}>{name}</option>)}
             </optgroup>
           </select>
+        </div>
+        <div>
+          <label htmlFor="managed-by" style={LABEL_STYLE}>Nhân viên quản lý</label>
+          <EmployeeSelect id="managed-by" employees={employees} value={form.managedByEmployeeId} onChange={onEmployeeChange} />
         </div>
       </div>
     </section>
@@ -185,6 +195,12 @@ export function StationFormModal({ open, onClose, brands, models, onCreated, sub
   const [locating, setLocating] = useState(false);
   // Non-null while the "a station already exists within 200 m" confirmation is showing.
   const [nearby, setNearby] = useState<NearbyStation[] | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    getEmployees().then(setEmployees).catch(() => {});
+  }, [open]);
 
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -304,6 +320,7 @@ export function StationFormModal({ open, onClose, brands, models, onCreated, sub
       currentAdminUnitName: form.currentAdminUnitName.trim() || null,
       legacyAreaName: null,
       operationAreaName: null,
+      managedByEmployeeId: form.managedByEmployeeId,
       latitude: form.latitude ? parseFloat(form.latitude) : null,
       longitude: form.longitude ? parseFloat(form.longitude) : null,
       brandId: form.brandId || null,
@@ -378,7 +395,7 @@ export function StationFormModal({ open, onClose, brands, models, onCreated, sub
           {/* Body */}
           <form onSubmit={handleSubmit} style={{ overflowY: 'auto', flex: 1 }}>
             <div className="px-6 py-5 space-y-5">
-              <BasicInfoFields form={form} set={set} />
+              <BasicInfoFields form={form} set={set} employees={employees} onEmployeeChange={id => setForm(f => ({ ...f, managedByEmployeeId: id }))} />
 
               {/* Tọa độ */}
               <section>

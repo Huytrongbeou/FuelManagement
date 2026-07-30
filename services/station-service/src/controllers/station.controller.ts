@@ -39,7 +39,7 @@ export async function create(req: Request, res: Response): Promise<void> {
       stationCode, stationName, generatorName, address, latitude, longitude,
       currentAdminUnitName, legacyAreaName, operationAreaName,
       brandId, modelId, powerKva, fuelType,
-      consumptionRate, maxCapacity, notes, initialFuel,
+      consumptionRate, maxCapacity, notes, initialFuel, managedByEmployeeId,
     } = req.body
     // stationCode is optional: when omitted the service auto-generates the next CL-NNN code.
     if (!stationName) { res.status(400).json({ error: 'stationName is required' }); return }
@@ -68,6 +68,7 @@ export async function create(req: Request, res: Response): Promise<void> {
       maxCapacity: Number(maxCapacity),
       notes: notes ?? null,
       initialFuel: initialFuel != null ? Number(initialFuel) : undefined,
+      managedByEmployeeId: managedByEmployeeId || null,
     }, userCtx, { confirmNearby: req.body.confirmNearby === true })
     res.status(201).json({ ...result.station, currentFuelStateInitialized: result.currentFuelStateInitialized, warning: 'warning' in result ? result.warning : undefined })
   } catch (err) { handleError(res, err) }
@@ -79,7 +80,7 @@ export async function update(req: Request, res: Response): Promise<void> {
       stationName, generatorName, address, latitude, longitude,
       currentAdminUnitName, legacyAreaName, operationAreaName,
       brandId, modelId, powerKva, fuelType,
-      consumptionRate, maxCapacity, notes,
+      consumptionRate, maxCapacity, notes, managedByEmployeeId,
     } = req.body
     const data: Parameters<typeof service.update>[1] = {}
     if (stationName !== undefined) data.stationName = stationName
@@ -97,6 +98,7 @@ export async function update(req: Request, res: Response): Promise<void> {
     if (consumptionRate !== undefined) data.consumptionRate = Number(consumptionRate)
     if (maxCapacity !== undefined) data.maxCapacity = Number(maxCapacity)
     if (notes !== undefined) data.notes = notes
+    if (managedByEmployeeId !== undefined) data.managedByEmployeeId = managedByEmployeeId || null
     const userCtx = {
       userId: req.headers['x-user-id'] as string | undefined,
       userRole: req.headers['x-user-role'] as string | undefined,

@@ -149,7 +149,7 @@ export function StationList({ stations, userRole, onViewStation, onAddStation, o
                   { label: 'Công suất',      field: null,                              hide: 'hidden lg:table-cell' },
                   { label: 'NL tồn',         field: 'currentFuel' as SortField | null },
                   { label: 'Trạng thái',     field: null,                              hide: 'hidden sm:table-cell' },
-                  { label: 'Khu vực QT',     field: null,                              hide: 'hidden lg:table-cell' },
+                  { label: 'NV quản lý',     field: null,                              hide: 'hidden lg:table-cell' },
                   { label: 'Cập nhật',       field: 'lastUpdated' as SortField | null, hide: 'hidden sm:table-cell' },
                   { label: 'Hành động',      field: null },
                 ] as Array<{ label: string; field: SortField | null; hide?: string }>).map(col => (
@@ -199,7 +199,7 @@ export function StationList({ stations, userRole, onViewStation, onAddStation, o
                       )}
                     </td>
                     <td className="hidden sm:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}><FuelBadge fuel={s.currentFuel} /></td>
-                    <td className="hidden lg:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.78rem', color: '#64748b', whiteSpace: 'nowrap' }}>{s.managementZone}</td>
+                    <td className="hidden lg:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.78rem', color: s.managerName ? '#475569' : '#cbd5e1', whiteSpace: 'nowrap' }}>{s.managerName || '—'}</td>
                     <td className="hidden sm:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.78rem', color: s.updatedToday ? '#16a34a' : '#94a3b8', whiteSpace: 'nowrap' }}>
                       {s.lastUpdated ?? 'Chưa có'}
                       {s.updatedToday && <span className="ml-1 px-1.5 py-0.5 rounded" style={{ background: '#dcfce7', color: '#16a34a', fontSize: '0.75rem' }}>Hôm nay</span>}

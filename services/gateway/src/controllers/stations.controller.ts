@@ -13,6 +13,7 @@ function isToday(dateStr: string | null | undefined): boolean {
 function toStationDto(s: Record<string, unknown>, fuel?: { currentFuel: number | null; fuelStatus: string; lastUpdated: string | null } | null) {
   const brand = s.brand as { name?: string } | null
   const model = s.model as { modelName?: string } | null
+  const manager = s.manager as { name?: string } | null
   return {
     id: s.id,
     code: s.stationCode,
@@ -29,6 +30,8 @@ function toStationDto(s: Record<string, unknown>, fuel?: { currentFuel: number |
     modelId: s.modelId ?? null,
     modelName: model?.modelName ?? null,
     powerKva: s.powerKva != null ? Number(s.powerKva) : null,
+    managedByEmployeeId: s.managedByEmployeeId ?? null,
+    managerName: manager?.name ?? null,
     fuelType: s.fuelType ?? 'diesel',
     fuelRate: s.consumptionRate != null ? Number(s.consumptionRate) : null,
     maxCapacity: s.maxCapacity != null ? Number(s.maxCapacity) : null,

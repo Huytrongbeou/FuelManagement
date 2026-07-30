@@ -62,19 +62,67 @@ model Station {
   consumptionRate      Decimal   @map("consumption_rate") @db.Decimal(6, 3)
   maxCapacity          Decimal   @map("max_capacity") @db.Decimal(8, 2)
   notes                String?
+  managedByEmployeeId  String?   @map("managed_by_employee_id") @db.Uuid
   isActive             Boolean   @default(true) @map("is_active")
   deactivatedAt        DateTime? @map("deactivated_at") @db.Timestamptz
   deactivationReason   String?   @map("deactivation_reason")
   createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
-  brand GeneratorBrand? @relation(fields: [brandId], references: [id])
-  model GeneratorModel? @relation(fields: [modelId], references: [id])
+  brand   GeneratorBrand? @relation(fields: [brandId], references: [id])
+  model   GeneratorModel? @relation(fields: [modelId], references: [id])
+  manager Employee?       @relation(fields: [managedByEmployeeId], references: [id])
 
   @@index([stationCode], map: "idx_stations_code")
   @@index([latitude, longitude], map: "idx_stations_latlon")
   @@index([isActive], map: "idx_stations_active")
   @@map("stations")
+}
+
+/// Nhân viên hiện trường được gán quản lý trạm. KHÔNG phải tài khoản đăng nhập — chỉ là danh sách
+/// tên do admin quản lý, gán vào trạm khi thêm/duyệt (chọn từ dropdown có tìm kiếm).
+model Employee {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @db.VarChar(150)
+  phone     String?  @db.VarChar(30)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  stations Station[]
+
+  @@index([isActive], map: "idx_employees_active")
+  @@map("employees")
+}
+
+/// Sự kiện bảo dưỡng máy phát của một trạm — tách khỏi việc đổ nhiên liệu.
+model MaintenanceLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stationId   String   @map("station_id") @db.Uuid
+  stationCode String   @map("station_code") @db.VarChar(50)
+  performedAt DateTime @map("performed_at") @db.Date
+  note        String?
+  recordedBy  String?  @map("recorded_by") @db.VarChar(100)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([stationId], map: "idx_maintenance_station")
+  @@map("maintenance_logs")
+}
+
+/// Ghi vết khi hãng/model máy phát của một trạm bị đổi, để xem lại lịch sử thay máy.
+model StationMachineChange {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stationId    String   @map("station_id") @db.Uuid
+  stationCode  String   @map("station_code") @db.VarChar(50)
+  oldBrandName String?  @map("old_brand_name") @db.VarChar(200)
+  oldModelName String?  @map("old_model_name") @db.VarChar(200)
+  newBrandName String?  @map("new_brand_name") @db.VarChar(200)
+  newModelName String?  @map("new_model_name") @db.VarChar(200)
+  changedBy    String?  @map("changed_by") @db.VarChar(100)
+  changedAt    DateTime @default(now()) @map("changed_at") @db.Timestamptz
+
+  @@index([stationId], map: "idx_machine_change_station")
+  @@map("station_machine_changes")
 }
 
 /// Đề xuất tạo trạm mới. Nhân viên gửi đề xuất, quản lý/admin duyệt; chỉ khi duyệt mới sinh ra
@@ -97,6 +145,7 @@ model StationRequest {
   consumptionRate      Decimal   @map("consumption_rate") @db.Decimal(6, 3)
   maxCapacity          Decimal   @map("max_capacity") @db.Decimal(8, 2)
   initialFuel          Decimal   @default(0) @map("initial_fuel") @db.Decimal(8, 2)
+  managedByEmployeeId  String?   @map("managed_by_employee_id") @db.Uuid
   notes                String?
 
   /// pending → approving (đang giành quyền, thoáng qua) → approved | rejected

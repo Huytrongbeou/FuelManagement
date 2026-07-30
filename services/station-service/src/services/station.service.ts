@@ -2,6 +2,7 @@ import * as stationRepo from '../repositories/station.repository'
 import * as fuelClient from '../clients/fuel.client'
 import type { UserContext } from '../clients/fuel.client'
 import { findNearbyActiveStations, DUPLICATE_RADIUS_M } from '../utils/geo'
+import * as machineChangeService from './machine-change.service'
 
 type ListOpts = {
   active?: 'true' | 'false' | 'all'
@@ -68,6 +69,7 @@ export async function create(data: {
   maxCapacity: number
   notes?: string | null
   initialFuel?: number
+  managedByEmployeeId?: string | null
 }, userCtx?: UserContext, opts?: { confirmNearby?: boolean }) {
   // Station code is auto-generated (CL-NNN) when the caller doesn't supply one — the add-station
   // form no longer asks for it. An explicit code (e.g. bulk import) is still honoured.
@@ -147,6 +149,7 @@ export async function update(id: string, data: {
   consumptionRate?: number
   maxCapacity?: number
   notes?: string | null
+  managedByEmployeeId?: string | null
 }, userCtx?: UserContext) {
   const existing = await stationRepo.findById(id)
   if (!existing) throw Object.assign(new Error('Station not found'), { status: 404 })
@@ -166,6 +169,17 @@ export async function update(id: string, data: {
       )
     }
   }
+
+  // Audit a generator brand/model change before applying it. Never let audit failure block the
+  // update — the station change is what matters.
+  try {
+    await machineChangeService.recordIfChanged(
+      { id: existing.id, stationCode: existing.stationCode, brandId: existing.brandId, modelId: existing.modelId },
+      { brandId: data.brandId, modelId: data.modelId },
+      userCtx?.userName
+    )
+  } catch { /* audit is best-effort */ }
+
   return stationRepo.update(id, data)
 }
 

@@ -7,6 +7,8 @@ import {
   getStationRequests, approveStationRequest, rejectStationRequest,
   type StationRequest, type NearbyStation,
 } from '../api/stationRequestApi';
+import { getEmployees, type Employee } from '@/features/employees/api/employeeApi';
+import { EmployeeSelect } from '@/features/employees/components/EmployeeSelect';
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
   pending:   { bg: '#fef3c7', fg: '#92400e', label: 'Chờ duyệt' },
@@ -28,11 +30,20 @@ export function StationRequests({ onStationsChanged }: Props) {
   const [rejectReason, setRejectReason] = useState('');
   // Set when approval is blocked because a station appeared within 200 m since the proposal.
   const [nearbyConfirm, setNearbyConfirm] = useState<{ req: StationRequest; stations: NearbyStation[] } | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  // Reviewer's chosen managing employee per request (seeded from what the proposal carried).
+  const [assign, setAssign] = useState<Record<string, string | null>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setRequests(await getStationRequests());
+      const list = await getStationRequests();
+      setRequests(list);
+      setAssign(prev => {
+        const next = { ...prev };
+        for (const r of list) if (!(r.id in next)) next[r.id] = r.managedByEmployeeId ?? null;
+        return next;
+      });
     } catch (err) {
       toast.error((err as Error).message || 'Lỗi tải danh sách đề xuất');
     } finally {
@@ -41,11 +52,12 @@ export function StationRequests({ onStationsChanged }: Props) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { getEmployees().then(setEmployees).catch(() => {}); }, []);
 
   const handleApprove = async (req: StationRequest, confirmNearby = false) => {
     setBusyId(req.id);
     try {
-      const result = await approveStationRequest(req.id, confirmNearby);
+      const result = await approveStationRequest(req.id, { confirmNearby, managedByEmployeeId: assign[req.id] ?? null });
       toast.success(`Đã duyệt và tạo trạm ${result.station.stationCode}`);
       setNearbyConfirm(null);
       onStationsChanged();
@@ -131,7 +143,14 @@ export function StationRequests({ onStationsChanged }: Props) {
         </div>
 
         {isOpen && (
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <div className="w-44">
+              <EmployeeSelect
+                employees={employees}
+                value={assign[r.id] ?? null}
+                onChange={id => setAssign(prev => ({ ...prev, [r.id]: id }))}
+              />
+            </div>
             <button
               type="button"
               data-testid={`request-approve-${r.stationCode}`}

@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Map, Upload, History, Settings, ChevronRight, Cpu, Factory, X, ClipboardList, ClipboardCheck, LogOut, Users } from 'lucide-react';
+import { LayoutDashboard, MapPin, Map, Upload, History, Settings, ChevronRight, Cpu, Factory, X, ClipboardList, ClipboardCheck, LogOut, Users, Contact } from 'lucide-react';
 import { Page } from '@/shared/types';
 
 interface SidebarProps {
@@ -47,7 +47,8 @@ const navGroups = [
     label: 'Hệ thống',
     items: [
       // "Hệ thống" itself is visible to everyone, so this one item carries its own admin gate.
-      { page: 'users'    as Page, label: 'Quản lý người dùng',  icon: Users, adminOnly: true },
+      { page: 'users'     as Page, label: 'Quản lý người dùng',  icon: Users, adminOnly: true },
+      { page: 'employees' as Page, label: 'Nhân viên quản lý',    icon: Contact, adminOnly: true },
       { page: 'settings' as Page, label: 'Tài khoản / Cài đặt', icon: Settings },
     ],
   },

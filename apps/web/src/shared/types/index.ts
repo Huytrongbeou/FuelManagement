@@ -1,5 +1,5 @@
 export type FuelStatus = 'green' | 'yellow' | 'red' | 'gray';
-export type Page = 'dashboard' | 'stations' | 'map' | 'directEntry' | 'import' | 'history' | 'brands' | 'models' | 'stationRequests' | 'users' | 'settings';
+export type Page = 'dashboard' | 'stations' | 'map' | 'directEntry' | 'import' | 'history' | 'brands' | 'models' | 'stationRequests' | 'employees' | 'users' | 'settings';
 
 export interface GeneratorBrand {
   id: string;
@@ -45,6 +45,8 @@ export interface Station {
   lastUpdated: string | null;
   updatedToday: boolean;
   active: boolean;
+  managedByEmployeeId?: string | null;
+  managerName?: string | null;
 }
 
 export interface FuelRecord {

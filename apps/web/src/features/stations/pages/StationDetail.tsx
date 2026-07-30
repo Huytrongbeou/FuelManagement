@@ -1,9 +1,13 @@
-import { useState, useEffect, useMemo, useReducer } from 'react';
-import { ArrowLeft, MapPin, Zap, Droplets, Calendar, Clock, X, TrendingDown, TrendingUp, Minus } from 'lucide-react';
+import { useState, useEffect, useMemo, useReducer, useCallback } from 'react';
+import { ArrowLeft, MapPin, Zap, Droplets, Calendar, Clock, X, TrendingDown, TrendingUp, Minus, Wrench, Plus, Settings as SettingsIcon, Loader2 } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { toast } from 'sonner';
 import { Station, FuelRecord, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/shared/types';
 import { getFuelHistory } from '@/features/fuel/api/fuelApi';
+import {
+  getMaintenance, createMaintenance, getMachineChanges,
+  type MaintenanceSummary, type MachineChange,
+} from '../api/stationHistoryApi';
 import { createAdjustmentRequest } from '../api/adjustmentApi';
 import { canEnterFuel } from '@/shared/auth/permissions';
 
@@ -283,6 +287,38 @@ export function StationDetail({ station, records, userRole, onBack, onGoToDirect
     return cutoff ? localRecords.filter(r => r.date.slice(0, 10) >= cutoff) : localRecords;
   }, [localRecords, historyPeriod]);
 
+  // Maintenance (#3) + generator-change audit (#4)
+  const [maint, setMaint] = useState<MaintenanceSummary | null>(null);
+  const [machineChanges, setMachineChanges] = useState<MachineChange[]>([]);
+  const [maintOpen, setMaintOpen] = useState(false);
+  const [maintDate, setMaintDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [maintNote, setMaintNote] = useState('');
+  const [maintSaving, setMaintSaving] = useState(false);
+
+  const loadMaint = useCallback(() => {
+    getMaintenance(station.id).then(setMaint).catch(() => {});
+    getMachineChanges(station.id).then(setMachineChanges).catch(() => {});
+  }, [station.id]);
+
+  useEffect(() => { loadMaint(); }, [loadMaint]);
+
+  const handleSaveMaintenance = async () => {
+    if (!maintDate) { toast.error('Vui lòng chọn ngày bảo dưỡng'); return; }
+    setMaintSaving(true);
+    try {
+      await createMaintenance(station.id, { performedAt: maintDate, note: maintNote.trim() || null });
+      toast.success('Đã ghi nhận bảo dưỡng');
+      setMaintOpen(false);
+      setMaintNote('');
+      setMaintDate(new Date().toISOString().slice(0, 10));
+      loadMaint();
+    } catch (err) {
+      toast.error((err as Error).message || 'Lỗi ghi bảo dưỡng');
+    } finally {
+      setMaintSaving(false);
+    }
+  };
+
   const status = getFuelStatus(station.currentFuel);
   const c = fuelStatusColor(status);
   const pct = station.currentFuel !== null ? Math.round((station.currentFuel / station.maxCapacity) * 100) : 0;
@@ -363,7 +399,7 @@ export function StationDetail({ station, records, userRole, onBack, onGoToDirect
               <InfoRow label="Công suất" value={`${station.powerKva} kVA`} />
               <InfoRow label="Định mức tiêu hao" value={`${station.fuelRate} L/giờ`} />
               <InfoRow label="Dung tích tối đa" value={`${station.maxCapacity} L`} />
-              <InfoRow label="Khu vực quản lý" value={station.managementZone} />
+              <InfoRow label="Nhân viên quản lý" value={station.managerName || '— Chưa gán —'} />
             </div>
           </div>
 
@@ -418,6 +454,111 @@ export function StationDetail({ station, records, userRole, onBack, onGoToDirect
           onPeriodChange={setHistoryPeriod}
         />
       </div>
+
+      {/* Maintenance (#3) + generator-change history (#4) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="rounded-xl border overflow-hidden" style={{ background: 'white', borderColor: '#e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#f1f5f9' }}>
+            <div className="flex items-center gap-2">
+              <Wrench size={16} style={{ color: '#0891b2' }} />
+              <h4 style={{ color: '#0f172a' }}>Bảo dưỡng</h4>
+            </div>
+            {canEnterFuel(userRole) && (
+              <button type="button" onClick={() => setMaintOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: '#0891b2', color: 'white', fontSize: '0.8rem', fontWeight: 600 }}>
+                <Plus size={14} /> Ghi bảo dưỡng
+              </button>
+            )}
+          </div>
+          <div className="px-5 py-3 flex gap-6 border-b" style={{ borderColor: '#f1f5f9' }}>
+            <div>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Gần nhất</div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1e293b' }}>
+                {maint?.lastPerformedAt ? formatRecordDate(maint.lastPerformedAt) : '— Chưa có —'}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Trong tháng này</div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1e293b' }}>{maint?.countThisMonth ?? 0} lần</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Tổng</div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1e293b' }}>{maint?.total ?? 0} lần</div>
+            </div>
+          </div>
+          <div className="max-h-64 overflow-y-auto divide-y" style={{ borderColor: '#f8fafc' }}>
+            {(maint?.logs.length ?? 0) === 0 ? (
+              <div className="py-8 text-center" style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Chưa có lần bảo dưỡng nào</div>
+            ) : (
+              maint!.logs.map(l => (
+                <div key={l.id} className="px-5 py-2.5">
+                  <div className="flex items-center justify-between">
+                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{formatRecordDate(l.performedAt)}</span>
+                    {l.recordedBy && <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{l.recordedBy}</span>}
+                  </div>
+                  {l.note && <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>{l.note}</div>}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-xl border overflow-hidden" style={{ background: 'white', borderColor: '#e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div className="flex items-center gap-2 px-5 py-4 border-b" style={{ borderColor: '#f1f5f9' }}>
+            <SettingsIcon size={16} style={{ color: '#7c3aed' }} />
+            <h4 style={{ color: '#0f172a' }}>Lịch sử thay máy (hãng/model)</h4>
+          </div>
+          <div className="max-h-72 overflow-y-auto divide-y" style={{ borderColor: '#f8fafc' }}>
+            {machineChanges.length === 0 ? (
+              <div className="py-8 text-center" style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Chưa có thay đổi máy nào</div>
+            ) : (
+              machineChanges.map(mc => (
+                <div key={mc.id} className="px-5 py-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                      {new Date(mc.changedAt).toLocaleString('vi-VN')}
+                    </span>
+                    {mc.changedBy && <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>bởi {mc.changedBy}</span>}
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#374151' }}>
+                    <span style={{ color: '#94a3b8' }}>{mc.oldBrandName || '—'} · {mc.oldModelName || '—'}</span>
+                    {' → '}
+                    <span style={{ fontWeight: 600 }}>{mc.newBrandName || '—'} · {mc.newModelName || '—'}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      <Dialog.Root open={maintOpen} onOpenChange={v => { if (!v) setMaintOpen(false); }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0" style={{ background: 'rgba(0,0,0,0.4)', zIndex: 50 }} />
+          <Dialog.Content className="fixed rounded-2xl" style={{ top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 51, background: 'white', width: '420px', maxWidth: '94vw', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: '#f1f5f9' }}>
+              <Dialog.Title style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>Ghi bảo dưỡng</Dialog.Title>
+              <Dialog.Close asChild><button type="button" style={{ color: '#94a3b8' }}><X size={18} /></button></Dialog.Close>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label htmlFor="maint-date" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>Ngày bảo dưỡng *</label>
+                <input id="maint-date" type="date" value={maintDate} onChange={e => setMaintDate(e.target.value)} className="w-full px-3 py-2 rounded-lg border outline-none" style={{ borderColor: '#e2e8f0', fontSize: '0.9rem' }} />
+              </div>
+              <div>
+                <label htmlFor="maint-note" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>Nội dung / ghi chú</label>
+                <textarea id="maint-note" value={maintNote} onChange={e => setMaintNote(e.target.value)} placeholder="VD: Thay nhớt, kiểm tra lọc gió..." className="w-full px-3 py-2 rounded-lg border outline-none" style={{ borderColor: '#e2e8f0', fontSize: '0.9rem', minHeight: '70px', resize: 'vertical' }} />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 px-6 py-4 border-t" style={{ borderColor: '#f1f5f9' }}>
+              <button type="button" onClick={() => setMaintOpen(false)} className="px-4 py-2 rounded-lg border" style={{ fontSize: '0.875rem', borderColor: '#e2e8f0', color: '#64748b' }}>Hủy</button>
+              <button type="button" onClick={handleSaveMaintenance} disabled={maintSaving} className="flex items-center gap-2 px-5 py-2 rounded-lg" style={{ background: maintSaving ? '#67e8f9' : '#0891b2', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
+                {maintSaving && <Loader2 size={15} className="animate-spin" />}
+                {maintSaving ? 'Đang lưu...' : 'Lưu'}
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <AdjustmentModal adj={adj} dispatchAdj={dispatchAdj} onSubmit={handleAdjSubmit} />
     </div>

@@ -59,6 +59,8 @@ app.all('/api/auth*', requireAuth, createProxyMiddleware({ target: AUTH_URL, cha
 app.all('/api/users*', requireAuth, createProxyMiddleware({ target: AUTH_URL, changeOrigin: true, ...stripApi }))
 app.all('/api/brands*', requireAuth, createProxyMiddleware({ target: STATION_URL, changeOrigin: true, ...stripApi }))
 app.all('/api/models*', requireAuth, createProxyMiddleware({ target: STATION_URL, changeOrigin: true, ...stripApi }))
+// Field-employee master list (managing staff), served by station-service.
+app.all('/api/employees*', requireAuth, createProxyMiddleware({ target: STATION_URL, changeOrigin: true, ...stripApi }))
 app.all('/api/stations*', requireAuth, createProxyMiddleware({ target: STATION_URL, changeOrigin: true, ...stripApi }))
 // Station proposals: any role may submit, station-service gates approval to manager/admin.
 app.all('/api/station-requests*', requireAuth, createProxyMiddleware({ target: STATION_URL, changeOrigin: true, ...stripApi }))

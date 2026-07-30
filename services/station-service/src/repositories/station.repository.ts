@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma'
 
-const include = { brand: true, model: true }
+const include = { brand: true, model: true, manager: true }
 
 export async function findAll(opts: { active?: 'true' | 'false' | 'all'; search?: string; brandId?: string; modelId?: string; currentAdminUnitName?: string; legacyAreaName?: string; operationAreaName?: string } = {}) {
   const where: Record<string, unknown> = {}
@@ -77,6 +77,7 @@ export async function create(data: {
   consumptionRate: number
   maxCapacity: number
   notes?: string | null
+  managedByEmployeeId?: string | null
 }) {
   return prisma.station.create({ data, include })
 }

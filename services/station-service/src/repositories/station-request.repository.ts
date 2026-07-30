@@ -18,6 +18,7 @@ export interface StationRequestInput {
   maxCapacity: number
   initialFuel?: number
   notes?: string | null
+  managedByEmployeeId?: string | null
   requestedBy: string
 }
 

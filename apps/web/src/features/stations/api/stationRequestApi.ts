@@ -22,6 +22,7 @@ export interface StationRequest {
   reviewedAt: string | null;
   rejectionReason: string | null;
   createdStationId: string | null;
+  managedByEmployeeId: string | null;
   /** Active stations within 200 m — surfaced so a reviewer spots a likely duplicate before approving. */
   nearbyStations?: NearbyStation[];
 }
@@ -54,6 +55,7 @@ export interface NewStationRequest {
   maxCapacity: number;
   initialFuel?: number;
   notes?: string | null;
+  managedByEmployeeId?: string | null;
 }
 
 export function getStationRequests(status?: StationRequestStatus): Promise<StationRequest[]> {
@@ -68,8 +70,14 @@ export function createStationRequest(data: NewStationRequest): Promise<StationRe
  * Rejects with a 409 if another reviewer got there first, or if a station now sits within 200 m
  * (error `code: 'NEARBY_DUPLICATE'` with `nearbyStations`). Pass confirmNearby to proceed anyway.
  */
-export function approveStationRequest(id: string, confirmNearby = false): Promise<{ station: { id: string; stationCode: string } }> {
-  return api.post(`/station-requests/${id}/approve`, confirmNearby ? { confirmNearby: true } : undefined);
+export function approveStationRequest(
+  id: string,
+  opts: { confirmNearby?: boolean; managedByEmployeeId?: string | null } = {}
+): Promise<{ station: { id: string; stationCode: string } }> {
+  const body: Record<string, unknown> = {};
+  if (opts.confirmNearby) body.confirmNearby = true;
+  if (opts.managedByEmployeeId !== undefined) body.managedByEmployeeId = opts.managedByEmployeeId;
+  return api.post(`/station-requests/${id}/approve`, Object.keys(body).length ? body : undefined);
 }
 
 export function rejectStationRequest(id: string, reason: string): Promise<StationRequest> {

@@ -20,6 +20,7 @@ import { GeneratorModels } from '@/features/generators/pages/GeneratorModels';
 import { Settings } from '@/features/settings/pages/Settings';
 import { LoadingScreen } from '@/shared/components/LoadingScreen';
 import { Users } from '@/features/users/pages/Users';
+import { Employees } from '@/features/employees/pages/Employees';
 import { StationRequests } from '@/features/stations/pages/StationRequests';
 import { StationFormModal } from '@/features/stations/components/StationFormModal';
 import type { Page, Station, GeneratorBrand, GeneratorModel } from '@/shared/types';
@@ -224,7 +225,7 @@ export default function App() {
   const renderContent = () => {
     const role = currentUser?.role;
     const managerPages: Page[] = ['directEntry', 'import', 'history'];
-    const adminPages: Page[] = ['brands', 'models', 'users'];
+    const adminPages: Page[] = ['brands', 'models', 'users', 'employees'];
     // Staff may propose stations but not review them.
     if (currentPage === 'stationRequests' && !canReviewStationRequests(role)) {
       return <Dashboard stations={stations} onViewStation={handleViewStation} />;
@@ -305,6 +306,8 @@ export default function App() {
         return <StationRequests onStationsChanged={fetchAll} />;
       case 'users':
         return <Users currentUserId={currentUser?.id} />;
+      case 'employees':
+        return <Employees />;
       case 'settings':
         return <Settings userRole={currentUser?.role} stations={stations} />;
       default:

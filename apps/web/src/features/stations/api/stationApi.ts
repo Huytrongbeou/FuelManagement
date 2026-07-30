@@ -25,6 +25,8 @@ function toStation(s: Record<string, unknown>): Station {
     lastUpdated: (s.lastUpdated as string) ?? null,
     updatedToday: (s.updatedToday as boolean) ?? false,
     active: s.active as boolean,
+    managedByEmployeeId: (s.managedByEmployeeId as string | null) ?? null,
+    managerName: (s.managerName as string | null) ?? null,
   };
 }
 

@@ -3,6 +3,7 @@ import stationRoutes from './routes/station.routes'
 import stationRequestRoutes from './routes/station-request.routes'
 import brandRoutes from './routes/generator-brand.routes'
 import modelRoutes from './routes/generator-model.routes'
+import employeeRoutes from './routes/employee.routes'
 import { prisma } from './lib/prisma'
 
 const app = express()
@@ -22,5 +23,6 @@ app.use('/stations', stationRoutes)
 app.use('/station-requests', stationRequestRoutes)
 app.use('/brands', brandRoutes)
 app.use('/models', modelRoutes)
+app.use('/employees', employeeRoutes)
 
 export default app

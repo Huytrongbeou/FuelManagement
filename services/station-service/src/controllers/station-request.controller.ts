@@ -50,7 +50,11 @@ export async function approve(req: Request, res: Response): Promise<void> {
     const result = await service.approveRequest(
       req.params.id,
       { name: reviewerName(req), ctx: userCtx(req) },
-      { confirmNearby: req.body?.confirmNearby === true }
+      {
+        confirmNearby: req.body?.confirmNearby === true,
+        // Only override when the key is present, so a plain approve keeps the proposal's value.
+        ...(req.body && 'managedByEmployeeId' in req.body ? { managedByEmployeeId: req.body.managedByEmployeeId || null } : {}),
+      }
     )
     res.json(result)
   } catch (err: unknown) {
