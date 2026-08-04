@@ -1,4 +1,4 @@
-import { getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/shared/types';
+import { getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/@types';
 
 export function FuelBadge({ fuel, fuelRate }: { fuel: number | null; fuelRate?: number | null }) {
   const status = getFuelStatus(fuel, fuelRate);

@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { getUsers, postUser, patchUser, deleteUser } from '../controllers/user.controller'
-import { requireRole } from '../middleware/require-role'
+import { requireRole } from '../middlewares/require-role'
 
 const router = Router()
 

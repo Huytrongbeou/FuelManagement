@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { requireRole } from '../middleware/require-role'
+import { requireRole } from '../middlewares/require-role'
 import {
   postAdjustmentRequest,
   getAdjustmentRequests,

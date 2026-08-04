@@ -13,7 +13,7 @@
 //   npx ts-node-dev --transpile-only scripts/backfill-current-fuel-state.ts --apply --confirm-zero
 
 import axios from 'axios'
-import { prisma } from '../src/lib/prisma'
+import { prisma } from '../src/config/prisma'
 import { initCurrentState } from '../src/services/current-state-init.service'
 
 const STATION_URL = process.env.STATION_SERVICE_URL || 'http://localhost:3002'

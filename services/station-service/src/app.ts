@@ -4,7 +4,7 @@ import stationRequestRoutes from './routes/station-request.routes'
 import brandRoutes from './routes/generator-brand.routes'
 import modelRoutes from './routes/generator-model.routes'
 import employeeRoutes from './routes/employee.routes'
-import { prisma } from './lib/prisma'
+import { prisma } from './config/prisma'
 
 const app = express()
 

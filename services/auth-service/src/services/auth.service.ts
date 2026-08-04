@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import * as userRepo from '../repositories/auth.repository'
-import type { LoginDto, LoginResponse, UserPayload, UserRole } from '../models/auth.types'
+import type { LoginDto, LoginResponse, UserPayload, UserRole } from '../@types/auth.types'
 
 function loadJwtSecret(): string {
   const s = process.env.JWT_SECRET ?? process.env.AUTH_JWT_SECRET ?? ''

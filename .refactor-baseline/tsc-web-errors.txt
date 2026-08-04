@@ -1,0 +1,30 @@
+src/api/client.ts(L,C): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/components/layout/Topbar.tsx(L,C): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/features/auth/pages/Login.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/dashboard/components/StatCard.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/direct-entry/pages/DirectEntry.tsx(L,C): error TS2322: Type '{ key: any; row: any; onUpdateRow: (id: string, field: string, value: string) => void; onRemoveRow: (id: string) => any; onRevertRow: (id: string) => any; }' is not assignable to type 'MobileEntryCardProps'.
+src/features/employees/pages/Employees.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/generators/pages/GeneratorBrands.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/generators/pages/GeneratorModels.tsx(L,C): error TS2322: Type '"diesel" | "gasoline" | "other"' is not assignable to type '"diesel"'.
+src/features/generators/pages/GeneratorModels.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/import-export/pages/ImportExcel.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/import-export/pages/ImportExcel.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/import-export/pages/ImportExcel.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/import-export/pages/ImportExcel.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/import-export/pages/ImportExcel.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/settings/pages/Settings.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/settings/pages/Settings.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/settings/pages/Settings.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/settings/pages/Settings.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/settings/pages/Settings.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/settings/pages/Settings.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/stations/components/StationFormModal.tsx(L,C): error TS2345: Argument of type '{ confirmNearby?: boolean; stationName: any; generatorName: any; address: any; currentAdminUnitName: any; legacyAreaName: any; operationAreaName: any; managedByEmployeeId: any; latitude: number; ... 8 more ...; initialFuel: number; }' is not assignable to parameter of type 'NewStationRequest'.
+src/features/stations/components/StationFormModal.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/stations/components/StationFormModal.tsx(L,C): error TS2882: Cannot find module or type declarations for side-effect import of 'leaflet/dist/leaflet.css'.
+src/features/stations/pages/MapView.tsx(L,C): error TS2882: Cannot find module or type declarations for side-effect import of 'leaflet/dist/leaflet.css'.
+src/features/stations/pages/StationDetail.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/stations/pages/StationDetail.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/stations/pages/StationDetail.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/stations/pages/StationDetail.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/features/users/components/UserFormModal.tsx(L,C): error TS2503: Cannot find namespace 'React'.
+src/main.tsx(L,C): error TS2882: Cannot find module or type declarations for side-effect import of './themes/index.css'.

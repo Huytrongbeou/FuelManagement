@@ -2,7 +2,7 @@ import { useState, useReducer } from 'react';
 import { Eye, EyeOff, Loader2, ServerCog } from 'lucide-react';
 import { LazyMotion, m, domAnimation } from 'motion/react';
 import { login } from '../api/authApi';
-import { setToken, getApiBase, setApiBase } from '@/shared/api/client';
+import { setToken, getApiBase, setApiBase } from '@/api/client';
 
 interface LoginProps {
   onLogin: () => void;

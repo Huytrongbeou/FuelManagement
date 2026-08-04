@@ -1,4 +1,4 @@
-import { prisma } from '../lib/prisma'
+import { prisma } from '../config/prisma'
 
 export async function create(data: {
   stationId: string

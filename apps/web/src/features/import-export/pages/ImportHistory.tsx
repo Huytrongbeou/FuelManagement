@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Eye, CheckCircle, XCircle, AlertTriangle, Clock, FileSpreadsheet, X } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { ImportSession } from '@/shared/types';
+import { ImportSession } from '@/@types';
 
 interface ImportHistoryProps {
   sessions: ImportSession[];

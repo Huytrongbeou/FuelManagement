@@ -1,0 +1,12 @@
+=== services/auth-service/ ===
+  exit=0  errorTS=0
+=== services/fuel-service/ ===
+  exit=0  errorTS=0
+=== services/gateway/ ===
+  exit=0  errorTS=0
+=== services/import-export-service/ ===
+  exit=0  errorTS=0
+=== services/realtime-service/ ===
+  exit=0  errorTS=0
+=== services/station-service/ ===
+  exit=0  errorTS=0

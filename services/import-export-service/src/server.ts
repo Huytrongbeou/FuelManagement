@@ -1,6 +1,6 @@
 import app from './app'
-import { connect as connectRabbit } from './clients/rabbitmq'
-import { prisma } from './lib/prisma'
+import { connect as connectRabbit } from './config/rabbitmq'
+import { prisma } from './config/prisma'
 
 const PORT = parseInt(process.env.PORT || '3004', 10)
 

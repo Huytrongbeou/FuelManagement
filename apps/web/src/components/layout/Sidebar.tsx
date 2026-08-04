@@ -1,5 +1,5 @@
 import { LayoutDashboard, MapPin, Map, Upload, History, Settings, ChevronRight, Cpu, Factory, X, ClipboardList, ClipboardCheck, LogOut, Users, Contact } from 'lucide-react';
-import { Page } from '@/shared/types';
+import { Page } from '@/@types';
 
 interface SidebarProps {
   currentPage: Page;

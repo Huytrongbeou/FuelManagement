@@ -5,10 +5,10 @@ import * as fuelClient from '../clients/fuel.client'
 import type { UserContext } from '../clients/fuel.client'
 import { confirmImport } from './import-orchestrator.service'
 import type { ParsedRow } from './excel-validator.service'
-import { formatBusinessDateVN } from '../utils/date-vn'
-import { normalizeDecimal2 } from '../utils/normalize'
-import { auditLog } from '../utils/audit-log'
-import { prisma } from '../lib/prisma'
+import { formatBusinessDateVN } from '../helpers/date-vn'
+import { normalizeDecimal2 } from '../helpers/normalize'
+import { auditLog } from '../helpers/audit-log'
+import { prisma } from '../config/prisma'
 
 // In-memory 60s duplicate guard for direct entry (single-instance dev; use Redis for multi-instance prod)
 const batchSubmitCache = new Map<string, number>()

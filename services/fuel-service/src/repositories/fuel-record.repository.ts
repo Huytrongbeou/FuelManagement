@@ -1,6 +1,6 @@
-import { formatBusinessDateVN } from '../utils/date-vn'
-import { normalizeDecimal2 } from '../utils/normalize'
-import { prisma } from '../lib/prisma'
+import { formatBusinessDateVN } from '../helpers/date-vn'
+import { normalizeDecimal2 } from '../helpers/normalize'
+import { prisma } from '../config/prisma'
 export { prisma }
 
 export async function findCurrentState(stationId: string) {

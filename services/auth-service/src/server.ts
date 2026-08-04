@@ -1,5 +1,5 @@
 import app from './app'
-import { prisma } from './lib/prisma'
+import { prisma } from './config/prisma'
 
 const PORT = parseInt(process.env.PORT || '3001', 10)
 

@@ -1,5 +1,5 @@
-import { api } from '@/shared/api/client';
-import type { GeneratorModel } from '@/shared/types';
+import { api } from '@/api/client';
+import type { GeneratorModel } from '@/@types';
 
 function toModel(m: Record<string, unknown>): GeneratorModel {
   const brand = m.brand as { name?: string } | null;

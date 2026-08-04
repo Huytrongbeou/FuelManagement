@@ -2,7 +2,7 @@ import * as requestRepo from '../repositories/station-request.repository'
 import * as stationRepo from '../repositories/station.repository'
 import * as stationService from './station.service'
 import type { UserContext } from '../clients/fuel.client'
-import { findNearbyActiveStations, DUPLICATE_RADIUS_M } from '../utils/geo'
+import { findNearbyActiveStations, DUPLICATE_RADIUS_M } from '../helpers/geo'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 

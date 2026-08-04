@@ -1,4 +1,4 @@
-import { prisma } from '../lib/prisma'
+import { prisma } from '../config/prisma'
 
 /** Never selects passwordHash — nothing outside auth.service has any business reading it. */
 const PUBLIC_FIELDS = {

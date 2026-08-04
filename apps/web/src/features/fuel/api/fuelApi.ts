@@ -1,5 +1,5 @@
-import { api } from '@/shared/api/client';
-import type { FuelRecord } from '@/shared/types';
+import { api } from '@/api/client';
+import type { FuelRecord } from '@/@types';
 
 function toRecord(r: Record<string, unknown>): FuelRecord {
   return {

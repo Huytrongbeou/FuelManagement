@@ -2,7 +2,7 @@ import express from 'express'
 import importRoutes from './routes/import.routes'
 import exportRoutes from './routes/export.routes'
 import manualEntryRoutes from './routes/manual-entry.routes'
-import { prisma } from './lib/prisma'
+import { prisma } from './config/prisma'
 
 const app = express()
 

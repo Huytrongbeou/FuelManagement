@@ -1,4 +1,4 @@
-import { prisma } from '../lib/prisma'
+import { prisma } from '../config/prisma'
 
 export async function findMany(includeInactive: boolean) {
   return prisma.employee.findMany({

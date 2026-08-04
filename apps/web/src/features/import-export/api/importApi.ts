@@ -1,5 +1,5 @@
-import { api, uploadFile } from '@/shared/api/client';
-import type { ImportSession, ImportRowIssue } from '@/shared/types';
+import { api, uploadFile } from '@/api/client';
+import type { ImportSession, ImportRowIssue } from '@/@types';
 
 /**
  * Derives the real per-row errors / warnings / affected stations for the detail view from the

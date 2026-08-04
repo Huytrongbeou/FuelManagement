@@ -1,7 +1,7 @@
 import express from 'express'
 import fuelRoutes from './routes/fuel-record.routes'
 import adjustmentRoutes from './routes/adjustment-request.routes'
-import { prisma } from './lib/prisma'
+import { prisma } from './config/prisma'
 
 const app = express()
 

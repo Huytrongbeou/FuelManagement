@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { previewHandler, confirmHandler } from '../controllers/manual-entry.controller'
-import { requireRole } from '../middleware/require-role'
+import { requireRole } from '../middlewares/require-role'
 
 const router = Router()
 

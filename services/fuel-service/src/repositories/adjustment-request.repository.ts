@@ -1,4 +1,4 @@
-import { prisma } from '../lib/prisma'
+import { prisma } from '../config/prisma'
 
 export async function findAdjustmentRequest(id: string) {
   return prisma.adjustmentRequest.findUnique({ where: { id } })

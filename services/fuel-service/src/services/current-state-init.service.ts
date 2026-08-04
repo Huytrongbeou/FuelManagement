@@ -1,5 +1,5 @@
-import { prisma } from '../lib/prisma'
-import * as calc from '../utils/fuel-calculator'
+import { prisma } from '../config/prisma'
+import * as calc from '../helpers/fuel-calculator'
 
 export interface InitCurrentStateInput {
   stationId: string

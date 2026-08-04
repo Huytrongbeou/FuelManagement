@@ -1,4 +1,4 @@
-import { api } from '@/shared/api/client';
+import { api } from '@/api/client';
 
 export interface MaintenanceLog {
   id: string;

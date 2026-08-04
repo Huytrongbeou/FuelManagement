@@ -3,11 +3,11 @@ import { Search, ChevronUp, ChevronDown, Eye, Edit, MoreVertical, XCircle, Alert
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import { toast } from 'sonner';
-import { Station, getFuelStatus, fuelStatusColor } from '@/shared/types';
+import { Station, getFuelStatus, fuelStatusColor } from '@/@types';
 import { deactivateStation } from '../api/stationApi';
 import { FuelBadge } from '@/features/stations/components/FuelBadge';
 import { SortIcon } from '@/features/stations/components/SortIcon';
-import { canManageStations, canEnterFuel } from '@/shared/auth/permissions';
+import { canManageStations, canEnterFuel } from '@/utils/permissions';
 
 interface Props {
   stations: Station[];

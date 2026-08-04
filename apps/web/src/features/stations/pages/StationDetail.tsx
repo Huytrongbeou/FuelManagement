@@ -2,15 +2,15 @@ import { useState, useEffect, useMemo, useReducer, useCallback } from 'react';
 import { ArrowLeft, MapPin, Zap, Droplets, Calendar, Clock, X, TrendingDown, TrendingUp, Minus, Wrench, Plus, Settings as SettingsIcon, Loader2 } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { toast } from 'sonner';
-import { Station, FuelRecord, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/shared/types';
+import { Station, FuelRecord, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/@types';
 import { getFuelHistory } from '@/features/fuel/api/fuelApi';
 import {
   getMaintenance, createMaintenance, getMachineChanges,
   type MaintenanceSummary, type MachineChange,
 } from '../api/stationHistoryApi';
 import { createAdjustmentRequest } from '../api/adjustmentApi';
-import { canEnterFuel } from '@/shared/auth/permissions';
-import { todayLocalISO } from '@/shared/utils/date';
+import { canEnterFuel } from '@/utils/permissions';
+import { todayLocalISO } from '@/utils/date';
 
 interface StationDetailProps {
   station: Station;

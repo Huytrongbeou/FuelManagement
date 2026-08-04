@@ -1,0 +1,41 @@
+#97 DONE 0.0s
+
+#88 [import-export-service runner 9/9] RUN chmod +x docker-entrypoint.sh && chown -R node:node /app
+#88 ...
+
+#95 [fuel-service] exporting to image
+#95 unpacking to docker.io/library/fuelmanagement-fuel-service:latest 5.7s done
+#95 DONE 17.9s
+
+#88 [import-export-service runner 9/9] RUN chmod +x docker-entrypoint.sh && chown -R node:node /app
+#88 ...
+
+#98 [fuel-service] resolving provenance for metadata file
+#98 DONE 0.0s
+
+#88 [import-export-service runner 9/9] RUN chmod +x docker-entrypoint.sh && chown -R node:node /app
+#88 DONE 58.6s
+
+#99 [import-export-service] exporting to image
+#99 exporting layers
+#99 exporting layers 10.0s done
+#99 exporting manifest sha256:d4d61b521dc5046e49a21e594c2580219c831118261a353611884eedd52fdea6 0.0s done
+#99 exporting config sha256:d205ffb7798ad78aa2265519d6b000b6c920de17ea9bffd20a2be25132e39d50 0.0s done
+#99 exporting attestation manifest sha256:14cc9ecbfd18a8c002a68689e7b15c31e1fb89add7e5c9952a75c8c3d1d56467 0.1s done
+#99 exporting manifest list sha256:9fece08df724515972e811d7a250fa59584904b5462d080af2962914cb9a4d09
+#99 exporting manifest list sha256:9fece08df724515972e811d7a250fa59584904b5462d080af2962914cb9a4d09 0.0s done
+#99 naming to docker.io/library/fuelmanagement-import-export-service:latest done
+#99 unpacking to docker.io/library/fuelmanagement-import-export-service:latest
+#99 unpacking to docker.io/library/fuelmanagement-import-export-service:latest 4.4s done
+#99 DONE 14.6s
+
+#100 [import-export-service] resolving provenance for metadata file
+#100 DONE 0.0s
+ Image fuelmanagement-station-service Built 
+ Image fuelmanagement-auth-service Built 
+ Image fuelmanagement-fuel-service Built 
+ Image fuelmanagement-realtime-service Built 
+ Image fuelmanagement-import-export-service Built 
+ Image fuelmanagement-gateway Built 
+exit=0
+exit=0
