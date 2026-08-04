@@ -1,0 +1,19 @@
+node_modules/
+
+# Secrets & local config — MUST NOT be committed (see README §A)
+.env
+.env.*
+!.env.example
+
+# Playwright outputs
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Generated test fixtures
+fixtures/excel/
+
+# Generated run state
+fixtures/run_context.json
+fixtures/run_id.txt
