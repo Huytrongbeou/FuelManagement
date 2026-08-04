@@ -3,7 +3,7 @@ import { User, Bell, Shield, Database, Save, Camera, ClipboardList, Check, X } f
 import * as Dialog from '@radix-ui/react-dialog';
 import { toast } from 'sonner';
 import * as Tabs from '@radix-ui/react-tabs';
-import type { Station, AdjustmentRequest } from '@/shared/types';
+import type { Station, AdjustmentRequest } from '@/@types';
 import { listAdjustmentRequests, approveAdjustmentRequest, rejectAdjustmentRequest } from '@/features/stations/api/adjustmentApi';
 
 interface SettingsProps {

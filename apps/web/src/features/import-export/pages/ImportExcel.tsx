@@ -4,7 +4,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { toast } from 'sonner';
 import { LazyMotion, m, AnimatePresence, domAnimation } from 'motion/react';
 import { uploadExcel, confirmJob } from '../api/importApi';
-import { downloadWithAuth } from '@/shared/api/client';
+import { downloadWithAuth } from '@/api/client';
 
 // FUEL IMPORT ONLY — this flow never creates or updates station master data.
 // Initial station setup: Admin station management UI/API (POST /stations, POST /stations/bulk-upsert).

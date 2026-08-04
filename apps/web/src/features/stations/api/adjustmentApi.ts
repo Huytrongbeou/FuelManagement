@@ -1,5 +1,5 @@
-import { api } from '@/shared/api/client';
-import type { AdjustmentRequest } from '@/shared/types';
+import { api } from '@/api/client';
+import type { AdjustmentRequest } from '@/@types';
 
 export async function createAdjustmentRequest(dto: {
   originalRecordId: string;

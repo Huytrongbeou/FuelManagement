@@ -1,5 +1,5 @@
-import { api } from '@/shared/api/client';
-import type { Station } from '@/shared/types';
+import { api } from '@/api/client';
+import type { Station } from '@/@types';
 
 function toStation(s: Record<string, unknown>): Station {
   return {

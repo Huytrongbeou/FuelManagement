@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { MapPin, Check, X, Clock, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import { toast } from 'sonner';
-import type { ApiError } from '@/shared/api/client';
+import type { ApiError } from '@/api/client';
 import {
   getStationRequests, approveStationRequest, rejectStationRequest,
   type StationRequest, type NearbyStation,

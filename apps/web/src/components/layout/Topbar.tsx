@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Search, Download, Upload, Bell, Menu, CheckCircle2, RefreshCw } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { toast } from 'sonner';
-import { Station, getFuelStatus } from '@/shared/types';
-import { downloadWithAuth } from '@/shared/api/client';
-import { canEnterFuel } from '@/shared/auth/permissions';
+import { Station, getFuelStatus } from '@/@types';
+import { downloadWithAuth } from '@/api/client';
+import { canEnterFuel } from '@/utils/permissions';
 
 interface TopbarProps {
   stations: Station[];

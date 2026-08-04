@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Droplets, Clock, ExternalLink, AlertTriangle, List } from 'lucide-react';
-import { Station, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/shared/types';
+import { Station, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/@types';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 

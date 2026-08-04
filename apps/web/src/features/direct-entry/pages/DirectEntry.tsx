@@ -2,10 +2,10 @@ import { useState, useRef, useReducer, useCallback } from 'react';
 import { RefreshCw, CheckCircle, AlertTriangle, Save, Download, RotateCcw, Trash2, Check } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { toast } from 'sonner';
-import { Station, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/shared/types';
+import { Station, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/@types';
 import { previewEntry, confirmEntry } from '../api/manualEntryApi';
-import { downloadWithAuth } from '@/shared/api/client';
-import { todayLocalISO } from '@/shared/utils/date';
+import { downloadWithAuth } from '@/api/client';
+import { todayLocalISO } from '@/utils/date';
 import { MobileEntryCard } from '../components/MobileEntryCard';
 import { EntryRow, RowStatus, fmt, rowBg, statusBadge, totalHours, hasHoursInput } from '../lib/entryRow';
 

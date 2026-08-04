@@ -1,5 +1,5 @@
-import { api } from '@/shared/api/client';
-import type { GeneratorBrand } from '@/shared/types';
+import { api } from '@/api/client';
+import type { GeneratorBrand } from '@/@types';
 
 export async function getBrands(): Promise<GeneratorBrand[]> {
   const data = await api.get<Record<string, unknown>[]>('/brands');

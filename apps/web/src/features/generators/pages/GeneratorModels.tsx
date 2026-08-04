@@ -2,7 +2,7 @@ import { useState, useReducer } from 'react';
 import { Plus, Edit, ToggleRight, ToggleLeft, Save, X, Search } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { toast } from 'sonner';
-import { GeneratorBrand, GeneratorModel, Station, fuelTypeLabel, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/shared/types';
+import { GeneratorBrand, GeneratorModel, Station, fuelTypeLabel, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/@types';
 import { createModel, updateModel, deactivateModel, reactivateModel } from '../api/modelApi';
 
 interface Props {

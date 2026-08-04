@@ -5,7 +5,7 @@ import {
   Clock, Activity, Fuel, Filter, ClipboardList, Timer, Building2
 } from 'lucide-react';
 import { LazyMotion, domAnimation } from 'motion/react';
-import { Station, getFuelStatus, fuelStatusColor } from '@/shared/types';
+import { Station, getFuelStatus, fuelStatusColor } from '@/@types';
 import { FuelBadge } from '@/features/stations/components/FuelBadge';
 import { getActivityStats, type ActivityPeriod, type ActivityStats } from '@/features/fuel/api/fuelApi';
 import { StatCard } from '../components/StatCard';

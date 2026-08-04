@@ -3,7 +3,7 @@ import { Plus, Edit, ToggleRight, ToggleLeft, Save, X, Search, Globe, AlertTrian
 import * as Dialog from '@radix-ui/react-dialog';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import { toast } from 'sonner';
-import { GeneratorBrand, GeneratorModel } from '@/shared/types';
+import { GeneratorBrand, GeneratorModel } from '@/@types';
 import { createBrand, updateBrand, deactivateBrand, reactivateBrand } from '../api/brandApi';
 
 interface Props {
