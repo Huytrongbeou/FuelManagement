@@ -3,7 +3,7 @@ import { previewImport, confirmImport } from '../services/import-orchestrator.se
 import type { UserContext } from '../clients/fuel.client'
 import { v4 as uuidv4 } from 'uuid'
 import fs from 'fs'
-import { prisma } from '../lib/prisma'
+import { prisma } from '../config/prisma'
 
 function extractUserCtx(req: Request): UserContext {
   return {

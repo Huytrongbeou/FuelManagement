@@ -3,13 +3,13 @@ import type { ParsedRow } from './excel-validator.service'
 import * as stationClient from '../clients/station.client'
 import * as fuelClient from '../clients/fuel.client'
 import type { UserContext } from '../clients/fuel.client'
-import * as mq from '../clients/rabbitmq'
+import * as mq from '../config/rabbitmq'
 import fs from 'fs/promises'
 import crypto from 'crypto'
-import { formatBusinessDateVN } from '../utils/date-vn'
-import { normalizeDecimal2 } from '../utils/normalize'
-import { auditLog } from '../utils/audit-log'
-import { prisma } from '../lib/prisma'
+import { formatBusinessDateVN } from '../helpers/date-vn'
+import { normalizeDecimal2 } from '../helpers/normalize'
+import { auditLog } from '../helpers/audit-log'
+import { prisma } from '../config/prisma'
 
 // FUEL IMPORT ONLY — this flow never creates or updates station master data.
 // Initial station setup: Admin station management UI/API (POST /stations, POST /stations/bulk-upsert).

@@ -3,8 +3,8 @@ import multer from 'multer'
 import path from 'path'
 import os from 'os'
 import { upload, getJob, listJobs, confirm, cancel } from '../controllers/import.controller'
-import { requireRole } from '../middleware/require-role'
-import { EXCEL_UPLOAD } from '../utils/excel-upload'
+import { requireRole } from '../middlewares/require-role'
+import { EXCEL_UPLOAD } from '../helpers/excel-upload'
 
 const storage = multer.diskStorage({
   destination: os.tmpdir(),
