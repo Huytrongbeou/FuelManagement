@@ -41,19 +41,32 @@ export function MobileEntryCard({ row, onUpdateRow, onRemoveRow, onRevertRow }: 
           />
         </div>
         <div>
-          <label htmlFor={`entry-hours-${row.id}`} className="block mb-1 text-xs" style={{ color: '#64748b' }}>Số giờ chạy</label>
-          <input
-            id={`entry-hours-${row.id}`}
-            data-testid={`hours-run-input-mobile-${row.code}`}
-            aria-label={`Số giờ chạy — ${row.name}`}
-            type="number" min={0}
-            value={row.hoursRun}
-            onChange={e => onUpdateRow(row.id, 'hoursRun', e.target.value)}
-            placeholder="0"
-            disabled={noFuelData}
-            className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-            style={{ borderColor: '#e2e8f0', background: noFuelData ? '#f8fafc' : 'white', opacity: noFuelData ? 0.5 : 1 }}
-          />
+          <label htmlFor={`entry-hours-${row.id}`} className="block mb-1 text-xs" style={{ color: '#64748b' }}>Giờ / Phút chạy</label>
+          <div className="flex gap-2">
+            <input
+              id={`entry-hours-${row.id}`}
+              data-testid={`hours-run-input-mobile-${row.code}`}
+              aria-label={`Số giờ chạy — ${row.name}`}
+              type="number" min={0}
+              value={row.hoursRun}
+              onChange={e => onUpdateRow(row.id, 'hoursRun', e.target.value)}
+              placeholder="giờ"
+              disabled={noFuelData}
+              className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+              style={{ borderColor: '#e2e8f0', background: noFuelData ? '#f8fafc' : 'white', opacity: noFuelData ? 0.5 : 1 }}
+            />
+            <input
+              data-testid={`minutes-run-input-mobile-${row.code}`}
+              aria-label={`Số phút chạy — ${row.name}`}
+              type="number" min={0} max={59}
+              value={row.minutesRun}
+              onChange={e => onUpdateRow(row.id, 'minutesRun', e.target.value)}
+              placeholder="phút"
+              disabled={noFuelData}
+              className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+              style={{ borderColor: '#e2e8f0', background: noFuelData ? '#f8fafc' : 'white', opacity: noFuelData ? 0.5 : 1 }}
+            />
+          </div>
         </div>
         <div>
           <label htmlFor={`entry-date-${row.id}`} className="block mb-1 text-xs" style={{ color: '#64748b' }}>Ngày ghi nhận</label>

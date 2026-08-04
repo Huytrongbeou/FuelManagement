@@ -47,10 +47,10 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
     return () => { cancelled = true; };
   }, [timeFilter]);
 
-  const green  = stations.filter(s => getFuelStatus(s.currentFuel) === 'green').length;
-  const yellow = stations.filter(s => getFuelStatus(s.currentFuel) === 'yellow').length;
-  const red    = stations.filter(s => getFuelStatus(s.currentFuel) === 'red').length;
-  const gray   = stations.filter(s => getFuelStatus(s.currentFuel) === 'gray').length;
+  const green  = stations.filter(s => getFuelStatus(s.currentFuel, s.fuelRate) === 'green').length;
+  const yellow = stations.filter(s => getFuelStatus(s.currentFuel, s.fuelRate) === 'yellow').length;
+  const red    = stations.filter(s => getFuelStatus(s.currentFuel, s.fuelRate) === 'red').length;
+  const gray   = stations.filter(s => getFuelStatus(s.currentFuel, s.fuelRate) === 'gray').length;
   const noCoords = stations.filter(s => s.lat === null || s.lng === null).length;
   const totalFuel = stations.reduce((acc, s) => acc + (s.currentFuel ?? 0), 0);
   const updatedToday = stations.filter(s => s.updatedToday).length;
@@ -72,7 +72,7 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
   ];
 
   const lowFuelStations = stations
-    .filter(s => getFuelStatus(s.currentFuel) === 'red' || getFuelStatus(s.currentFuel) === 'yellow')
+    .filter(s => getFuelStatus(s.currentFuel, s.fuelRate) === 'red' || getFuelStatus(s.currentFuel, s.fuelRate) === 'yellow')
     .sort((a, b) => (a.currentFuel ?? 0) - (b.currentFuel ?? 0))
     .slice(0, 6);
 
@@ -164,7 +164,7 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
           </div>
           <div className="divide-y" style={{ divideColor: '#f8fafc' }}>
             {lowFuelStations.map(s => {
-              const status = getFuelStatus(s.currentFuel);
+              const status = getFuelStatus(s.currentFuel, s.fuelRate);
               const pct = s.currentFuel !== null ? Math.round((s.currentFuel / s.maxCapacity) * 100) : 0;
               return (
                 <div key={s.id} className="flex items-center gap-3 px-5 py-3 group">
@@ -180,7 +180,7 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
                       <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{s.currentFuel}L / {s.maxCapacity}L</span>
                     </div>
                   </div>
-                  <FuelBadge fuel={s.currentFuel} />
+                  <FuelBadge fuel={s.currentFuel} fuelRate={s.fuelRate} />
                   <button
                     type="button"
                     onClick={() => onViewStation(s.id)}
@@ -203,7 +203,7 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
           </div>
           <div className="divide-y" style={{ divideColor: '#f8fafc' }}>
             {recentUpdates.map(s => {
-              const c = fuelStatusColor(getFuelStatus(s.currentFuel));
+              const c = fuelStatusColor(getFuelStatus(s.currentFuel, s.fuelRate));
               return (
                 <div key={s.id} className="flex items-center gap-3 px-5 py-3 group">
                   <div
@@ -220,7 +220,7 @@ export function Dashboard({ stations, onViewStation }: DashboardProps) {
                       {s.lastUpdated} · {s.currentFuel !== null ? `${s.currentFuel} L` : '—'}
                     </div>
                   </div>
-                  <FuelBadge fuel={s.currentFuel} />
+                  <FuelBadge fuel={s.currentFuel} fuelRate={s.fuelRate} />
                 </div>
               );
             })}

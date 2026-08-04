@@ -196,6 +196,37 @@ export async function preview(rows: DirectEntryRow[], createdBy?: string, userCt
     }
   }
 
+  // Content-based duplicate check (A5). Unlike Excel import — where an exact duplicate is a hard
+  // error — direct entry treats it as a *warning* so a genuine second run in the same day can still
+  // be saved via "Vẫn tạo". Same-date-different-values is a warning for the same reason.
+  const dupCandidates: Array<{ row: ParsedRow; stationId: string; stationName: string }> = []
+  for (const r of parsedRows) {
+    if (r.errors.length > 0 || !r.hasFuelActivity || !r.recordedDate) continue
+    const station = stationCodeMap.get(r.stationCode)
+    if (!station) continue
+    dupCandidates.push({ row: r, stationId: station.id, stationName: station.stationName })
+  }
+  if (dupCandidates.length > 0) {
+    try {
+      const dupResults = await fuelClient.checkExactDuplicates(
+        dupCandidates.map(c => ({ stationId: c.stationId, recordedDate: c.row.recordedDate as Date, fuelAdded: c.row.fuelAdded ?? 0, hoursRun: c.row.hoursRun ?? 0 })),
+        userCtx,
+      )
+      dupCandidates.forEach((c, i) => {
+        const dup = dupResults[i]
+        if (!dup) return
+        const dateStr = (c.row.recordedDate as Date).toLocaleDateString('vi-VN')
+        if (dup.isDuplicate) {
+          c.row.warnings.push(`Trạm "${c.stationName}" đã có bản ghi ngày ${dateStr} với cùng số liệu — có thể nhập trùng. Bấm "Vẫn tạo" nếu đây là phát sinh thực sự.`)
+        } else if (dup.hasSameDateDifferentValues) {
+          c.row.warnings.push(`Trạm "${c.stationName}" đã có bản ghi ngày ${dateStr}. Xác nhận sẽ tạo thêm một phát sinh mới.`)
+        }
+      })
+    } catch {
+      // non-blocking advisory — dup check must never block a legitimate entry
+    }
+  }
+
   const totalRows = parsedRows.length
   const invalidRows = parsedRows.filter(r => r.errors.length > 0).length
   const warningRows = parsedRows.filter(r => r.warnings.length > 0 && r.errors.length === 0).length

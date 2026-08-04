@@ -103,7 +103,7 @@ export async function commitImport(input: ImportCommitInput) {
         const fuelBefore = runningFuel
         const fuelConsumed = calc.calculateFuelConsumed(row.hours_run, consumptionRate)
         const fuelAfter = calc.calculateFuelResult(fuelBefore, row.fuel_added, fuelConsumed)
-        const fuelStatus = calc.determineFuelStatus(fuelAfter) as calc.FuelStatus
+        const fuelStatus = calc.determineFuelStatus(fuelAfter, consumptionRate) as calc.FuelStatus
 
         // Validate INSIDE tx — any failure rolls back entire batch
         if (fuelAfter < 0) {
@@ -145,7 +145,7 @@ export async function commitImport(input: ImportCommitInput) {
         runningFuel = fuelAfter
       }
 
-      const finalFuelStatus = calc.determineFuelStatus(runningFuel) as calc.FuelStatus
+      const finalFuelStatus = calc.determineFuelStatus(runningFuel, consumptionRate) as calc.FuelStatus
 
       // Update currentFuelState ONCE per station after all rows chain completes.
       // CurrentFuelState is guaranteed to exist at this point (checked above) —

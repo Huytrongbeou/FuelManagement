@@ -112,6 +112,9 @@ export async function previewValidate(items: PreviewValidateItem[]): Promise<Pre
 export async function checkExactDuplicates(
   items: Array<{ stationId: string; recordedDate: Date; fuelAdded: number; hoursRun: number }>
 ): Promise<Array<{ stationId: string; isDuplicate: boolean; hasSameDateDifferentValues: boolean }>> {
+  // 'adjustment' và 'initial_state' (bản ghi genesis khi khởi tạo tồn ban đầu) không phải phát
+  // sinh nhập liệu thực — không tính chúng khi dò trùng, nếu không trạm vừa tạo hôm nay sẽ báo
+  // "cùng ngày" ngay ở lần nhập thật đầu tiên.
   return Promise.all(items.map(async item => {
     const dateStr = formatBusinessDateVN(item.recordedDate)
     const normFuelAdded = normalizeDecimal2(item.fuelAdded)
@@ -123,7 +126,7 @@ export async function checkExactDuplicates(
         AND recorded_date = ${dateStr}::date
         AND fuel_added = ${normFuelAdded}::numeric
         AND hours_run = ${normHoursRun}::numeric
-        AND source != 'adjustment'
+        AND source NOT IN ('adjustment', 'initial_state')
       LIMIT 1
     `
 
@@ -135,7 +138,7 @@ export async function checkExactDuplicates(
         SELECT id FROM fuel_records
         WHERE station_id = ${item.stationId}::uuid
           AND recorded_date = ${dateStr}::date
-          AND source != 'adjustment'
+          AND source NOT IN ('adjustment', 'initial_state')
         LIMIT 1
       `
       hasSameDateDifferentValues = sameDateRows.length > 0

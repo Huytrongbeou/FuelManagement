@@ -9,8 +9,12 @@ export interface EntryRow {
   name: string;
   added: string;
   hoursRun: string;
+  /** Phút chạy (0–59), nhập kèm giờ cho tiện. Tổng giờ = hoursRun + minutesRun/60. */
+  minutesRun: string;
   date: string;
   note: string;
+  /** Định mức tiêu hao (L/giờ) của trạm — dùng để tô màu tồn cuối theo giờ tự chủ. */
+  fuelRate: number;
   // computed
   prevFuel: number | null;
   consumed: number | null;
@@ -22,6 +26,17 @@ export interface EntryRow {
 
 export function fmt(n: number | null, suffix = 'L') {
   return n !== null ? `${n.toFixed(1)} ${suffix}` : '—';
+}
+
+/** Tổng số giờ chạy (thập phân) từ hai ô giờ + phút. Ô trống = 0. */
+export function totalHours(row: Pick<EntryRow, 'hoursRun' | 'minutesRun'>): number {
+  const h = row.hoursRun !== '' ? parseFloat(row.hoursRun) : 0;
+  const m = row.minutesRun !== '' ? parseFloat(row.minutesRun) : 0;
+  return (Number.isFinite(h) ? h : 0) + (Number.isFinite(m) ? m : 0) / 60;
+}
+
+export function hasHoursInput(row: Pick<EntryRow, 'hoursRun' | 'minutesRun'>): boolean {
+  return row.hoursRun !== '' || row.minutesRun !== '';
 }
 
 export function rowBg(status: RowStatus, i: number) {

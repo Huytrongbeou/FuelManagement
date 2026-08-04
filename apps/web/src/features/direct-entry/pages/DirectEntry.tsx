@@ -5,8 +5,9 @@ import { toast } from 'sonner';
 import { Station, getFuelStatus, fuelStatusColor, fuelStatusLabel } from '@/shared/types';
 import { previewEntry, confirmEntry } from '../api/manualEntryApi';
 import { downloadWithAuth } from '@/shared/api/client';
+import { todayLocalISO } from '@/shared/utils/date';
 import { MobileEntryCard } from '../components/MobileEntryCard';
-import { EntryRow, RowStatus, fmt, rowBg, statusBadge } from '../lib/entryRow';
+import { EntryRow, RowStatus, fmt, rowBg, statusBadge, totalHours, hasHoursInput } from '../lib/entryRow';
 
 interface Props {
   stations: Station[];
@@ -19,12 +20,12 @@ function calcRow(row: EntryRow, station: Station | undefined): Partial<EntryRow>
   if (!station) {
     return { prevFuel: null, consumed: null, systemCalc: null, finalFuel: null, status: 'error', errorMsg: 'Mã trạm không tồn tại' };
   }
-  const hasChange = row.added !== '' || row.hoursRun !== '';
+  const hasChange = row.added !== '' || hasHoursInput(row);
   if (!hasChange) return { prevFuel: station.currentFuel, consumed: null, systemCalc: null, finalFuel: null, status: 'unchanged', errorMsg: '' };
 
   const prev = station.currentFuel ?? 0;
   const added = row.added !== '' ? parseFloat(row.added) : 0;
-  const hours = row.hoursRun !== '' ? parseFloat(row.hoursRun) : 0;
+  const hours = totalHours(row);
   const consumed = hours * station.fuelRate;
   const sysCalc = prev + added - consumed;
   const finalFuel = sysCalc;
@@ -38,13 +39,11 @@ function calcRow(row: EntryRow, station: Station | undefined): Partial<EntryRow>
   return { prevFuel: prev, consumed, systemCalc: sysCalc, finalFuel, status, errorMsg };
 }
 
-const TODAY = new Date().toISOString().slice(0, 10);
-
 const RULES = [
   'Ô trống = không cập nhật',
   'Số 0 = giá trị hợp lệ',
   'NL bổ sung cộng trước',
-  'Số giờ chạy → tính tiêu hao',
+  'Nhập giờ + phút → tính tiêu hao',
   'Không cho tồn cuối âm hoặc vượt tối đa',
 ];
 
@@ -52,7 +51,7 @@ const TABLE_COLS = [
   { label: 'Mã trạm',        sticky: true,  left: 0   as number | null, readonly: false },
   { label: 'Tên trạm',        sticky: true,  left: 110 as number | null, readonly: false },
   { label: 'NL bổ sung',      sticky: false, left: null,                 readonly: false },
-  { label: 'Số giờ chạy',     sticky: false, left: null,                 readonly: false },
+  { label: 'Giờ / Phút chạy', sticky: false, left: null,                 readonly: false },
   { label: 'Ngày GN',         sticky: false, left: null,                 readonly: false },
   { label: 'Ghi chú',         sticky: false, left: null,                 readonly: false },
   { label: 'Tồn trước',       sticky: false, left: null,                 readonly: true  },
@@ -77,14 +76,14 @@ const TABLE_COL_TH_STYLES = TABLE_COLS.map(col => ({
   borderRight: '1px solid rgba(255,255,255,0.1)',
 }));
 
-type SaveState = { saving: boolean; successOpen: boolean; doubleSubmitOpen: boolean; warningAckOpen: boolean };
+type SaveState = { saving: boolean; successOpen: boolean; doubleSubmitOpen: boolean; warningAckOpen: boolean; warnings: string[] };
 type SaveAction =
   | { type: 'save-start' }
   | { type: 'save-success' }
   | { type: 'save-error' }
   | { type: 'double-submit-open' }
   | { type: 'double-submit-close' }
-  | { type: 'warning-ack-open' }
+  | { type: 'warning-ack-open'; warnings: string[] }
   | { type: 'warning-ack-close' }
   | { type: 'close-success' };
 
@@ -95,7 +94,7 @@ function saveReducer(state: SaveState, action: SaveAction): SaveState {
     case 'save-error':          return { ...state, saving: false };
     case 'double-submit-open':  return { ...state, doubleSubmitOpen: true };
     case 'double-submit-close': return { ...state, doubleSubmitOpen: false };
-    case 'warning-ack-open':    return { ...state, warningAckOpen: true };
+    case 'warning-ack-open':    return { ...state, saving: false, warningAckOpen: true, warnings: action.warnings };
     case 'warning-ack-close':   return { ...state, warningAckOpen: false };
     case 'close-success':       return { ...state, successOpen: false };
     default:                    return state;
@@ -147,7 +146,7 @@ function DirectEntryTable({ rows, onUpdateRow, onRemoveRow, onRevertRow, onLoadC
           <col style={{ width: '110px' }} />
           <col style={{ width: '160px' }} />
           <col style={{ width: '90px' }} />
-          <col style={{ width: '90px' }} />
+          <col style={{ width: '130px' }} />
           <col style={{ width: '100px' }} />
           <col style={{ width: '140px' }} />
           <col style={{ width: '90px' }} />
@@ -169,7 +168,7 @@ function DirectEntryTable({ rows, onUpdateRow, onRemoveRow, onRevertRow, onLoadC
         </thead>
         <tbody>
           {rows.map((row, i) => {
-            const newFuelStatus = row.finalFuel !== null ? getFuelStatus(row.finalFuel) : null;
+            const newFuelStatus = row.finalFuel !== null ? getFuelStatus(row.finalFuel, row.fuelRate) : null;
             const c = newFuelStatus ? fuelStatusColor(newFuelStatus) : null;
             const noFuelData = row.prevFuel === null;
             return (
@@ -196,19 +195,34 @@ function DirectEntryTable({ rows, onUpdateRow, onRemoveRow, onRevertRow, onLoadC
                   />
                 </td>
                 <td style={{ padding: '4px 6px' }}>
-                  <input
-                    type="number" min={0}
-                    value={row.hoursRun}
-                    onChange={e => onUpdateRow(row.id, 'hoursRun', e.target.value)}
-                    placeholder="0"
-                    disabled={noFuelData}
-                    data-testid={`hours-run-input-${row.code}`}
-                    aria-label={`Số giờ chạy — ${row.name}`}
-                    title={noFuelData ? 'Trạm chưa có tồn ban đầu. Vui lòng nhập tồn ban đầu trước khi tính tự động.' : undefined}
-                    style={{ ...cellStyle(noFuelData), opacity: noFuelData ? 0.5 : 1, cursor: noFuelData ? 'not-allowed' : 'text' }}
-                    onFocus={e => { if (!noFuelData) { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)'; } }}
-                    onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
-                  />
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <input
+                      type="number" min={0}
+                      value={row.hoursRun}
+                      onChange={e => onUpdateRow(row.id, 'hoursRun', e.target.value)}
+                      placeholder="giờ"
+                      disabled={noFuelData}
+                      data-testid={`hours-run-input-${row.code}`}
+                      aria-label={`Số giờ chạy — ${row.name}`}
+                      title={noFuelData ? 'Trạm chưa có tồn ban đầu.' : 'Số giờ'}
+                      style={{ ...cellStyle(noFuelData), opacity: noFuelData ? 0.5 : 1, cursor: noFuelData ? 'not-allowed' : 'text' }}
+                      onFocus={e => { if (!noFuelData) { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)'; } }}
+                      onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
+                    />
+                    <input
+                      type="number" min={0} max={59}
+                      value={row.minutesRun}
+                      onChange={e => onUpdateRow(row.id, 'minutesRun', e.target.value)}
+                      placeholder="phút"
+                      disabled={noFuelData}
+                      data-testid={`minutes-run-input-${row.code}`}
+                      aria-label={`Số phút chạy — ${row.name}`}
+                      title="Số phút (0–59)"
+                      style={{ ...cellStyle(noFuelData), opacity: noFuelData ? 0.5 : 1, cursor: noFuelData ? 'not-allowed' : 'text' }}
+                      onFocus={e => { if (!noFuelData) { e.target.style.borderColor = '#2563eb'; e.target.style.boxShadow = '0 0 0 2px rgba(37,99,235,0.2)'; } }}
+                      onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; }}
+                    />
+                  </div>
                 </td>
                 <td style={{ padding: '4px 6px' }}>
                   <input type="date" value={row.date} onChange={e => onUpdateRow(row.id, 'date', e.target.value)} aria-label={`Ngày giao nhận — ${row.name}`} style={cellStyle()} onFocus={e => { e.target.style.borderColor = '#2563eb'; }} onBlur={e => { e.target.style.borderColor = '#e2e8f0'; }} />
@@ -268,7 +282,7 @@ function DirectEntryTable({ rows, onUpdateRow, onRemoveRow, onRevertRow, onLoadC
 export function DirectEntry({ stations, onNavigateToDashboard, focusStationId }: Props) {
   const [rows, setRows] = useState<EntryRow[]>([]);
   const [checked, setChecked] = useState(false);
-  const [save, dispatchSave] = useReducer(saveReducer, { saving: false, successOpen: false, doubleSubmitOpen: false, warningAckOpen: false });
+  const [save, dispatchSave] = useReducer(saveReducer, { saving: false, successOpen: false, doubleSubmitOpen: false, warningAckOpen: false, warnings: [] });
   const lastSubmitRef = useRef<{ signature: string; time: number } | null>(null);
   const pendingSubmitRef = useRef<(() => Promise<void>) | null>(null);
   const [hasAutoLoaded, setHasAutoLoaded] = useState(false);
@@ -279,7 +293,8 @@ export function DirectEntry({ stations, onNavigateToDashboard, focusStationId }:
 
   const rowsFrom = (list: Station[]): EntryRow[] => list.map(s => ({
     id: s.id, stationId: s.id, code: s.code, name: s.name,
-    added: '', hoursRun: '', date: TODAY, note: '',
+    added: '', hoursRun: '', minutesRun: '', date: todayLocalISO(), note: '',
+    fuelRate: s.fuelRate,
     prevFuel: s.currentFuel, consumed: null, systemCalc: null, finalFuel: null,
     status: 'unchanged' as RowStatus, errorMsg: '',
   }));
@@ -307,7 +322,7 @@ export function DirectEntry({ stations, onNavigateToDashboard, focusStationId }:
   };
 
   const removeRow = (id: string) => setRows(r => r.filter(x => x.id !== id));
-  const revertRow = (id: string) => setRows(r => r.map(x => x.id !== id ? x : { ...x, added: '', hoursRun: '', note: '', status: 'unchanged' as RowStatus, errorMsg: '' }));
+  const revertRow = (id: string) => setRows(r => r.map(x => x.id !== id ? x : { ...x, added: '', hoursRun: '', minutesRun: '', note: '', status: 'unchanged' as RowStatus, errorMsg: '' }));
 
   const checkData = () => {
     setRows(prev => prev.map(r => {
@@ -317,20 +332,40 @@ export function DirectEntry({ stations, onNavigateToDashboard, focusStationId }:
     setChecked(true);
   };
 
-  const doSave = async (changedRows: typeof rows, signature: string, acknowledgeWarnings: boolean) => {
+  const runConfirm = async (jobId: string, acknowledgeWarnings: boolean) => {
+    try {
+      await confirmEntry(jobId, undefined, acknowledgeWarnings);
+      dispatchSave({ type: 'save-success' });
+    } catch (err) {
+      toast.error((err as Error).message || 'Lỗi lưu dữ liệu');
+      dispatchSave({ type: 'save-error' });
+    }
+  };
+
+  const doSave = async (changedRows: typeof rows, signature: string) => {
     lastSubmitRef.current = { signature, time: Date.now() };
     dispatchSave({ type: 'save-start' });
     try {
       const payload = changedRows.map(r => ({
         stationCode: r.code,
         fuelAdded: r.added !== '' ? parseFloat(r.added) : null,
-        hoursRun: r.hoursRun !== '' ? parseFloat(r.hoursRun) : null,
+        // Combine the giờ + phút inputs into decimal hours for the backend.
+        hoursRun: hasHoursInput(r) ? totalHours(r) : null,
         recordedDate: r.date,
         notes: r.note || null,
       }));
       const preview = await previewEntry(payload);
-      await confirmEntry(preview.jobId, undefined, acknowledgeWarnings);
-      dispatchSave({ type: 'save-success' });
+      // Server-side warnings (nội dung trùng / cùng ngày — A5): cho người nhập xác nhận "Vẫn tạo"
+      // trước khi ghi, thay vì chặn cứng (một máy có thể chạy 2 lần/ngày).
+      const serverWarnings = (preview.rows ?? [])
+        .filter(r => !((r.errors as string[] | undefined)?.length))
+        .flatMap(r => (r.warnings as string[] | undefined) ?? []);
+      if (serverWarnings.length > 0) {
+        pendingSubmitRef.current = () => runConfirm(preview.jobId, true);
+        dispatchSave({ type: 'warning-ack-open', warnings: serverWarnings });
+        return;
+      }
+      await runConfirm(preview.jobId, false);
     } catch (err) {
       toast.error((err as Error).message || 'Lỗi lưu dữ liệu');
       dispatchSave({ type: 'save-error' });
@@ -343,22 +378,15 @@ export function DirectEntry({ stations, onNavigateToDashboard, focusStationId }:
     const changedRows = rows.filter(r => r.status !== 'unchanged');
     if (changedRows.length === 0) { toast.warning('Không có dòng nào thay đổi'); return; }
 
-    const hasWarnings = changedRows.some(r => r.status === 'warning');
-    const signature = changedRows.map(r => `${r.stationId}|${r.added}|${r.hoursRun}|${r.date}`).sort().join(',');
+    const signature = changedRows.map(r => `${r.stationId}|${r.added}|${r.hoursRun}|${r.minutesRun}|${r.date}`).sort().join(',');
     const last = lastSubmitRef.current;
     if (last?.signature === signature && Date.now() - last.time < 60_000) {
-      pendingSubmitRef.current = () => doSave(changedRows, signature, hasWarnings);
+      pendingSubmitRef.current = () => doSave(changedRows, signature);
       dispatchSave({ type: 'double-submit-open' });
       return;
     }
 
-    if (hasWarnings) {
-      pendingSubmitRef.current = () => doSave(changedRows, signature, true);
-      dispatchSave({ type: 'warning-ack-open' });
-      return;
-    }
-
-    await doSave(changedRows, signature, false);
+    await doSave(changedRows, signature);
   };
 
   const validRows   = rows.filter(r => r.status === 'valid').length;
@@ -495,15 +523,25 @@ export function DirectEntry({ stations, onNavigateToDashboard, focusStationId }:
           <Dialog.Overlay className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.5)' }} />
           <Dialog.Content aria-describedby={undefined} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl p-6 w-full max-w-sm" style={{ background: 'white', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
             <Dialog.Title style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>Có dòng cảnh báo</Dialog.Title>
+            {save.warnings.length > 0 && (
+              <ul style={{ marginBottom: '14px', paddingLeft: '18px', listStyle: 'disc' }}>
+                {save.warnings.slice(0, 5).map((w, i) => (
+                  <li key={i} style={{ color: '#92400e', fontSize: '0.82rem', marginBottom: '4px' }}>{w}</li>
+                ))}
+                {save.warnings.length > 5 && (
+                  <li style={{ color: '#92400e', fontSize: '0.82rem' }}>… và {save.warnings.length - 5} cảnh báo khác</li>
+                )}
+              </ul>
+            )}
             <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '20px' }}>
-              Có dòng dữ liệu đang ở trạng thái cảnh báo. Bạn đã kiểm tra và muốn tiếp tục lưu?
+              Bạn đã kiểm tra và vẫn muốn tạo bản ghi?
             </p>
             <div className="flex gap-3">
               <button type="button" onClick={() => dispatchSave({ type: 'warning-ack-close' })} className="flex-1 py-2.5 rounded-lg border" style={{ borderColor: '#e2e8f0', color: '#475569', fontSize: '0.875rem' }}>
                 Hủy
               </button>
               <button type="button" onClick={() => { dispatchSave({ type: 'warning-ack-close' }); pendingSubmitRef.current?.(); }} className="flex-1 py-2.5 rounded-lg" style={{ background: '#ca8a04', color: 'white', fontSize: '0.875rem', fontWeight: 600 }}>
-                Tiếp tục lưu
+                Vẫn tạo
               </button>
             </div>
           </Dialog.Content>
@@ -524,7 +562,7 @@ export function DirectEntry({ stations, onNavigateToDashboard, focusStationId }:
             <div className="grid grid-cols-2 gap-3 mb-6">
               {[
                 { label: 'Trạm cập nhật', value: validRows + warningRows, color: '#16a34a' },
-                { label: 'Dòng NL',       value: rows.filter(r => r.added || r.hoursRun).length, color: '#7c3aed' },
+                { label: 'Dòng NL',       value: rows.filter(r => r.added || hasHoursInput(r)).length, color: '#7c3aed' },
               ].map(s => (
                 <div key={s.label} className="rounded-xl p-3" style={{ background: '#f8fafc' }}>
                   <div style={{ fontSize: '1.5rem', fontWeight: 700, color: s.color }}>{s.value}</div>

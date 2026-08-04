@@ -241,7 +241,7 @@ export function GeneratorModels({ brands, models, stations, onUpdate }: Props) {
                 return (
                   <div className="space-y-2">
                     {modelStations.map(s => {
-                      const st = getFuelStatus(s.currentFuel);
+                      const st = getFuelStatus(s.currentFuel, s.fuelRate);
                       const c = fuelStatusColor(st);
                       return (
                         <div key={s.id} className="flex items-center justify-between px-4 py-3 rounded-lg border" style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}>

@@ -62,7 +62,7 @@ export function StationList({ stations, userRole, onViewStation, onAddStation, o
   const filtered = stations.filter(s => {
     if (!s.active) return false;
     if (query && !s.code.toLowerCase().includes(query.toLowerCase()) && !s.name.toLowerCase().includes(query.toLowerCase()) && !s.address.toLowerCase().includes(query.toLowerCase())) return false;
-    if (statusFilter !== 'all' && getFuelStatus(s.currentFuel) !== statusFilter) return false;
+    if (statusFilter !== 'all' && getFuelStatus(s.currentFuel, s.fuelRate) !== statusFilter) return false;
     if (brandFilter !== 'all' && s.brandName !== brandFilter) return false;
     if (zoneFilter !== 'all' && s.managementZone !== zoneFilter) return false;
     return true;
@@ -165,7 +165,7 @@ export function StationList({ stations, userRole, onViewStation, onAddStation, o
                 <tr><td colSpan={10} className="px-4 py-12 text-center" style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Không tìm thấy trạm nào.</td></tr>
               ) : paged.map((s, i) => {
                 const pct = s.currentFuel !== null ? Math.round((s.currentFuel / s.maxCapacity) * 100) : 0;
-                const status = getFuelStatus(s.currentFuel);
+                const status = getFuelStatus(s.currentFuel, s.fuelRate);
                 const c = fuelStatusColor(status);
                 return (
                   <tr key={s.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}
@@ -198,7 +198,7 @@ export function StationList({ stations, userRole, onViewStation, onAddStation, o
                         </div>
                       )}
                     </td>
-                    <td className="hidden sm:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}><FuelBadge fuel={s.currentFuel} /></td>
+                    <td className="hidden sm:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9' }}><FuelBadge fuel={s.currentFuel} fuelRate={s.fuelRate} /></td>
                     <td className="hidden lg:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.78rem', color: s.managerName ? '#475569' : '#cbd5e1', whiteSpace: 'nowrap' }}>{s.managerName || '—'}</td>
                     <td className="hidden sm:table-cell px-4 py-3 border-b" style={{ borderColor: '#f1f5f9', fontSize: '0.78rem', color: s.updatedToday ? '#16a34a' : '#94a3b8', whiteSpace: 'nowrap' }}>
                       {s.lastUpdated ?? 'Chưa có'}

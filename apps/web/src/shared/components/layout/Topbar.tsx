@@ -44,11 +44,11 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavi
   // fuel data yet are excluded — "unknown" is not an alert.
   const alerts = stations
     .filter(s => {
-      const status = getFuelStatus(s.currentFuel);
+      const status = getFuelStatus(s.currentFuel, s.fuelRate);
       return status === 'red' || status === 'yellow';
     })
     .sort((a, b) => {
-      const rank = (s: Station) => (getFuelStatus(s.currentFuel) === 'red' ? 0 : 1);
+      const rank = (s: Station) => (getFuelStatus(s.currentFuel, s.fuelRate) === 'red' ? 0 : 1);
       return rank(a) - rank(b) || (a.currentFuel ?? 0) - (b.currentFuel ?? 0);
     });
 
@@ -56,17 +56,17 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavi
   // until someone refuels it. So the badge counts only what hasn't been looked at yet, while the
   // dropdown still lists every station that needs attention.
   const unseenCount = alerts.reduce(
-    (n, s) => n + (seenAlerts.has(alertKey(s.id, getFuelStatus(s.currentFuel))) ? 0 : 1),
+    (n, s) => n + (seenAlerts.has(alertKey(s.id, getFuelStatus(s.currentFuel, s.fuelRate))) ? 0 : 1),
     0
   );
 
   const openAlerts = () => {
     setShowAlerts(true);
     const next = new Set(seenAlerts);
-    for (const s of alerts) next.add(alertKey(s.id, getFuelStatus(s.currentFuel)));
+    for (const s of alerts) next.add(alertKey(s.id, getFuelStatus(s.currentFuel, s.fuelRate)));
     setSeenAlerts(next);
     // Keep only keys still relevant, so the list can't grow without bound as stations recover.
-    const live = new Set(alerts.map(s => alertKey(s.id, getFuelStatus(s.currentFuel))));
+    const live = new Set(alerts.map(s => alertKey(s.id, getFuelStatus(s.currentFuel, s.fuelRate))));
     try {
       localStorage.setItem(SEEN_ALERTS_KEY, JSON.stringify([...next].filter(k => live.has(k))));
     } catch {}
@@ -245,7 +245,7 @@ export function Topbar({ stations, onMobileMenuOpen, onNavigateToStation, onNavi
                   ) : (
                     <div className="max-h-80 overflow-y-auto">
                       {alerts.map(s => {
-                        const danger = getFuelStatus(s.currentFuel) === 'red';
+                        const danger = getFuelStatus(s.currentFuel, s.fuelRate) === 'red';
                         return (
                           <button
                             type="button"

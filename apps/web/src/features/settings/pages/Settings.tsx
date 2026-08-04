@@ -36,8 +36,8 @@ const PROFILE_FIELDS = [
 const NOTIFICATION_ITEMS = [
   { key: 'emailAlert',  label: 'Gửi cảnh báo qua Email', sub: 'Nhận email khi trạm vào trạng thái nguy hiểm' },
   { key: 'smsAlert',    label: 'Gửi cảnh báo qua SMS',   sub: 'Nhận SMS khi trạm cần bổ sung nhiên liệu khẩn cấp' },
-  { key: 'redAlert',    label: 'Cảnh báo trạm đỏ',       sub: 'Thông báo khi nhiên liệu < 10L' },
-  { key: 'yellowAlert', label: 'Cảnh báo trạm vàng',     sub: 'Thông báo khi nhiên liệu 10–20L' },
+  { key: 'redAlert',    label: 'Cảnh báo trạm đỏ',       sub: 'Thông báo khi máy còn chạy < 3 giờ' },
+  { key: 'yellowAlert', label: 'Cảnh báo trạm vàng',     sub: 'Thông báo khi máy còn chạy 3–8 giờ' },
   { key: 'dailyReport', label: 'Báo cáo hàng ngày',      sub: 'Gửi tổng kết lúc 8:00 sáng mỗi ngày' },
 ];
 

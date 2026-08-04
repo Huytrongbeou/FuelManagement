@@ -10,6 +10,7 @@ import {
 } from '../api/stationHistoryApi';
 import { createAdjustmentRequest } from '../api/adjustmentApi';
 import { canEnterFuel } from '@/shared/auth/permissions';
+import { todayLocalISO } from '@/shared/utils/date';
 
 interface StationDetailProps {
   station: Station;
@@ -291,7 +292,7 @@ export function StationDetail({ station, records, userRole, onBack, onGoToDirect
   const [maint, setMaint] = useState<MaintenanceSummary | null>(null);
   const [machineChanges, setMachineChanges] = useState<MachineChange[]>([]);
   const [maintOpen, setMaintOpen] = useState(false);
-  const [maintDate, setMaintDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [maintDate, setMaintDate] = useState(todayLocalISO);
   const [maintNote, setMaintNote] = useState('');
   const [maintSaving, setMaintSaving] = useState(false);
 
@@ -310,7 +311,7 @@ export function StationDetail({ station, records, userRole, onBack, onGoToDirect
       toast.success('Đã ghi nhận bảo dưỡng');
       setMaintOpen(false);
       setMaintNote('');
-      setMaintDate(new Date().toISOString().slice(0, 10));
+      setMaintDate(todayLocalISO());
       loadMaint();
     } catch (err) {
       toast.error((err as Error).message || 'Lỗi ghi bảo dưỡng');
@@ -319,7 +320,7 @@ export function StationDetail({ station, records, userRole, onBack, onGoToDirect
     }
   };
 
-  const status = getFuelStatus(station.currentFuel);
+  const status = getFuelStatus(station.currentFuel, station.fuelRate);
   const c = fuelStatusColor(status);
   const pct = station.currentFuel !== null ? Math.round((station.currentFuel / station.maxCapacity) * 100) : 0;
 

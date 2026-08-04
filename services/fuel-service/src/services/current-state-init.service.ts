@@ -24,7 +24,7 @@ export async function initCurrentState(input: InitCurrentStateInput) {
   if (initialFuel > input.maxCapacity) {
     throw Object.assign(new Error('initialFuel vượt dung tích tối đa'), { status: 400 })
   }
-  const fuelStatus = calc.determineFuelStatus(initialFuel) as calc.FuelStatus
+  const fuelStatus = calc.determineFuelStatus(initialFuel, input.consumptionRate) as calc.FuelStatus
 
   try {
     const currentState = await prisma.$transaction(async (tx) => {

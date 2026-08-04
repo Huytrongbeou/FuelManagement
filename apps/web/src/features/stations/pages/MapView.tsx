@@ -89,14 +89,14 @@ export function MapView({ stations, onViewStation }: Props) {
   // Drawer state for phones; on lg+ the panel is always visible and this is ignored.
   const [panelOpen, setPanelOpen] = useState(false);
 
-  const green  = stations.filter(s => getFuelStatus(s.currentFuel) === 'green').length;
-  const yellow = stations.filter(s => getFuelStatus(s.currentFuel) === 'yellow').length;
-  const red    = stations.filter(s => getFuelStatus(s.currentFuel) === 'red').length;
-  const gray   = stations.filter(s => getFuelStatus(s.currentFuel) === 'gray').length;
+  const green  = stations.filter(s => getFuelStatus(s.currentFuel, s.fuelRate) === 'green').length;
+  const yellow = stations.filter(s => getFuelStatus(s.currentFuel, s.fuelRate) === 'yellow').length;
+  const red    = stations.filter(s => getFuelStatus(s.currentFuel, s.fuelRate) === 'red').length;
+  const gray   = stations.filter(s => getFuelStatus(s.currentFuel, s.fuelRate) === 'gray').length;
 
   const filtered = filterStatus === 'all'
     ? stations
-    : stations.filter(s => getFuelStatus(s.currentFuel) === filterStatus);
+    : stations.filter(s => getFuelStatus(s.currentFuel, s.fuelRate) === filterStatus);
 
   // Init map
   useEffect(() => {
@@ -123,7 +123,7 @@ export function MapView({ stations, onViewStation }: Props) {
 
     filtered.forEach(s => {
       if (s.lat === null || s.lng === null) return;
-        const status = getFuelStatus(s.currentFuel);
+        const status = getFuelStatus(s.currentFuel, s.fuelRate);
         const c = fuelStatusColor(status);
         const icon = status === 'red' ? makePulseIcon(c.dot) : makeMarkerIcon(c.dot, status === 'gray' ? 9 : 11);
         const marker = L.marker([s.lat!, s.lng!], { icon }).addTo(map);
@@ -142,7 +142,7 @@ export function MapView({ stations, onViewStation }: Props) {
     markersRef.current.forEach((marker, id) => {
       const s = filtered.find(x => x.id === id);
       if (!s) return;
-      const status = getFuelStatus(s.currentFuel);
+      const status = getFuelStatus(s.currentFuel, s.fuelRate);
       const c = fuelStatusColor(status);
       if (id === selectedStation?.id) {
         marker.setIcon(makeHighlightIcon(c.dot));
@@ -238,7 +238,7 @@ export function MapView({ stations, onViewStation }: Props) {
         <div className="flex-1 overflow-y-auto">
           <div className="px-2 py-2 space-y-1">
             {filtered.map(s => {
-              const status = getFuelStatus(s.currentFuel);
+              const status = getFuelStatus(s.currentFuel, s.fuelRate);
               const c = fuelStatusColor(status);
               const hasCoords = s.lat !== null && s.lng !== null;
               return (
@@ -299,7 +299,7 @@ export function MapView({ stations, onViewStation }: Props) {
 
         {/* Station popup */}
         {selectedStation && (() => {
-          const status = getFuelStatus(selectedStation.currentFuel);
+          const status = getFuelStatus(selectedStation.currentFuel, selectedStation.fuelRate);
           const c = fuelStatusColor(status);
           return (
             <div
@@ -384,9 +384,9 @@ export function MapView({ stations, onViewStation }: Props) {
         >
           <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginBottom: '6px' }}>CHÚ GIẢI</div>
           {[
-            { color: '#16a34a', label: '> 20 L — Đủ nhiên liệu' },
-            { color: '#ca8a04', label: '10–20 L — Sắp hết' },
-            { color: '#dc2626', label: '< 10 L — Nguy hiểm' },
+            { color: '#16a34a', label: '≥ 8 giờ chạy — Đủ nhiên liệu' },
+            { color: '#ca8a04', label: '3–8 giờ chạy — Sắp hết' },
+            { color: '#dc2626', label: '< 3 giờ chạy — Nguy hiểm' },
             { color: '#94a3b8', label: 'Chưa có dữ liệu' },
           ].map(item => (
             <div key={item.label} className="flex items-center gap-2">

@@ -103,8 +103,29 @@ export interface ImportSession {
   affectedStations: string[];
 }
 
-export function getFuelStatus(fuel: number | null): FuelStatus {
+// Ngưỡng cảnh báo theo GIỜ TỰ CHỦ (currentFuel ÷ định mức tiêu hao), không theo lít tuyệt đối:
+// một bình 300L còn 21L trông "xanh" theo lít nhưng chỉ chạy được ~1,4 giờ. Hai số này chỉnh được.
+export const AUTONOMY_GREEN_HOURS = 8;
+export const AUTONOMY_YELLOW_HOURS = 3;
+
+/** Số giờ máy còn chạy được với tồn hiện tại; null nếu thiếu dữ liệu để tính. */
+export function autonomyHours(fuel: number | null, consumptionRate?: number | null): number | null {
+  if (fuel === null || !consumptionRate || consumptionRate <= 0) return null;
+  return fuel / consumptionRate;
+}
+
+/**
+ * Tình trạng theo giờ tự chủ. Khi có định mức tiêu hao thì xét theo giờ; nếu thiếu định mức thì
+ * lùi về ngưỡng lít tuyệt đối cũ (để không vỡ những chỗ chưa truyền định mức).
+ */
+export function getFuelStatus(fuel: number | null, consumptionRate?: number | null): FuelStatus {
   if (fuel === null) return 'gray';
+  const hours = autonomyHours(fuel, consumptionRate);
+  if (hours !== null) {
+    if (hours >= AUTONOMY_GREEN_HOURS) return 'green';
+    if (hours >= AUTONOMY_YELLOW_HOURS) return 'yellow';
+    return 'red';
+  }
   if (fuel > 20) return 'green';
   if (fuel >= 10) return 'yellow';
   return 'red';

@@ -71,7 +71,7 @@ export async function approveRequest(requestId: string, approvedById: string, ap
   if (!original) throw Object.assign(new Error('Bản ghi gốc không tồn tại.'), { status: 404 })
 
   // Call station-service BEFORE transaction (no HTTP inside transaction)
-  let station: { maxCapacity: number }
+  let station: { maxCapacity: number; consumptionRate: number }
   try {
     station = await getStation(adjReq.stationId)
   } catch {
@@ -124,7 +124,7 @@ export async function approveRequest(requestId: string, approvedById: string, ap
       )
     }
 
-    const fuelStatus = determineFuelStatus(fuelAfter)
+    const fuelStatus = determineFuelStatus(fuelAfter, station.consumptionRate)
 
     // 4. Create adjustment FuelRecord
     const adjRecord = await tx.fuelRecord.create({
