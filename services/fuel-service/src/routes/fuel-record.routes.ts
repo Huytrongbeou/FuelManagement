@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { getRecords, getAllCurrentStates, getCurrentState, postImportCommit, postCheckExactDuplicates, postPreviewValidate, postInitCurrentState, getActivityStats } from '../controllers/fuel-record.controller'
-import { requireRole } from '../middleware/require-role'
+import { requireRole } from '../middlewares/require-role'
 
 const router = Router()
 

@@ -4,8 +4,8 @@ import {
   createAdjustmentRequest,
 } from '../repositories/adjustment-request.repository'
 import { getStation } from '../clients/station.client'
-import { determineFuelStatus } from '../utils/fuel-calculator'
-import { formatBusinessDateVN } from '../utils/date-vn'
+import { determineFuelStatus } from '../helpers/fuel-calculator'
+import { formatBusinessDateVN } from '../helpers/date-vn'
 
 export async function createRequest(body: {
   originalRecordId: string
