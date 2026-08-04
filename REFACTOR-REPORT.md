@@ -49,8 +49,12 @@ Frontend: `shared/{types→@types, api, auth/permissions→utils/permissions, da
 
 ## 5. File có vẻ KHÔNG được dùng (để Ngài quyết xóa sau — tại hạ KHÔNG xóa)
 
-- `services/station-service/src/helpers/haversine.ts` — **0 importer** (station-service dùng `geo.ts`; bản haversine là tàn dư). import-export có bản haversine riêng đang dùng.
-- `apps/web/src/themes/globals.css` — **không** file nào `@import` hay JS-import (chỉ `index.css` import fonts/tailwind/theme).
+- `services/station-service/src/helpers/haversine.ts` (`haversineDistance`) — **0 importer**. Tính năng chống
+  trùng vị trí **200m** dùng `findNearbyActiveStations` + `DUPLICATE_RADIUS_M` từ **`geo.ts`** (geo.ts có hàm
+  `haversineMeters` riêng). **Đối chiếu d31a84f: bản cũ cũng chỉ import `geo`, cũng không gọi `haversine.ts`**
+  → dead code có sẵn, KHÔNG do refactor. Tính năng 200m vẫn chạy (E2E `PROX-proximity-dedupe` trong 117 pass).
+- `apps/web/src/themes/globals.css` — không nơi nào `@import`/JS-import. **Đối chiếu d31a84f: bản cũ (khi còn
+  là `styles/globals.css`) cũng không ai tham chiếu** → dead code có sẵn, refactor không làm đứt.
 
 ## 6. Code TRÙNG LẶP giữa các service (đề xuất lần sau, KHÔNG gộp lần này)
 
@@ -90,8 +94,43 @@ alias/tương đối/named-export ở cả frontend lẫn backend, đều báo `
   Vá test: confirm-1 truyền `acknowledgeWarnings: true` (đúng nghĩa "Vẫn tạo"). **Chạy lại full kit:
   117 passed / 1 skipped / 0 failed** (exit 0). _(Bản vá nằm ở repo test-runner riêng, không thuộc commit refactor.)_
 
+### 9b. BẰNG CHỨNG kit là lưới chống hồi quy thật (chạy trên bản CŨ)
+
+Kit viết sau refactor → cần chứng minh "hành vi KHÔNG đổi", không chỉ "code mới chạy". Đã dựng
+`git worktree` tại **d31a84f** (bản ngay trước refactor), stack riêng (project `fuelpre`, **volume DB
+clone riêng**, gateway 3010, vite phục vụ cấu trúc cũ `src/app/App.tsx`), chạy **đúng bộ kit đó** trên
+code CŨ:
+
+| Lần chạy | Kết quả |
+|---|---|
+| Bản MỚI (sau refactor), FI-13 gốc | 116 passed / **1 failed (FI-13)** / 1 skipped |
+| **Bản CŨ (d31a84f), FI-13 gốc** | **116 passed / 1 failed (FI-13) / 1 skipped — GIỐNG HỆT** |
+| Bản MỚI, FI-13 đã vá | **117 / 0 / 1 skipped** |
+
+→ Kết quả **trùng khít** giữa cũ và mới ⇒ refactor **không đổi hành vi**, và **FI-13 đỏ y hệt ở bản cũ**
+⇒ **không phải refactor gây ra** (giữ bản vá — đúng tiêu chí). _Gỡ khó kỹ thuật khi dựng stack cũ: worktree
+thiếu file untracked (`.env` gốc, `apps/web/.env` với `VITE_API_URL=…:3010`, `docker-compose.local-override.yml`,
+cert nginx) và `.sh` bị CRLF khi checkout trên Windows → đã copy/normalize từ bản hiện tại. Ban đầu thiếu
+`apps/web/.env` khiến frontend cũ gọi nhầm `:3000` → 58 UI-test đỏ; bổ sung env xong thì về đúng 116/1/1._
+
+### 9c. Điểm yếu của kit (ghi nhận, không sửa trong nhiệm vụ này)
+
+Kit **phụ thuộc thứ tự chạy và ngày hệ thống**: chỉ **`FI-import-regression.spec.ts`** dùng trạm **chia sẻ**
+qua `getActiveStationWithFuelState` (6 chỗ; các spec khác đều tạo trạm *disposable* cô lập). Khi một test
+trước đó ghi bản ghi **cùng ngày** cho trạm chia sẻ, cảnh báo cùng-ngày của A5 làm confirm-không-ack bị chặn
+(chính là FI-13). Đề xuất lần sau: các test manual-entry trên trạm chia sẻ nên hoặc dùng trạm disposable,
+hoặc luôn truyền `acknowledgeWarnings`, hoặc dọn `fuel_records` của trạm đó trước mỗi test.
+
 ## 10. Rollback
 
+Nhánh `refactor/project-structure` **chưa merge** vào đâu, nên cách "bỏ" refactor an toàn nhất là **không
+merge** và quay về nhánh cũ:
+
 ```
-git reset --hard d31a84f     # về ngay trước Giai đoạn 0
+git checkout refactor/layered-mvc-services    # rời nhánh refactor, code cũ nguyên vẹn
 ```
+
+Nhánh refactor vẫn còn nguyên nếu sau này cần xem lại. **Không** cần và **không** nên `git reset --hard`
+trên nhánh refactor — gõ nhầm nhánh sẽ xóa sạch 10 commit. Chỉ khi muốn **vứt hẳn** nhánh refactor:
+`git branch -D refactor/project-structure` (sau khi đã `checkout` sang nhánh khác). Điểm phân nhánh để đối
+chiếu: `d31a84f`.
