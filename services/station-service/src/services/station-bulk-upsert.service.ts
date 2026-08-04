@@ -1,9 +1,9 @@
-import type { BulkUpsertRow, BulkUpsertResult } from '../models/station.types'
+import type { BulkUpsertRow, BulkUpsertResult } from '../@types/station.types'
 import * as brandRepo from '../repositories/generator-brand.repository'
 import * as modelRepo from '../repositories/generator-model.repository'
 import * as fuelClient from '../clients/fuel.client'
 import type { UserContext } from '../clients/fuel.client'
-import { prisma } from '../lib/prisma'
+import { prisma } from '../config/prisma'
 
 async function findOrCreateBrand(name: string): Promise<string> {
   const normalized = name.trim().toLowerCase()

@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { list, getOne, create, approve, reject } from '../controllers/station-request.controller'
-import { requireRole } from '../middleware/require-role'
+import { requireRole } from '../middlewares/require-role'
 
 const router = Router()
 

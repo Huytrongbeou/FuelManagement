@@ -1,7 +1,7 @@
 import * as stationRepo from '../repositories/station.repository'
 import * as fuelClient from '../clients/fuel.client'
 import type { UserContext } from '../clients/fuel.client'
-import { findNearbyActiveStations, DUPLICATE_RADIUS_M } from '../utils/geo'
+import { findNearbyActiveStations, DUPLICATE_RADIUS_M } from '../helpers/geo'
 import * as machineChangeService from './machine-change.service'
 
 type ListOpts = {
