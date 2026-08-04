@@ -2,7 +2,7 @@
 
 > Branch: `refactor/project-structure` (trên nền `refactor/layered-mvc-services`)
 > Phạm vi: **chỉ di chuyển file + sửa dòng import**. Không đổi logic, không tách/gộp/xóa file.
-> Rollback: `git reset --hard d31a84f`
+> Rollback: **xem §10** — nhánh chưa merge nên dùng `git checkout refactor/layered-mvc-services`, **KHÔNG** `git reset --hard`. Điểm phân nhánh: `d31a84f`.
 
 ## 1. Số file di chuyển / tổng
 
@@ -10,9 +10,13 @@
 |---|---|
 | File **rename** (di chuyển) | **43** |
 | Dòng **import** sửa | **123** (gw 1 · auth 9 · fuel 18 · import-export 20 · station 19 · web 56) |
-| File **xóa** | **0** |
-| File tracked: baseline → sau | 244 → 258 (**+14** = 100% file mới thêm chủ động: 1 `tsconfig.json` + 1 `REFACTOR-PLAN.md` + 12 file `.refactor-baseline/`) |
-| Kiểm chứng rename | git nhận **43 rename** (R097–R100), `git diff -M ...HEAD | grep '^D'` **rỗng** |
+| File **xóa** | **0** (`git diff --diff-filter=D -M d31a84f...HEAD` rỗng; `git ls-files` xác nhận `styles/`=0, `themes/`=5 — không trùng lặp) |
+| File tracked: baseline → sau (kiểm kê lại lần cuối) | 244 → **260** (**+16** = 100% file mới thêm chủ động: 1 `tsconfig.json` + 3 tài liệu refactor (`REFACTOR-PLAN.md`, `REFACTOR-REPORT.md`, `REFACTOR-QA-CHECKLIST.md`) + 12 file `.refactor-baseline/`) |
+| Kiểm chứng rename | git nhận **43 rename** (R097–R100); 0 file xóa |
+
+> _Ghi chú:_ `git diff -M d31a84f...HEAD` (rename-detect gộp cả nhánh) đôi khi dán nhãn nhầm A/R giữa các file
+> **rỗng** (`tsc-{auth,fuel}-service-errors.txt` = 0B) và vài CSS `styles→themes` — đây là đặc tính rename-detection
+> trên file rỗng, KHÔNG phải trùng lặp/mất file. Sự thật cây file lấy từ `git ls-files` (đã xác nhận ở trên).
 
 Mỗi service = 1 commit riêng: `621e76f`(gateway) · `d10970e`(auth) · `487a34b`(fuel) · `21063d5`(import-export) · `a9a9f7a`(station) · `8f26229`(web). realtime-service: **0 dời** (đã đúng đích sẵn).
 
