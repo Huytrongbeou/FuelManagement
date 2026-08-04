@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
 import * as authService from '../services/auth.service'
-import type { UserPayload } from '../models/auth.types'
+import type { UserPayload } from '../@types/auth.types'
 
 // Matches JWT_EXPIRES_IN of 8h
 const COOKIE_MAX_AGE = 8 * 60 * 60 * 1000

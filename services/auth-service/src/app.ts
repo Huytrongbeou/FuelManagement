@@ -1,7 +1,7 @@
 import express from 'express'
 import authRoutes from './routes/auth.routes'
 import userRoutes from './routes/user.routes'
-import { prisma } from './lib/prisma'
+import { prisma } from './config/prisma'
 
 const app = express()
 
