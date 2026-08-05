@@ -103,31 +103,29 @@ export interface ImportSession {
   affectedStations: string[];
 }
 
-// Ngưỡng cảnh báo theo GIỜ TỰ CHỦ (currentFuel ÷ định mức tiêu hao), không theo lít tuyệt đối:
-// một bình 300L còn 21L trông "xanh" theo lít nhưng chỉ chạy được ~1,4 giờ. Hai số này chỉnh được.
-export const AUTONOMY_GREEN_HOURS = 8;
-export const AUTONOMY_YELLOW_HOURS = 3;
+// Ngưỡng cảnh báo theo GIỜ TỰ CHỦ (currentFuel ÷ định mức tiêu hao), KHÔNG theo lít tuyệt đối:
+// một bình 300L còn 21L trông "xanh" theo lít nhưng chỉ chạy được ~1,4 giờ.
+// ⚠️ PHẢI luôn khớp bản backend: services/fuel-service/src/helpers/fuel-calculator.ts.
+export const FUEL_AUTONOMY_GREEN_H = 8;   // > 8h  = đủ (green)
+export const FUEL_AUTONOMY_YELLOW_H = 4;  // >= 4h = sắp hết (yellow); < 4h = nguy hiểm (red)
 
-/** Số giờ máy còn chạy được với tồn hiện tại; null nếu thiếu dữ liệu để tính. */
+/** Số giờ máy còn chạy được với tồn hiện tại; null nếu thiếu tồn/định mức để tính. */
 export function autonomyHours(fuel: number | null, consumptionRate?: number | null): number | null {
   if (fuel === null || !consumptionRate || consumptionRate <= 0) return null;
   return fuel / consumptionRate;
 }
 
 /**
- * Tình trạng theo giờ tự chủ. Khi có định mức tiêu hao thì xét theo giờ; nếu thiếu định mức thì
- * lùi về ngưỡng lít tuyệt đối cũ (để không vỡ những chỗ chưa truyền định mức).
+ * Tình trạng theo giờ tự chủ. Không tính được (thiếu tồn, hoặc định mức <= 0 / thiếu) → 'gray'.
+ * TUYỆT ĐỐI không mặc định 'green': trước đây fallback về ngưỡng lít khiến trạm thiếu định mức
+ * bị phân loại sai mà không ai biết.
  */
 export function getFuelStatus(fuel: number | null, consumptionRate?: number | null): FuelStatus {
   if (fuel === null) return 'gray';
   const hours = autonomyHours(fuel, consumptionRate);
-  if (hours !== null) {
-    if (hours >= AUTONOMY_GREEN_HOURS) return 'green';
-    if (hours >= AUTONOMY_YELLOW_HOURS) return 'yellow';
-    return 'red';
-  }
-  if (fuel > 20) return 'green';
-  if (fuel >= 10) return 'yellow';
+  if (hours === null) return 'gray';
+  if (hours > FUEL_AUTONOMY_GREEN_H) return 'green';
+  if (hours >= FUEL_AUTONOMY_YELLOW_H) return 'yellow';
   return 'red';
 }
 
