@@ -384,9 +384,9 @@ export function MapView({ stations, onViewStation }: Props) {
         >
           <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginBottom: '6px' }}>CHÚ GIẢI</div>
           {[
-            { color: '#16a34a', label: '≥ 8 giờ chạy — Đủ nhiên liệu' },
-            { color: '#ca8a04', label: '3–8 giờ chạy — Sắp hết' },
-            { color: '#dc2626', label: '< 3 giờ chạy — Nguy hiểm' },
+            { color: '#16a34a', label: '> 8 giờ chạy — Đủ nhiên liệu' },
+            { color: '#ca8a04', label: '4–8 giờ chạy — Sắp hết' },
+            { color: '#dc2626', label: '< 4 giờ chạy — Nguy hiểm' },
             { color: '#94a3b8', label: 'Chưa có dữ liệu' },
           ].map(item => (
             <div key={item.label} className="flex items-center gap-2">
