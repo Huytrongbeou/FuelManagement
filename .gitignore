@@ -26,3 +26,8 @@ sample-excel/
 *e2e-result*.txt
 test-results/
 playwright-report/
+
+# Tooling / refactor artifacts
+.refactor-baseline/
+apps/web/.agents/
+apps/web/.github/
